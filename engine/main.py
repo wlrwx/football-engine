@@ -299,12 +299,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 elo_away=away_rating.elo,
                 odds=market_odds,
                 handicap=fixture.handicap,
-                xg_home=getattr(fixture, "_xg_home", None) or (
-                    djyy_data.get("xg", {}).get("home") if djyy_data else None
-                ),
-                xg_away=getattr(fixture, "_xg_away", None) or (
-                    djyy_data.get("xg", {}).get("away") if djyy_data else None
-                ),
+                xg_home=getattr(fixture, "_xg_home", None),
+                xg_away=getattr(fixture, "_xg_away", None),
                 djyy_probs=djyy_probs,
             )
             lgbm_pred = lgbm_model.predict_single(feature_dict)
@@ -354,9 +350,15 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_fair": (
                 [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
             ),
-            # 概率分布（MC模拟）
-            "top_scores": getattr(pred, "top_scores", None),
-            "total_goals": getattr(pred, "top_total_goals", None),
+            # 概率分布（优先DJYY模型，fallback到MC模拟）
+            "top_scores": (
+                djyy_data.get("top_scores") if djyy_data and djyy_data.get("top_scores")
+                else getattr(pred, "top_scores", None)
+            ),
+            "total_goals": (
+                djyy_data.get("totals") if djyy_data and djyy_data.get("totals")
+                else getattr(pred, "top_total_goals", None)
+            ),
             # 逆向赔率
             "reverse_upset_risk": (
                 reverse_result.direction.upset_risk if reverse_result else None

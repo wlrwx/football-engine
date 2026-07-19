@@ -289,10 +289,6 @@ class SourceManager:
                         "away": model.get("p_away"),
                     } if model else None,
                     "pinnacle_odds": bookmaker.get("1x2"),
-                    "xg": {
-                        "home": getattr(fixture, "_xg_home", None),
-                        "away": getattr(fixture, "_xg_away", None),
-                    },
                     "top_scores": model.get("top_scores", []) if model else [],
                     "btts": model.get("btts") if model else None,
                     "totals": model.get("totals") if model else None,
