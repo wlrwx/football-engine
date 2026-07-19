@@ -6,6 +6,9 @@ on:
     - cron: '0 19 * * 0'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: sporttery-engine
   cancel-in-progress: false
