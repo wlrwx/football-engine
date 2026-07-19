@@ -156,12 +156,8 @@ def run_daily_pipeline(target_date: date):
         if market_odds:
             try:
                 ri = ReverseOddsInput(
-                    home_odds=market_odds[0],
-                    draw_odds=market_odds[1],
-                    away_odds=market_odds[2],
-                    initial_home_odds=market_odds[0],  # 无初始赔率时用当前
-                    initial_draw_odds=market_odds[1],
-                    initial_away_odds=market_odds[2],
+                    had_odds=market_odds,
+                    had_odds_initial=market_odds,  # 无初始赔率时用当前
                 )
                 reverse_result = reverse_engine.analyze(ri)
             except Exception:
@@ -241,7 +237,7 @@ def run_daily_pipeline(target_date: date):
             "confidence": round(pred.confidence * trust_score, 4),
             "combo_boost": combo_boost,
             "reverse_upset_risk": (
-                reverse_result.upset_risk if reverse_result else None
+                reverse_result.direction.upset_risk if reverse_result else None
             ),
             "same_odds_matched": (
                 same_odds_result.matched_count if same_odds_result else 0
