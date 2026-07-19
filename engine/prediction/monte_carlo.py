@@ -109,6 +109,10 @@ class MonteCarloModel(PredictionModel):
             hdp_d = (1 - w) * hdp_d + w * draw_prob
             hdp_a = (1 - w) * hdp_a + w * away_win_prob
 
+        # 比分分布 & 总进球分布
+        scores = top_score_predictions(home_goals, away_goals, top_n=8)
+        totals = top_total_goals(home_goals, away_goals, top_n=6)
+
         return MatchPrediction(
             match_id="",
             home_team=home.name,
@@ -122,6 +126,8 @@ class MonteCarloModel(PredictionModel):
             handicap_home_prob=round(hdp_h, 4),
             handicap_draw_prob=round(hdp_d, 4),
             handicap_away_prob=round(hdp_a, 4),
+            top_scores=scores,
+            top_total_goals=totals,
             model_name=self.name,
             confidence=round(float(max(home_win_prob, draw_prob, away_win_prob)), 4),
         )

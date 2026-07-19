@@ -86,6 +86,13 @@ class EnsembleModel(PredictionModel):
         fused.away_xg = round(fused.away_xg, 3)
         fused.confidence = round(max(fused.home_win_prob, fused.draw_prob, fused.away_win_prob), 4)
 
+        # 比分分布来自MC模型（DC不产出比分分布）
+        for pred in predictions:
+            if pred.model_name == "monte_carlo":
+                fused.top_scores = pred.top_scores
+                fused.top_total_goals = pred.top_total_goals
+                break
+
         return fused
 
     def update_weights(self, new_weights: dict[str, float]):

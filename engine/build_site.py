@@ -27,8 +27,9 @@ def build_site():
     ticket = _load_json(daily_dir / "ticket_plan.json", {})
     breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
     health = _load_json(web_dir / "health-status.json", {"healthy": True})
+    results = _load_json(daily_dir / "results.json", [])
 
-    html = _render_html(today, predictions, bundle, ticket, breaker, health)
+    html = _render_html(today, predictions, bundle, ticket, breaker, health, results)
     (web_dir / "index.html").write_text(html, encoding="utf-8")
 
     status = {
@@ -51,7 +52,7 @@ def _load_json(path: Path, default):
     return default
 
 
-def _render_html(today, predictions, bundle, ticket, breaker, health):
+def _render_html(today, predictions, bundle, ticket, breaker, health, results=None):
     # 计算摘要
     total = len(predictions)
     # 三票方案中的场次 = 真正的价值投注
@@ -72,6 +73,9 @@ def _render_html(today, predictions, bundle, ticket, breaker, health):
 
     # 三票方案
     ticket_html = _ticket_section(ticket, predictions)
+
+    # 赛果复盘
+    results_html = _results_section(results, predictions)
 
     # 系统面板
     system_html = _system_panel(breaker, bundle, tier, breaker_mult)
@@ -467,6 +471,36 @@ body {{
 .tier-indicator.caution {{ background: var(--amber-dim); color: var(--amber); }}
 .tier-indicator.danger {{ background: var(--red-dim); color: var(--red); }}
 
+/* ===== RESULTS REVIEW ===== */
+.results-summary {{
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px; margin-bottom: 14px;
+}}
+.results-table-wrap {{ overflow-x: auto; }}
+.results-table {{
+  width: 100%; border-collapse: collapse; font-size: 0.72rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); overflow: hidden;
+}}
+.results-table th {{
+  text-align: left; padding: 8px 10px; color: var(--dim);
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border); background: var(--surface2);
+}}
+.results-table td {{
+  padding: 8px 10px; border-bottom: 1px solid rgba(38,51,68,0.4);
+  vertical-align: middle;
+}}
+.results-table tr:last-child td {{ border-bottom: none; }}
+.results-table tr.hit td {{ background: rgba(34,197,94,0.04); }}
+.results-table tr.miss td {{ background: rgba(239,68,68,0.04); }}
+.result-icon {{
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; font-size: 0.7rem; font-weight: 800;
+}}
+.result-icon.hit {{ background: var(--green-dim); color: var(--green); }}
+.result-icon.miss {{ background: var(--red-dim); color: var(--red); }}
+
 /* ===== FOOTER ===== */
 .footer {{
   margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border);
@@ -531,6 +565,9 @@ body {{
 
   <!-- BETTING PLAN -->
   {ticket_html}
+
+  <!-- RESULTS REVIEW -->
+  {results_html}
 
   <!-- SYSTEM STATUS -->
   {system_html}
@@ -818,7 +855,9 @@ def _tab_distribution(p, uid):
                 score = item.get("score", "")
                 prob = item.get("prob", 0)
                 cells += f'<div class="score-cell"><div class="sc-score">{score}</div><div class="sc-prob">{prob*100:.1f}%</div></div>'
-            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            elif isinstance(item, (list, tuple)) and len(item) >= 3:
+                cells += f'<div class="score-cell"><div class="sc-score">{item[0]}-{item[1]}</div><div class="sc-prob">{item[2]*100:.1f}%</div></div>'
+            elif isinstance(item, (list, tuple)) and len(item) == 2:
                 cells += f'<div class="score-cell"><div class="sc-score">{item[0]}</div><div class="sc-prob">{item[1]*100:.1f}%</div></div>'
         if cells:
             scores_html = f'<div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid">{cells}</div>'
@@ -908,6 +947,108 @@ def _ticket_section(ticket, predictions):
     <div class="ts-chip"><div class="ts-label">预期回报</div><div class="ts-val" style="color:{'var(--green)' if exp_roi > 1 else 'var(--red)'}">{exp_roi:.2f}x</div></div>
     <div class="ts-chip"><div class="ts-label">资金池</div><div class="ts-val">&yen;{bankroll:.0f}</div></div>
     <div class="ts-chip"><div class="ts-label">熔断系数</div><div class="ts-val" style="color:{'var(--green)' if breaker_mult >= 1 else 'var(--red)'}">x{breaker_mult:.2f}</div></div>
+  </div>"""
+
+
+def _results_section(results, predictions):
+    """赛果复盘: 预测 vs 实际结果对比"""
+    if not results:
+        return ""
+
+    # 建立 match_id → prediction 索引
+    pred_map = {p.get("match_id", ""): p for p in predictions}
+
+    rows = ""
+    hits = 0
+    total_brier = 0.0
+    total_pnl = 0.0
+    matched = 0
+
+    for r in results:
+        mid = r.get("match_id", "")
+        home_score = r.get("home_score")
+        away_score = r.get("away_score")
+        if home_score is None or away_score is None:
+            continue
+
+        pred = pred_map.get(mid)
+        if not pred:
+            continue
+
+        matched += 1
+        # 实际结果
+        if home_score > away_score:
+            actual = "home"
+            actual_label = "主胜"
+        elif home_score == away_score:
+            actual = "draw"
+            actual_label = "平局"
+        else:
+            actual = "away"
+            actual_label = "客胜"
+
+        # 预测结果
+        ph = pred.get("home_win_prob", 0)
+        pd = pred.get("draw_prob", 0)
+        pa = pred.get("away_win_prob", 0)
+        if ph >= pd and ph >= pa:
+            predicted = "home"
+            pred_label = "主胜"
+        elif pd >= ph and pd >= pa:
+            predicted = "draw"
+            pred_label = "平局"
+        else:
+            predicted = "away"
+            pred_label = "客胜"
+
+        hit = predicted == actual
+        if hit:
+            hits += 1
+
+        # Brier score: sum of (prob - indicator)^2
+        ind_h = 1.0 if actual == "home" else 0.0
+        ind_d = 1.0 if actual == "draw" else 0.0
+        ind_a = 1.0 if actual == "away" else 0.0
+        brier = (ph - ind_h)**2 + (pd - ind_d)**2 + (pa - ind_a)**2
+        total_brier += brier
+
+        # 投注盈亏（如果在三票方案中）
+        pnl = r.get("pnl", 0)
+        total_pnl += pnl
+
+        hit_cls = "hit" if hit else "miss"
+        hit_icon = "✓" if hit else "✗"
+        pnl_color = "var(--green)" if pnl > 0 else "var(--red)" if pnl < 0 else "var(--dim)"
+
+        rows += f"""
+        <tr class="{hit_cls}">
+          <td>{pred.get('home_team', '')} vs {pred.get('away_team', '')}</td>
+          <td style="font-weight:800;text-align:center;">{home_score}-{away_score}</td>
+          <td>{actual_label}</td>
+          <td>{pred_label} ({max(ph, pd, pa):.0%})</td>
+          <td style="text-align:center;"><span class="result-icon {hit_cls}">{hit_icon}</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">{brier:.3f}</td>
+          <td style="color:{pnl_color};font-weight:600;">{'+' if pnl > 0 else ''}{pnl:.0f}</td>
+        </tr>"""
+
+    if matched == 0:
+        return ""
+
+    hit_rate = hits / matched
+    avg_brier = total_brier / matched
+
+    return f"""
+  <div class="section-title">赛果复盘</div>
+  <div class="results-summary">
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:{'var(--green)' if hit_rate >= 0.5 else 'var(--red)'}">{hit_rate:.0%} ({hits}/{matched})</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:{'var(--green)' if avg_brier < 0.5 else 'var(--amber)'}">{avg_brier:.3f}</div></div>
+    <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:{'var(--green)' if total_pnl >= 0 else 'var(--red)'}">&yen;{total_pnl:+.0f}</div></div>
+  </div>
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <tr><th>比赛</th><th>比分</th><th>实际</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
+      {rows}
+    </table>
   </div>"""
 
 
