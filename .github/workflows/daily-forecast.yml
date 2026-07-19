@@ -2,8 +2,10 @@ name: Daily Forecast
 
 on:
   schedule:
-    # 北京时间 12:15 = UTC 04:15
-    - cron: '15 4 * * *'
+    # 第一次：北京时间 11:00（开盘后2小时）= UTC 03:00
+    - cron: '0 3 * * *'
+    # 第二次：北京时间 17:00（临场更新）= UTC 09:00
+    - cron: '0 9 * * *'
   workflow_dispatch:
     inputs:
       date:
