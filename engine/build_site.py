@@ -92,8 +92,16 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
 
     # 渲染比赛卡片
     cards = ""
+    results_map = {}
+    if results:
+        for r in results:
+            mid = r.get("match_id", "")
+            results_map[mid] = r
+            # 同时用场次号(如"周日201")做key，跨日期匹配
+            fixture = mid.split("_", 1)[-1] if "_" in mid else mid
+            results_map[fixture] = r
     for idx, p in enumerate(sorted(predictions, key=lambda x: -x.get("confidence", 0))):
-        cards += _match_card(p, value_matches, idx)
+        cards += _match_card(p, value_matches, idx, results_map)
 
     # 三票方案
     ticket_html = _ticket_section(ticket, predictions)
@@ -287,6 +295,34 @@ body {{
   margin-left: 10px; padding: 2px 8px; border-radius: 4px;
   background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);
 }}
+
+/* Actual result comparison */
+.actual-result {{
+  text-align: center; padding: 4px 0 2px; font-size: 0.78rem;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}}
+.ar-label {{
+  font-size: 0.62rem; color: var(--dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}}
+.ar-score {{
+  font-weight: 800; font-size: 0.92rem; color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}}
+.ar-outcome {{
+  font-size: 0.72rem; font-weight: 700; padding: 1px 8px;
+  border-radius: 4px;
+}}
+.ar-outcome.home {{ color: var(--blue); background: rgba(59,130,246,0.1); }}
+.ar-outcome.draw {{ color: var(--text-secondary); background: rgba(107,114,128,0.15); }}
+.ar-outcome.away {{ color: var(--red); background: rgba(239,68,68,0.1); }}
+.ar-hit {{
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 0.72rem; font-weight: 800;
+}}
+.ar-hit.hit {{ background: var(--green-dim); color: var(--green); }}
+.ar-hit.miss {{ background: var(--red-dim); color: var(--red); }}
 
 /* Collapsed info row */
 .match-info-row {{
@@ -667,17 +703,20 @@ def _pred_pick(p):
 
 
 def _pred_score(p):
-    """预测比分（最可能比分）"""
+    """预测比分（前3个最可能比分）"""
     top_scores = p.get("top_scores")
     if not top_scores or not isinstance(top_scores, list) or len(top_scores) == 0:
         return ""
-    item = top_scores[0]
-    if isinstance(item, (list, tuple)) and len(item) >= 3:
-        return f' <span class="pred-score">比分 {item[0]}-{item[1]} ({item[2]*100:.0f}%)</span>'
+    scores = []
+    for item in top_scores[:3]:
+        if isinstance(item, (list, tuple)) and len(item) >= 3:
+            scores.append(f"{item[0]}-{item[1]}")
+    if scores:
+        return f' <span class="pred-score">比分 {" / ".join(scores)}</span>'
     return ""
 
 
-def _match_card(p, value_matches, idx):
+def _match_card(p, value_matches, idx, results_map=None):
     """Render a single match card with expandable detail tabs."""
     hp = p.get("home_win_prob", 0) * 100
     dp = p.get("draw_prob", 0) * 100
@@ -694,6 +733,37 @@ def _match_card(p, value_matches, idx):
     odds_a = p.get("away_odds") or 0
     xg_h = p.get("home_xg", 0)
     xg_a = p.get("away_xg", 0)
+
+    # 实际赛果对比
+    result_html = ""
+    if results_map:
+        r = results_map.get(match_id)
+        if not r:
+            # 用场次号匹配（跨日期）
+            fixture = match_id.split("_", 1)[-1] if "_" in match_id else match_id
+            r = results_map.get(fixture)
+        if r and r.get("home_score") is not None:
+            hs, as_ = r["home_score"], r["away_score"]
+            if hs > as_:
+                actual_label, actual_cls = "主胜", "home"
+            elif hs == as_:
+                actual_label, actual_cls = "平局", "draw"
+            else:
+                actual_label, actual_cls = "客胜", "away"
+            # 判断命中
+            ph = p.get("home_win_prob") or 0
+            pd_ = p.get("draw_prob") or 0
+            pa = p.get("away_win_prob") or 0
+            if ph >= pd_ and ph >= pa:
+                pred_outcome = "home"
+            elif pd_ >= ph and pd_ >= pa:
+                pred_outcome = "draw"
+            else:
+                pred_outcome = "away"
+            hit = pred_outcome == ("home" if hs > as_ else "draw" if hs == as_ else "away")
+            hit_icon = "✓" if hit else "✗"
+            hit_cls = "hit" if hit else "miss"
+            result_html = f'<div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">{hs}-{as_}</span> <span class="ar-outcome {actual_cls}">{actual_label}</span> <span class="ar-hit {hit_cls}">{hit_icon}</span></div>'
 
     # Build detail tabs
     model_tab = _tab_model(p, uid)
@@ -722,6 +792,7 @@ def _match_card(p, value_matches, idx):
         <div class="prob-seg a" style="width:{ap:.1f}%">A {ap:.0f}%</div>
       </div>
       <div class="pred-pick">{_pred_pick(p)}{_pred_score(p)}</div>
+      {result_html}
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot {conf_cls}"></span><b>{conf:.0%}</b></span>
         <span class="info-chip">xG <b>{xg_h:.2f} - {xg_a:.2f}</b></span>

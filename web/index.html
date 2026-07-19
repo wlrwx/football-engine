@@ -180,6 +180,34 @@ body {
   background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);
 }
 
+/* Actual result comparison */
+.actual-result {
+  text-align: center; padding: 4px 0 2px; font-size: 0.78rem;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.ar-label {
+  font-size: 0.62rem; color: var(--dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ar-score {
+  font-weight: 800; font-size: 0.92rem; color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.ar-outcome {
+  font-size: 0.72rem; font-weight: 700; padding: 1px 8px;
+  border-radius: 4px;
+}
+.ar-outcome.home { color: var(--blue); background: rgba(59,130,246,0.1); }
+.ar-outcome.draw { color: var(--text-secondary); background: rgba(107,114,128,0.15); }
+.ar-outcome.away { color: var(--red); background: rgba(239,68,68,0.1); }
+.ar-hit {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 0.72rem; font-weight: 800;
+}
+.ar-hit.hit { background: var(--green-dim); color: var(--green); }
+.ar-hit.miss { background: var(--red-dim); color: var(--red); }
+
 /* Collapsed info row */
 .match-info-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -519,7 +547,8 @@ body {
         <div class="prob-seg d" style="width:21.0%">D 21%</div>
         <div class="prob-seg a" style="width:29.9%">A 30%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 49%</span> <span class="pred-score">比分 4-3 (4%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 49%</span> <span class="pred-score">比分 4-3 / 4-4 / 5-3</span></div>
+      
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>17%</b></span>
         <span class="info-chip">xG <b>4.50 - 3.74</b></span>
@@ -676,7 +705,8 @@ body {
         <div class="prob-seg d" style="width:24.9%">D 25%</div>
         <div class="prob-seg a" style="width:28.1%">A 28%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 47%</span> <span class="pred-score">比分 1-1 (11%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 47%</span> <span class="pred-score">比分 1-1 / 2-1 / 1-2</span></div>
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">1-1</span> <span class="ar-outcome draw">平局</span> <span class="ar-hit miss">✗</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>12%</b></span>
         <span class="info-chip">xG <b>1.65 - 1.49</b></span>
@@ -833,7 +863,8 @@ body {
         <div class="prob-seg d" style="width:20.3%">D 20%</div>
         <div class="prob-seg a" style="width:31.7%">A 32%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 48%</span> <span class="pred-score">比分 1-1 (11%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 48%</span> <span class="pred-score">比分 1-1 / 1-2 / 0-1</span></div>
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">4-0</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>12%</b></span>
         <span class="info-chip">xG <b>1.25 - 1.78</b></span>
@@ -990,7 +1021,8 @@ body {
         <div class="prob-seg d" style="width:25.0%">D 25%</div>
         <div class="prob-seg a" style="width:44.1%">A 44%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 44%</span> <span class="pred-score">比分 1-1 (11%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 44%</span> <span class="pred-score">比分 1-1 / 2-1 / 1-2</span></div>
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">1-3</span> <span class="ar-outcome away">客胜</span> <span class="ar-hit hit">✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span>
         <span class="info-chip">xG <b>1.65 - 1.49</b></span>
@@ -1147,7 +1179,8 @@ body {
         <div class="prob-seg d" style="width:24.9%">D 25%</div>
         <div class="prob-seg a" style="width:41.4%">A 41%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span> <span class="pred-score">比分 1-1 (11%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span> <span class="pred-score">比分 1-1 / 2-1 / 1-2</span></div>
+      
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span>
         <span class="info-chip">xG <b>1.65 - 1.49</b></span>
@@ -1304,7 +1337,8 @@ body {
         <div class="prob-seg d" style="width:25.4%">D 25%</div>
         <div class="prob-seg a" style="width:42.5%">A 43%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 43%</span> <span class="pred-score">比分 1-1 (12%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 43%</span> <span class="pred-score">比分 1-1 / 1-0 / 2-1</span></div>
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">0-2</span> <span class="ar-outcome away">客胜</span> <span class="ar-hit hit">✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span>
         <span class="info-chip">xG <b>1.41 - 1.17</b></span>
@@ -1461,7 +1495,8 @@ body {
         <div class="prob-seg d" style="width:25.3%">D 25%</div>
         <div class="prob-seg a" style="width:40.4%">A 40%</div>
       </div>
-      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 40%</span> <span class="pred-score">比分 1-1 (11%)</span></div>
+      <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 40%</span> <span class="pred-score">比分 1-1 / 2-1 / 1-2</span></div>
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">1-3</span> <span class="ar-outcome away">客胜</span> <span class="ar-hit hit">✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>8%</b></span>
         <span class="info-chip">xG <b>1.64 - 1.54</b></span>
