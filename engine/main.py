@@ -295,8 +295,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         if lgbm_model.is_available:
             lgbm_weight = fusion_cfg.get("lgbm_weight", 0.10)
             feature_dict = build_features(
-                elo_home=home_rating.rating if hasattr(home_rating, 'rating') else 1500,
-                elo_away=away_rating.rating if hasattr(away_rating, 'rating') else 1500,
+                elo_home=home_rating.elo,
+                elo_away=away_rating.elo,
                 odds=market_odds,
                 handicap=fixture.handicap,
                 xg_home=getattr(fixture, "_xg_home", None) or (
@@ -386,8 +386,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 djyy_probs if djyy_probs and djyy_probs.get("home") else None
             ),
             # Elo
-            "elo_home": round(home_rating.rating, 1) if hasattr(home_rating, 'rating') else 1500,
-            "elo_away": round(away_rating.rating, 1) if hasattr(away_rating, 'rating') else 1500,
+            "elo_home": round(home_rating.elo, 1),
+            "elo_away": round(away_rating.elo, 1),
         })
 
     print(f"  ✓ 完成 {len(predictions)} 场预测（含增强分析）")

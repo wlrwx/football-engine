@@ -135,35 +135,44 @@ class MonteCarloModel(PredictionModel):
     def _expected_goals(
         self, home: TeamRating, away: TeamRating, is_neutral: bool, h2h_factor: float = 1.0
     ) -> tuple[float, float]:
-        """计算期望进球（含 H2H 调整）"""
+        """计算期望进球（含 H2H 调整）
+        
+        attack/defense 是乘法比例因子(1.0=联赛平均)，取log后变为加法项。
+        """
         cfg = self.cfg
         base = math.log(cfg.base_goals)
         elo_term = (home.elo - away.elo) / 400 * cfg.elo_goal_weight
 
+        # attack/defense 是比例因子，log后做加法
+        home_atk = math.log(max(0.3, home.attack)) * cfg.attack_weight
+        away_def = math.log(max(0.3, away.defense)) * cfg.defense_weight
+        away_atk = math.log(max(0.3, away.attack)) * cfg.attack_weight
+        home_def = math.log(max(0.3, home.defense)) * cfg.defense_weight
+
         log_home = (
             base
             + elo_term * 0.5
-            + home.attack * cfg.attack_weight
-            - away.defense * cfg.defense_weight
-            + (home.form - away.form) * cfg.form_weight
+            + home_atk
+            + away_def  # defense<1.0=好防守, log为负, 降低对手xG
+            + (home.form - away.form) * cfg.form_weight * 0.3
             + (cfg.home_advantage if not is_neutral else 0)
         )
         log_away = (
             base
             - elo_term * 0.5
-            + away.attack * cfg.attack_weight
-            - home.defense * cfg.defense_weight
-            + (away.form - home.form) * cfg.form_weight
+            + away_atk
+            + home_def  # defense<1.0=好防守, log为负, 降低对手xG
+            + (away.form - home.form) * cfg.form_weight * 0.3
         )
 
-        home_xg = max(0.15, min(4.5, math.exp(log_home)))
-        away_xg = max(0.15, min(4.5, math.exp(log_away)))
+        home_xg = max(0.15, min(3.5, math.exp(log_home)))
+        away_xg = max(0.15, min(3.5, math.exp(log_away)))
 
         # H2H 调整：乘到主队，除到客队（借鉴 lottery-football）
         home_xg *= h2h_factor
         away_xg /= h2h_factor
-        home_xg = max(0.15, min(4.5, home_xg))
-        away_xg = max(0.15, min(4.5, away_xg))
+        home_xg = max(0.15, min(3.5, home_xg))
+        away_xg = max(0.15, min(3.5, away_xg))
 
         return home_xg, away_xg
 
