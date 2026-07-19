@@ -11,9 +11,9 @@ from .base import DataSource, Fixture, MatchResult, OddsSnapshot, ImportManifest
 
 SPORTTERY_API = "https://webapi.sporttery.cn"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Referer": "https://www.sporttery.cn/",
-    "X-Requested-With": "XMLHttpRequest",
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+    "Referer": "https://m.sporttery.cn/",
+    "Accept": "application/json",
 }
 
 
@@ -52,34 +52,48 @@ class SportterySource(DataSource):
             return []
 
         fixtures = []
-        match_list = data.get("value", {}).get("matchInfoList", [])
-        for item in match_list:
-            match_num = item.get("matchNum", "")
-            home = item.get("homeTeamName", "")
-            away = item.get("awayTeamName", "")
-            league = item.get("leagueName", "")
-            kickoff = item.get("matchTime", "")
+        # 实际结构: value.matchInfoList[].subMatchList[] 才是比赛
+        match_info_list = data.get("value", {}).get("matchInfoList", [])
+        for day_group in match_info_list:
+            sub_matches = day_group.get("subMatchList", [])
+            for item in sub_matches:
+                match_num = item.get("matchNumStr", "") or str(item.get("matchNum", ""))
+                home = item.get("homeTeamAbbName", "") or item.get("homeTeamAllName", "")
+                away = item.get("awayTeamAbbName", "") or item.get("awayTeamAllName", "")
+                league = item.get("leagueAbbName", "") or item.get("leagueAllName", "")
+                match_time = item.get("matchTime", "")
+                match_date = item.get("matchDate", target_date.isoformat())
+                kickoff = f"{match_date} {match_time}" if match_time else ""
 
-            # 提取赔率
-            had = item.get("had", {})
-            hhad = item.get("hhad", {})
+                # 提取赔率
+                had = item.get("had", {})
+                hhad = item.get("hhad", {})
 
-            fixture = Fixture(
-                match_id=f"{target_date.isoformat()}_{match_num}",
-                competition=league,
-                home_team=home,
-                away_team=away,
-                kickoff=kickoff,
-                home_odds=self._safe_float(had.get("h")),
-                draw_odds=self._safe_float(had.get("d")),
-                away_odds=self._safe_float(had.get("a")),
-                handicap=self._safe_float(hhad.get("fixedodds")),
-                handicap_home_odds=self._safe_float(hhad.get("h")),
-                handicap_draw_odds=self._safe_float(hhad.get("d")),
-                handicap_away_odds=self._safe_float(hhad.get("a")),
-                source=self.name,
-            )
-            fixtures.append(fixture)
+                # 让球数: goalLine 字段 (如 "+1", "-1")
+                handicap_str = hhad.get("goalLine", "")
+                handicap = None
+                if handicap_str:
+                    try:
+                        handicap = float(handicap_str)
+                    except (ValueError, TypeError):
+                        pass
+
+                fixture = Fixture(
+                    match_id=f"{target_date.isoformat()}_{match_num}",
+                    competition=league,
+                    home_team=home,
+                    away_team=away,
+                    kickoff=kickoff,
+                    home_odds=self._safe_float(had.get("h")),
+                    draw_odds=self._safe_float(had.get("d")),
+                    away_odds=self._safe_float(had.get("a")),
+                    handicap=handicap,
+                    handicap_home_odds=self._safe_float(hhad.get("h")),
+                    handicap_draw_odds=self._safe_float(hhad.get("d")),
+                    handicap_away_odds=self._safe_float(hhad.get("a")),
+                    source=self.name,
+                )
+                fixtures.append(fixture)
 
         return fixtures
 
