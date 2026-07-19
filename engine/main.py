@@ -43,6 +43,9 @@ from engine.learning.elo_updater import EloUpdater
 from engine.learning.wilson_trust import TrustSystem
 from engine.learning.combo_miner import ComboMiner
 from engine.learning.online_weights import OnlineWeightLearner
+from engine.prediction.lgbm_model import LGBMModel, LGBMConfig, build_features
+from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
+from engine.learning.league_params import LeagueParamsManager
 
 
 def load_config(name: str) -> dict:
@@ -52,7 +55,7 @@ def load_config(name: str) -> dict:
     return {}
 
 
-def run_daily_pipeline(target_date: date):
+def run_daily_pipeline(target_date: date, predict_only: bool = False):
     """执行每日完整流水线"""
     print(f"{'='*60}")
     print(f"  每日预测流水线 - {target_date.isoformat()}")
@@ -62,11 +65,27 @@ def run_daily_pipeline(target_date: date):
     pred_cfg = load_config("prediction")
     strat_cfg = load_config("strategy")
 
-    # 2. 获取数据
-    print("\n[1/8] 获取赛程数据...")
+    # 2. 获取数据（三源融合模式: 体彩+500万+DJYY）
+    print("\n[1/8] 获取赛程数据（三源融合）...")
     source_mgr = SourceManager(ROOT / "data")
-    fixtures, manifest = source_mgr.fetch_fixtures(target_date)
+    try:
+        fixtures, manifest = source_mgr.fetch_merged_fixtures(target_date)
+    except Exception:
+        # 融合失败时降级为简单 fallback
+        fixtures, manifest = source_mgr.fetch_fixtures(target_date)
     print(f"  ✓ 获取 {len(fixtures)} 场比赛 (来源: {manifest.source})")
+
+    # 2.5 DJYY增强: 获取第三方模型概率 + Pinnacle赔率 + xG
+    print("\n[1.5/8] DJYY增强数据...")
+    try:
+        djyy_enrichment = source_mgr.enrich_from_djyy(fixtures, target_date)
+        if djyy_enrichment:
+            print(f"  ✓ DJYY增强: {len(djyy_enrichment)}/{len(fixtures)} 场匹配")
+        else:
+            print(f"  - DJYY无匹配（不影响主流程）")
+    except Exception as e:
+        djyy_enrichment = {}
+        print(f"  - DJYY增强跳过: {e}")
 
     # 3. 加载球队评级
     print("\n[2/8] 加载球队评级...")
@@ -80,11 +99,43 @@ def run_daily_pipeline(target_date: date):
     reverse_engine = ReverseOddsEngine()
     print(f"  ✓ 同赔库 {same_odds.stats_summary()['total_records']} 条记录")
 
+    # LightGBM 第三模型层
+    lgbm_cfg = LGBMConfig(**{k: v for k, v in pred_cfg.get("lgbm", {}).items()
+                             if k in LGBMConfig.__dataclass_fields__})
+    lgbm_model = LGBMModel(ROOT / "data" / "models" / "lgbm_model.txt", config=lgbm_cfg)
+    if lgbm_model.is_available:
+        print(f"  ✓ LightGBM 已加载")
+    else:
+        print(f"  - LightGBM 未训练/未安装（跳过第三层）")
+
+    # Isotonic 校准层
+    cal_cfg = CalibrationConfig(**{k: v for k, v in pred_cfg.get("calibration", {}).items()
+                                   if k in CalibrationConfig.__dataclass_fields__})
+    calibrator = IsotonicCalibrator(
+        ROOT / "data" / "models" / "isotonic_cal.pkl", config=cal_cfg
+    )
+    if calibrator.is_fitted:
+        print(f"  ✓ Isotonic 校准已加载 (method={calibrator.method_used})")
+    else:
+        print(f"  - Isotonic 未拟合（原样输出）")
+
+    # 联赛独立参数
+    league_mgr = LeagueParamsManager(ROOT / "data" / "state" / "league_params.json")
+    # 尝试从 DJYY league-matrix 更新先验
+    try:
+        matrix = source_mgr.get_league_params()
+        if matrix:
+            league_mgr.update_from_league_matrix(matrix)
+    except Exception:
+        pass
+    print(f"  ✓ 联赛参数: {len(league_mgr.summary())} 个联赛已配置")
+
     # 5. 预测 + 增强分析
     print("\n[4/8] 运行预测模型 + 增强分析...")
     dc_cfg = DixonColesConfig(**{k: v for k, v in pred_cfg.get("prediction", {}).items()
                                   if k in DixonColesConfig.__dataclass_fields__})
-    mc_cfg = MonteCarloConfig(simulations=pred_cfg.get("prediction", {}).get("monte_carlo_simulations", 50000))
+    mc_cfg = MonteCarloConfig(**{k: v for k, v in pred_cfg.get("prediction", {}).items()
+                                  if k in MonteCarloConfig.__dataclass_fields__})
     # 在线权重学习: 动态调整模型权重
     weight_learner = OnlineWeightLearner(ROOT / "data" / "state" / "online_weights.json")
     static_weights = pred_cfg.get("ensemble", {"dixon_coles_weight": 0.6, "monte_carlo_weight": 0.4})
@@ -105,8 +156,9 @@ def run_daily_pipeline(target_date: date):
 
     # 融合参数（可由 param_optimizer 自动调整，不写死）
     fusion_cfg = pred_cfg.get("fusion", {})
-    fusion_cfg.setdefault("model_weight", 0.7)
-    fusion_cfg.setdefault("market_weight", 0.3)
+    fusion_cfg.setdefault("model_weight", 0.60)
+    fusion_cfg.setdefault("market_weight", 0.25)
+    fusion_cfg.setdefault("djyy_weight", 0.15)  # DJYY第三方模型权重
     fusion_cfg.setdefault("same_odds_max_adjust", 0.05)
     fusion_cfg.setdefault("same_odds_min_confidence", 0.3)
     fusion_cfg.setdefault("combo_boost_cap", 0.03)
@@ -182,15 +234,41 @@ def run_daily_pipeline(target_date: date):
             total=10,
         )
 
-        # 综合概率（融合校准概率 + 模型概率 + 同赔偏差 + 组合加分）
+        # 综合概率（融合: 模型 + 市场校准 + DJYY第三方 + 同赔偏差 + 组合加分）
         # 所有融合参数从 config/prediction.json["fusion"] 读取，可由优化器自动调整
         final_h, final_d, final_a = pred.home_win_prob, pred.draw_prob, pred.away_win_prob
-        if calibrated_probs:
+
+        # 获取DJYY增强数据
+        djyy_data = djyy_enrichment.get(fixture.match_id, {})
+        djyy_probs = djyy_data.get("model_probs")
+
+        if calibrated_probs and djyy_probs and djyy_probs.get("home"):
+            # 三路融合: 自有模型 + 市场校准 + DJYY模型
             mw = fusion_cfg["model_weight"]
             kw = fusion_cfg["market_weight"]
+            dw = fusion_cfg["djyy_weight"]
+            # 归一化权重（确保总和=1）
+            total_w = mw + kw + dw
+            mw, kw, dw = mw / total_w, kw / total_w, dw / total_w
+            final_h = mw * pred.home_win_prob + kw * calibrated_probs[0] + dw * djyy_probs["home"]
+            final_d = mw * pred.draw_prob + kw * calibrated_probs[1] + dw * djyy_probs["draw"]
+            final_a = mw * pred.away_win_prob + kw * calibrated_probs[2] + dw * djyy_probs["away"]
+        elif calibrated_probs:
+            # 两路融合（无DJYY数据时）
+            mw = fusion_cfg["model_weight"]
+            kw = fusion_cfg["market_weight"]
+            total_w = mw + kw
+            mw, kw = mw / total_w, kw / total_w
             final_h = mw * pred.home_win_prob + kw * calibrated_probs[0]
             final_d = mw * pred.draw_prob + kw * calibrated_probs[1]
             final_a = mw * pred.away_win_prob + kw * calibrated_probs[2]
+        elif djyy_probs and djyy_probs.get("home"):
+            # 只有DJYY（无市场赔率时）
+            mw = 1.0 - fusion_cfg["djyy_weight"]
+            dw = fusion_cfg["djyy_weight"]
+            final_h = mw * pred.home_win_prob + dw * djyy_probs["home"]
+            final_d = mw * pred.draw_prob + dw * djyy_probs["draw"]
+            final_a = mw * pred.away_win_prob + dw * djyy_probs["away"]
 
         # 同赔偏差微调
         if same_odds_result and same_odds_result.confidence > fusion_cfg["same_odds_min_confidence"]:
@@ -213,12 +291,39 @@ def run_daily_pipeline(target_date: date):
             else:
                 final_a += boost_amount
 
+        # --- LightGBM 第三层融合 ---
+        if lgbm_model.is_available:
+            lgbm_weight = fusion_cfg.get("lgbm_weight", 0.10)
+            feature_dict = build_features(
+                elo_home=home_rating.rating if hasattr(home_rating, 'rating') else 1500,
+                elo_away=away_rating.rating if hasattr(away_rating, 'rating') else 1500,
+                odds=market_odds,
+                handicap=fixture.handicap,
+                xg_home=getattr(fixture, "_xg_home", None) or (
+                    djyy_data.get("xg", {}).get("home") if djyy_data else None
+                ),
+                xg_away=getattr(fixture, "_xg_away", None) or (
+                    djyy_data.get("xg", {}).get("away") if djyy_data else None
+                ),
+                djyy_probs=djyy_probs,
+            )
+            lgbm_pred = lgbm_model.predict_single(feature_dict)
+            if lgbm_pred:
+                # 混合: (1-lgbm_weight)*当前 + lgbm_weight*lgbm
+                final_h = (1 - lgbm_weight) * final_h + lgbm_weight * lgbm_pred[0]
+                final_d = (1 - lgbm_weight) * final_d + lgbm_weight * lgbm_pred[1]
+                final_a = (1 - lgbm_weight) * final_a + lgbm_weight * lgbm_pred[2]
+
         # 归一化
         total_prob = final_h + final_d + final_a
         if total_prob > 0:
             final_h /= total_prob
             final_d /= total_prob
             final_a /= total_prob
+
+        # --- Isotonic 校准（最终修正） ---
+        if calibrator.is_fitted:
+            final_h, final_d, final_a = calibrator.calibrate((final_h, final_d, final_a))
 
         predictions.append({
             "match_id": pred.match_id,
@@ -242,6 +347,11 @@ def run_daily_pipeline(target_date: date):
             "same_odds_matched": (
                 same_odds_result.matched_count if same_odds_result else 0
             ),
+            # DJYY增强追踪
+            "djyy_enriched": bool(djyy_probs and djyy_probs.get("home")),
+            "djyy_model_prob": (
+                djyy_probs if djyy_probs and djyy_probs.get("home") else None
+            ),
         })
 
     print(f"  ✓ 完成 {len(predictions)} 场预测（含增强分析）")
@@ -260,6 +370,11 @@ def run_daily_pipeline(target_date: date):
 
     if breaker_mult == 0:
         print("  ⚠ 熔断停注中，生成观察计划（不实际投注）")
+
+    # 自适应置信阈值（连败收紧）
+    conf_threshold = breaker.get_confidence_threshold()
+    if conf_threshold > 0:
+        print(f"  置信阈值收紧: > {conf_threshold:.2f} (tier={breaker_status['tier']})")
 
     # CPPI风险预算
     cppi = CPPIStrategy(
@@ -282,7 +397,12 @@ def run_daily_pipeline(target_date: date):
         breaker_multiplier=effective_mult,
     )
     candidates = []
+    filtered_count = 0
     for p in predictions:
+        # 自适应置信阈值过滤（连败时收紧）
+        if p.get("confidence", 0) < conf_threshold:
+            filtered_count += 1
+            continue
         for sel, prob, odds_key in [
             ("home", p["home_win_prob"], "home_odds"),
             ("draw", p["draw_prob"], "draw_odds"),
@@ -298,6 +418,8 @@ def run_daily_pipeline(target_date: date):
                     "prob": prob,
                     "kelly_fraction": kelly_f,
                 })
+    if filtered_count > 0:
+        print(f"  置信过滤: {filtered_count} 场低于阈值 {conf_threshold:.2f}，已跳过")
 
     ticket_plan = allocator.allocate(candidates)
     print(f"  ✓ 三票方案: 稳胆{len(ticket_plan.stable_picks)}场, "
@@ -327,20 +449,23 @@ def run_daily_pipeline(target_date: date):
 
     # 8. 锁定计划
     print("\n[7/8] 锁定计划...")
-    lock_mgr = PlanLock(ROOT / "data" / "daily" / target_date.isoformat())
-    if not lock_mgr.is_locked(target_date.isoformat()):
-        import hashlib
-        plan_hash = hashlib.sha256(
-            json.dumps([s.__dict__ for s in plan.singles], default=str).encode()
-        ).hexdigest()
-        lock_mgr.lock(
-            date_str=target_date.isoformat(),
-            plan_hash=plan_hash,
-            bundle_hash=bundle["bundle_sha256"],
-        )
-        print(f"  ✓ 计划已锁定")
+    if predict_only:
+        print("  ⏭ --predict-only 模式，跳过锁定")
     else:
-        print(f"  ⚠ 计划已存在锁定，跳过")
+        lock_mgr = PlanLock(ROOT / "data" / "daily" / target_date.isoformat())
+        if not lock_mgr.is_locked(target_date.isoformat()):
+            import hashlib
+            plan_hash = hashlib.sha256(
+                json.dumps([s.__dict__ for s in plan.singles], default=str).encode()
+            ).hexdigest()
+            lock_mgr.lock(
+                date_str=target_date.isoformat(),
+                plan_hash=plan_hash,
+                bundle_hash=bundle["bundle_sha256"],
+            )
+            print(f"  ✓ 计划已锁定")
+        else:
+            print(f"  ⚠ 计划已存在锁定，跳过")
 
     # 保存预测结果
     print("\n[8/8] 保存结果...")
@@ -579,7 +704,7 @@ def main():
     if args.settle:
         run_settlement(target)
     else:
-        run_daily_pipeline(target)
+        run_daily_pipeline(target, predict_only=args.predict_only)
 
 
 if __name__ == "__main__":

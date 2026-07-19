@@ -33,7 +33,7 @@ class EspnSource(DataSource):
 
     @property
     def priority(self) -> int:
-        return 3
+        return 9  # 最终兜底
 
     def fetch_fixtures(self, target_date: date) -> list[Fixture]:
         """从 ESPN 获取赛程（无赔率）"""

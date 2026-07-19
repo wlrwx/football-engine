@@ -1,24 +1,41 @@
-"""竞彩官方数据源 - 主数据源"""
-import hashlib
+"""竞彩官方数据源 - 核心权威数据（中国体育彩票）
+
+关键坑（已踩）：
+- 不要加 poolCode 参数！加了触发 403。只传 channel=c，一次性返回全部盘口。
+- 使用桌面 Chrome UA + Referer sporttery.cn
+- 响应结构: value → matchInfoList[按天] → subMatchList[每场]
+- 匹配键用 matchNumStr（如"周日104"）
+- 盘口: had(胜平负) / hhad(让球) / ttg(总进球) / crs(波胆) / hafu(半全场)
+"""
 import json
 import time
 from datetime import date, datetime
+from typing import Optional
 
 import requests
 
-from .base import DataSource, Fixture, MatchResult, OddsSnapshot, ImportManifest
+from .base import DataSource, Fixture, MatchResult, OddsSnapshot
 
 
-SPORTTERY_API = "https://webapi.sporttery.cn"
+SPORTTERY_API = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry"
+
+# 桌面 Chrome UA — 不要用移动端，也不要加 poolCode
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
-    "Referer": "https://m.sporttery.cn/",
-    "Accept": "application/json",
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://www.sporttery.cn/",
 }
+
+# 关闭 trust_env 解决 macOS 代理坑
+_SESSION = requests.Session()
+_SESSION.trust_env = False
 
 
 class SportterySource(DataSource):
-    """竞彩官方 API"""
+    """竞彩官方 API — 优先级最高的权威数据源"""
 
     @property
     def name(self) -> str:
@@ -32,51 +49,49 @@ class SportterySource(DataSource):
         """带重试的 JSON 请求"""
         for attempt in range(retries):
             try:
-                resp = requests.get(url, params=params, headers=HEADERS, timeout=15)
+                resp = _SESSION.get(url, params=params, headers=HEADERS, timeout=15)
                 resp.raise_for_status()
                 return resp.json()
-            except (requests.RequestException, json.JSONDecodeError) as e:
+            except (requests.RequestException, json.JSONDecodeError):
                 if attempt == retries - 1:
                     raise
                 time.sleep(2 ** attempt)
         return {}
 
     def fetch_fixtures(self, target_date: date) -> list[Fixture]:
-        """从竞彩官方获取赛程"""
-        url = f"{SPORTTERY_API}/gateway/jc/football/getMatchCalculatorV1.qry"
-        params = {"poolCode": "HAD,HHAD,TTG", "matchDay": target_date.isoformat()}
+        """获取竞彩赛程 + 全盘口
+
+        只传 channel=c，不加 poolCode！
+        一次性返回: had / hhad / ttg / crs / hafu
+        """
+        params = {"channel": "c"}  # 关键：只传 channel，千万别加 poolCode
 
         try:
-            data = self._fetch_json(url, params)
+            data = self._fetch_json(SPORTTERY_API, params)
         except Exception:
             return []
 
         fixtures = []
-        # 实际结构: value.matchInfoList[].subMatchList[] 才是比赛
         match_info_list = data.get("value", {}).get("matchInfoList", [])
+
         for day_group in match_info_list:
+            # matchInfoList 按天分组，每天下有 subMatchList
             sub_matches = day_group.get("subMatchList", [])
             for item in sub_matches:
                 match_num = item.get("matchNumStr", "") or str(item.get("matchNum", ""))
-                home = item.get("homeTeamAbbName", "") or item.get("homeTeamAllName", "")
-                away = item.get("awayTeamAbbName", "") or item.get("awayTeamAllName", "")
-                league = item.get("leagueAbbName", "") or item.get("leagueAllName", "")
+                home = item.get("homeTeamAbbName", "") or item.get("homeTeamName", "")
+                away = item.get("awayTeamAbbName", "") or item.get("awayTeamName", "")
+                league = item.get("leagueAbbName", "") or item.get("leagueName", "")
                 match_time = item.get("matchTime", "")
-                match_date = item.get("matchDate", target_date.isoformat())
-                kickoff = f"{match_date} {match_time}" if match_time else ""
+                match_date_str = item.get("matchDate", target_date.isoformat())
+                kickoff = f"{match_date_str} {match_time}" if match_time else ""
 
-                # 提取赔率
+                # 胜平负 (had): {h, d, a}
                 had = item.get("had", {})
+                # 让球盘 (hhad): {goalLine, h, d, a}
                 hhad = item.get("hhad", {})
 
-                # 让球数: goalLine 字段 (如 "+1", "-1")
-                handicap_str = hhad.get("goalLine", "")
-                handicap = None
-                if handicap_str:
-                    try:
-                        handicap = float(handicap_str)
-                    except (ValueError, TypeError):
-                        pass
+                handicap = self._safe_float(hhad.get("goalLine"))
 
                 fixture = Fixture(
                     match_id=f"{target_date.isoformat()}_{match_num}",
@@ -93,14 +108,20 @@ class SportterySource(DataSource):
                     handicap_away_odds=self._safe_float(hhad.get("a")),
                     source=self.name,
                 )
+
+                # 附加原始盘口（供下游模型使用）
+                fixture._raw_ttg = item.get("ttg", {})    # 总进球 {s0..s7}
+                fixture._raw_crs = item.get("crs", {})    # 波胆 {s00s00=0:0...}
+                fixture._raw_hafu = item.get("hafu", {})  # 半全场 {aa, ah...}
+
                 fixtures.append(fixture)
 
         return fixtures
 
     def fetch_results(self, target_date: date) -> list[MatchResult]:
         """获取比赛结果"""
-        url = f"{SPORTTERY_API}/gateway/jc/football/getMatchResultV1.qry"
-        params = {"matchDay": target_date.isoformat()}
+        url = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchResultV1.qry"
+        params = {"channel": "c"}
 
         try:
             data = self._fetch_json(url, params)
@@ -109,16 +130,20 @@ class SportterySource(DataSource):
 
         results = []
         for item in data.get("value", {}).get("matchResultList", []):
-            result = MatchResult(
-                match_id=f"{target_date.isoformat()}_{item.get('matchNum', '')}",
-                home_score=int(item.get("homeScore", 0)),
-                away_score=int(item.get("awayScore", 0)),
-                home_team=item.get("homeTeamName", ""),
-                away_team=item.get("awayTeamName", ""),
-                competition=item.get("leagueName", ""),
+            match_date_str = item.get("matchDate", "")
+            if match_date_str and match_date_str != target_date.isoformat():
+                continue
+
+            match_num = item.get("matchNumStr", "") or str(item.get("matchNum", ""))
+            results.append(MatchResult(
+                match_id=f"{target_date.isoformat()}_{match_num}",
+                home_score=self._safe_int(item.get("homeScore")),
+                away_score=self._safe_int(item.get("awayScore")),
+                home_team=item.get("homeTeamAbbName", "") or item.get("homeTeamName", ""),
+                away_team=item.get("awayTeamAbbName", "") or item.get("awayTeamName", ""),
+                competition=item.get("leagueAbbName", "") or item.get("leagueName", ""),
                 match_date=target_date.isoformat(),
-            )
-            results.append(result)
+            ))
 
         return results
 
@@ -139,9 +164,24 @@ class SportterySource(DataSource):
                 ))
         return snapshots
 
+    def health_check(self) -> bool:
+        """检查竞彩API是否可达"""
+        try:
+            data = self._fetch_json(SPORTTERY_API, {"channel": "c"}, retries=1)
+            return "value" in data
+        except Exception:
+            return False
+
     @staticmethod
-    def _safe_float(val) -> float | None:
+    def _safe_float(val) -> Optional[float]:
         try:
             return float(val) if val else None
         except (ValueError, TypeError):
             return None
+
+    @staticmethod
+    def _safe_int(val) -> int:
+        try:
+            return int(val) if val is not None else 0
+        except (ValueError, TypeError):
+            return 0

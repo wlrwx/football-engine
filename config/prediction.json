@@ -9,9 +9,9 @@
     "rest_weight": 0.035,
     "home_adv_weight": 1.0,
     "market_blend_weight": 0.28,
-    "dixon_coles_rho": -0.10,
+    "rho": -0.10,
     "max_goals": 10,
-    "monte_carlo_simulations": 50000,
+    "simulations": 50000,
     "time_decay_anchors": [
       [0, 1.0],
       [7, 0.987],
@@ -27,11 +27,37 @@
     "monte_carlo_weight": 0.4
   },
   "fusion": {
-    "model_weight": 0.7,
-    "market_weight": 0.3,
+    "model_weight": 0.60,
+    "market_weight": 0.25,
+    "djyy_weight": 0.15,
+    "lgbm_weight": 0.10,
     "same_odds_max_adjust": 0.05,
     "same_odds_min_confidence": 0.3,
     "combo_boost_cap": 0.03,
     "trust_shrink_enabled": true
+  },
+  "lgbm": {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "num_leaves": 31,
+    "min_child_samples": 50,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "train_window_days": 730,
+    "min_train_samples": 500,
+    "use_odds_features": true,
+    "use_xg_features": true,
+    "use_league_features": true,
+    "use_djyy_features": true
+  },
+  "calibration": {
+    "method": "isotonic",
+    "min_samples": 100,
+    "platt_min_samples": 30,
+    "n_bins_check": 10,
+    "per_outcome": true
   }
 }
