@@ -39,8 +39,21 @@ def build_site():
     breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
     health = _load_json(web_dir / "health-status.json", {"healthy": True})
     results = _load_json(daily_dir / "results.json", [])
+    results_html_preds = predictions  # 默认用当前预测
+    # 如果当前日期没有赛果，找最近有赛果的日期
+    if not results and daily_root.exists():
+        for d in sorted([x.name for x in daily_root.iterdir() if x.is_dir()], reverse=True):
+            r_path = daily_root / d / "results.json"
+            r_data = _load_json(r_path, [])
+            if r_data:
+                results = r_data
+                # 用该日期的predictions做对比
+                rp = _load_json(daily_root / d / "predictions.json", [])
+                if rp:
+                    results_html_preds = rp
+                break
 
-    html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results)
+    html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results, results_html_preds)
     (web_dir / "index.html").write_text(html, encoding="utf-8")
 
     status = {
@@ -63,7 +76,7 @@ def _load_json(path: Path, default):
     return default
 
 
-def _render_html(today, predictions, bundle, ticket, breaker, health, results=None):
+def _render_html(today, predictions, bundle, ticket, breaker, health, results=None, results_preds=None):
     # 计算摘要
     total = len(predictions)
     # 三票方案中的场次 = 真正的价值投注
@@ -86,7 +99,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     ticket_html = _ticket_section(ticket, predictions)
 
     # 赛果复盘
-    results_html = _results_section(results, predictions)
+    results_html = _results_section(results, results_preds or predictions)
 
     # 系统面板
     system_html = _system_panel(breaker, bundle, tier, breaker_mult)
@@ -269,6 +282,11 @@ body {{
 .pick-val.home {{ color: var(--blue); background: rgba(59,130,246,0.1); }}
 .pick-val.draw {{ color: var(--text-secondary); background: rgba(107,114,128,0.15); }}
 .pick-val.away {{ color: var(--red); background: rgba(239,68,68,0.1); }}
+.pred-score {{
+  font-size: 0.72rem; color: var(--amber); font-weight: 700;
+  margin-left: 10px; padding: 2px 8px; border-radius: 4px;
+  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);
+}}
 
 /* Collapsed info row */
 .match-info-row {{
@@ -648,6 +666,17 @@ def _pred_pick(p):
         return f'<span class="pick-label">预测</span> <span class="pick-val away">客胜 {pa:.0%}</span>'
 
 
+def _pred_score(p):
+    """预测比分（最可能比分）"""
+    top_scores = p.get("top_scores")
+    if not top_scores or not isinstance(top_scores, list) or len(top_scores) == 0:
+        return ""
+    item = top_scores[0]
+    if isinstance(item, (list, tuple)) and len(item) >= 3:
+        return f' <span class="pred-score">比分 {item[0]}-{item[1]} ({item[2]*100:.0f}%)</span>'
+    return ""
+
+
 def _match_card(p, value_matches, idx):
     """Render a single match card with expandable detail tabs."""
     hp = p.get("home_win_prob", 0) * 100
@@ -692,7 +721,7 @@ def _match_card(p, value_matches, idx):
         <div class="prob-seg d" style="width:{dp:.1f}%">D {dp:.0f}%</div>
         <div class="prob-seg a" style="width:{ap:.1f}%">A {ap:.0f}%</div>
       </div>
-      <div class="pred-pick">{_pred_pick(p)}</div>
+      <div class="pred-pick">{_pred_pick(p)}{_pred_score(p)}</div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot {conf_cls}"></span><b>{conf:.0%}</b></span>
         <span class="info-chip">xG <b>{xg_h:.2f} - {xg_a:.2f}</b></span>
