@@ -76,14 +76,14 @@ def _render_html(today, predictions, bundle, ticket, breaker, health):
     # 系统面板
     system_html = _system_panel(breaker, bundle, tier, breaker_mult)
 
-    health_badge = '<span class="badge ok">SYSTEM ONLINE</span>' if health.get("healthy") else '<span class="badge warn">DEGRADED</span>'
+    health_badge = '<span class="badge ok">系统正常</span>' if health.get("healthy") else '<span class="badge warn">降级</span>'
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Football Engine - {today}</title>
+<title>竞彩分析引擎 - {today}</title>
 <style>
 :root {{
   --bg: #0a0e13;
@@ -504,8 +504,8 @@ body {{
   <!-- HEADER -->
   <div class="header">
     <div class="header-left">
-      <h1>Football Engine</h1>
-      <div class="sub">{today} &middot; DC+MC &rarr; Shin Devig &rarr; Reverse &rarr; 4-Source Fusion &rarr; LGBM &rarr; Isotonic &rarr; Wilson</div>
+      <h1>竞彩分析引擎</h1>
+      <div class="sub">{today} &middot; DC+MC &rarr; Shin去水 &rarr; 逆向赔率 &rarr; 四源融合 &rarr; LGBM &rarr; Isotonic校准 &rarr; Wilson信任</div>
     </div>
     <div class="header-right">
       {health_badge}
@@ -514,17 +514,17 @@ body {{
 
   <!-- KPI STATS -->
   <div class="stats">
-    <div class="stat"><div class="label">Matches</div><div class="value">{total}</div></div>
-    <div class="stat"><div class="label">Value Bets</div><div class="value green">{len(value_bets)}</div></div>
-    <div class="stat"><div class="label">Avg Conf</div><div class="value blue">{avg_conf:.0%}</div></div>
-    <div class="stat"><div class="label">Total Stake</div><div class="value amber">&yen;{total_stake:.0f}</div></div>
-    <div class="stat"><div class="label">Exp ROI</div><div class="value {'green' if exp_roi > 1 else 'red'}">{exp_roi:.2f}x</div></div>
-    <div class="stat"><div class="label">Breaker</div><div class="value {'green' if tier == 0 else 'red'}">T{tier} &middot; x{breaker_mult:.1f}</div></div>
+    <div class="stat"><div class="label">场次</div><div class="value">{total}</div></div>
+    <div class="stat"><div class="label">价值注</div><div class="value green">{len(value_bets)}</div></div>
+    <div class="stat"><div class="label">平均置信</div><div class="value blue">{avg_conf:.0%}</div></div>
+    <div class="stat"><div class="label">总投入</div><div class="value amber">&yen;{total_stake:.0f}</div></div>
+    <div class="stat"><div class="label">预期回报</div><div class="value {'green' if exp_roi > 1 else 'red'}">{exp_roi:.2f}x</div></div>
+    <div class="stat"><div class="label">熔断器</div><div class="value {'green' if tier == 0 else 'red'}">T{tier} &middot; x{breaker_mult:.1f}</div></div>
   </div>
 
   <!-- MATCH PREDICTIONS -->
-  <div class="section-title">Match Predictions</div>
-  {cards if cards else '<p style="color:var(--dim);padding:48px;text-align:center;font-size:0.85rem;">Waiting for daily pipeline...</p>'}
+  <div class="section-title">比赛预测</div>
+  {cards if cards else '<p style="color:var(--dim);padding:48px;text-align:center;font-size:0.85rem;">等待每日流水线运行...</p>'}
 
   <!-- BETTING PLAN -->
   {ticket_html}
@@ -534,8 +534,8 @@ body {{
 
   <!-- FOOTER -->
   <div class="footer">
-    <div class="chain">DC(60%) + MC-50K(40%) &rarr; Shin Devig &rarr; Reverse Odds &rarr; Same-Odds History &rarr; Fusion(Model 60% + Market 25% + DJYY 15%) &rarr; LGBM(10%) &rarr; Isotonic Calibration &rarr; Wilson Trust</div>
-    <p>Data Sources: Sporttery / Sina / 500wan / DJYY &middot; Zero-server GitHub Actions &middot; <a href="https://github.com/wlrwx/football-engine">Source Code</a></p>
+    <div class="chain">DC(60%) + MC-50K(40%) &rarr; Shin去水 &rarr; 逆向赔率 &rarr; 同赔历史 &rarr; 融合(模型60% + 市场25% + DJYY15%) &rarr; LGBM(10%) &rarr; Isotonic校准 &rarr; Wilson信任</div>
+    <p>数据源: 体彩 / 新浪 / 500万 / DJYY &middot; 零服务器 GitHub Actions &middot; <a href="https://github.com/wlrwx/football-engine">源代码</a></p>
     <p class="disclaimer">仅供研究学习，不构成任何投注建议。模型输出为概率估计，不保证准确性。</p>
   </div>
 </div>
@@ -597,7 +597,7 @@ def _match_card(p, value_matches, idx):
       <div class="match-top">
         <span class="league-tag">{p.get('competition', '')}</span>
         <div class="match-meta">
-          {'<span class="value-badge">VALUE PICK</span>' if is_val else ''}
+          {'<span class="value-badge">价值精选</span>' if is_val else ''}
           <span class="match-id">{match_id.split('_', 1)[-1] if '_' in match_id else match_id}</span>
           <span class="expand-icon">&#9660;</span>
         </div>
@@ -648,28 +648,28 @@ def _tab_model(p, uid):
     mr_h = model_raw.get("home", 0) * 100 if model_raw else 0
     mr_d = model_raw.get("draw", 0) * 100 if model_raw else 0
     mr_a = model_raw.get("away", 0) * 100 if model_raw else 0
-    rows += _model_row("DC+MC Raw", mr_h, mr_d, mr_a)
+    rows += _model_row("DC+MC 原始", mr_h, mr_d, mr_a)
 
     # Market Fair (Shin)
     if market_fair and len(market_fair) >= 3:
         mf_h = market_fair[0] * 100
         mf_d = market_fair[1] * 100
         mf_a = market_fair[2] * 100
-        rows += _model_row("Shin Fair", mf_h, mf_d, mf_a)
+        rows += _model_row("Shin公平", mf_h, mf_d, mf_a)
     else:
-        rows += _model_row_empty("Shin Fair")
+        rows += _model_row_empty("Shin公平")
 
     # DJYY
     if djyy and djyy.get("home"):
         dj_h = djyy.get("home", 0) * 100
         dj_d = djyy.get("draw", 0) * 100
         dj_a = djyy.get("away", 0) * 100
-        rows += _model_row("DJYY Model", dj_h, dj_d, dj_a)
+        rows += _model_row("DJYY模型", dj_h, dj_d, dj_a)
     else:
-        rows += _model_row_empty("DJYY Model")
+        rows += _model_row_empty("DJYY模型")
 
     # Final Fused
-    rows += _model_row("Final Fused", final_h * 100, final_d * 100, final_a * 100)
+    rows += _model_row("最终融合", final_h * 100, final_d * 100, final_a * 100)
 
     # Elo section
     elo_html = ""
@@ -677,23 +677,23 @@ def _tab_model(p, uid):
         elo_diff = (elo_home or 0) - (elo_away or 0)
         elo_html = f"""
       <div class="elo-row">
-        <div class="elo-chip"><div class="elo-label">Home Elo</div><div class="elo-val" style="color:var(--blue)">{elo_home:.0f}</div></div>
-        <div class="elo-chip"><div class="elo-label">Away Elo</div><div class="elo-val" style="color:var(--red)">{elo_away:.0f}</div></div>
-        <div class="elo-chip"><div class="elo-label">Elo Diff</div><div class="elo-val" style="color:{'var(--green)' if elo_diff > 0 else 'var(--red)'}">{elo_diff:+.0f}</div></div>
+        <div class="elo-chip"><div class="elo-label">主队Elo</div><div class="elo-val" style="color:var(--blue)">{elo_home:.0f}</div></div>
+        <div class="elo-chip"><div class="elo-label">客队Elo</div><div class="elo-val" style="color:var(--red)">{elo_away:.0f}</div></div>
+        <div class="elo-chip"><div class="elo-label">Elo差值</div><div class="elo-val" style="color:{'var(--green)' if elo_diff > 0 else 'var(--red)'}">{elo_diff:+.0f}</div></div>
       </div>"""
 
     # Wilson trust
     wilson_pct = (wilson or 0) * 100
     wilson_html = f"""
       <div class="wilson-meter">
-        <div class="wilson-label">Wilson Trust Score</div>
+        <div class="wilson-label">Wilson信任分</div>
         <div class="wilson-track"><div class="wilson-fill" style="width:{wilson_pct:.0f}%"></div></div>
-        <div class="wilson-val">{wilson_pct:.1f}% confidence weight</div>
+        <div class="wilson-val">{wilson_pct:.1f}% 置信权重</div>
       </div>"""
 
     return f"""
       <table class="model-table">
-        <tr><th>Source</th><th class="prob-bar-cell">H / D / A Distribution</th></tr>
+        <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         {rows}
       </table>
       {elo_html}
@@ -718,7 +718,7 @@ def _model_row_empty(label):
     return f"""
         <tr>
           <td class="src-label">{label}</td>
-          <td class="prob-bar-cell"><span style="font-size:0.65rem;color:var(--dim);">N/A</span></td>
+          <td class="prob-bar-cell"><span style="font-size:0.65rem;color:var(--dim);">暂无</span></td>
         </tr>"""
 
 
@@ -764,38 +764,38 @@ def _tab_odds(p, uid):
 
     return f"""
       <div class="odds-grid">
-        <div class="odds-box"><div class="ob-label">Home Win</div><div class="ob-val">{odds_h:.2f}</div></div>
-        <div class="odds-box"><div class="ob-label">Draw</div><div class="ob-val">{odds_d:.2f}</div></div>
-        <div class="odds-box"><div class="ob-label">Away Win</div><div class="ob-val">{odds_a:.2f}</div></div>
-        <div class="odds-box"><div class="ob-label">Handicap</div><div class="ob-val">{handicap if handicap else 'N/A'}</div></div>
+        <div class="odds-box"><div class="ob-label">主胜</div><div class="ob-val">{odds_h:.2f}</div></div>
+        <div class="odds-box"><div class="ob-label">平局</div><div class="ob-val">{odds_d:.2f}</div></div>
+        <div class="odds-box"><div class="ob-label">客胜</div><div class="ob-val">{odds_a:.2f}</div></div>
+        <div class="odds-box"><div class="ob-label">让球</div><div class="ob-val">{handicap if handicap else '暂无'}</div></div>
       </div>
       <table class="edge-table">
-        <tr><th>Outcome</th><th>Implied</th><th>Shin Fair</th><th>Model</th><th>Edge</th></tr>
+        <tr><th>结果</th><th>隐含概率</th><th>Shin公平</th><th>模型</th><th>边际</th></tr>
         <tr>
-          <td>Home</td><td>{imp_h:.1f}%</td><td>{sf_h:.1f}%</td><td>{final_h*100:.1f}%</td>
+          <td>主胜</td><td>{imp_h:.1f}%</td><td>{sf_h:.1f}%</td><td>{final_h*100:.1f}%</td>
           <td class="{_edge_cls(edge_h)}">{edge_h:+.1f}%</td>
         </tr>
         <tr>
-          <td>Draw</td><td>{imp_d:.1f}%</td><td>{sf_d:.1f}%</td><td>{final_d*100:.1f}%</td>
+          <td>平局</td><td>{imp_d:.1f}%</td><td>{sf_d:.1f}%</td><td>{final_d*100:.1f}%</td>
           <td class="{_edge_cls(edge_d)}">{edge_d:+.1f}%</td>
         </tr>
         <tr>
-          <td>Away</td><td>{imp_a:.1f}%</td><td>{sf_a:.1f}%</td><td>{final_a*100:.1f}%</td>
+          <td>客胜</td><td>{imp_a:.1f}%</td><td>{sf_a:.1f}%</td><td>{final_a*100:.1f}%</td>
           <td class="{_edge_cls(edge_a)}">{edge_a:+.1f}%</td>
         </tr>
       </table>
       <div class="reverse-box">
-        <h5>Reverse Odds Analysis</h5>
-        <div class="reverse-row"><span class="rk">Upset Risk</span><span style="color:{'var(--red)' if upset > 40 else 'var(--text)'}; font-weight:700;">{upset:.0f}%</span></div>
-        <div class="reverse-row"><span class="rk">Direction</span><span>{direction if direction else 'N/A'}</span></div>
-        <div class="reverse-row"><span class="rk">Compression</span><span>{compression:.2f}</span></div>
+        <h5>逆向赔率分析</h5>
+        <div class="reverse-row"><span class="rk">冷门风险</span><span style="color:{'var(--red)' if upset > 40 else 'var(--text)'}; font-weight:700;">{upset:.0f}%</span></div>
+        <div class="reverse-row"><span class="rk">方向</span><span>{direction if direction else '暂无'}</span></div>
+        <div class="reverse-row"><span class="rk">压缩比</span><span>{compression:.2f}</span></div>
       </div>
       <div class="same-odds-box">
-        <h5>Same-Odds History</h5>
-        <div class="reverse-row"><span class="rk">Matched Games</span><span style="font-weight:700;">{same_matched}</span></div>
-        <div class="reverse-row"><span class="rk">Hist Confidence</span><span>{same_conf:.0%}</span></div>
-        <div class="reverse-row"><span class="rk">Bias</span><span>{same_bias if same_bias else 'Neutral'}</span></div>
-        <div class="reverse-row"><span class="rk">Combo Boost</span><span style="color:{'var(--green)' if combo_boost > 0 else 'var(--dim)'}">{combo_boost:+.2f}</span></div>
+        <h5>同赔历史</h5>
+        <div class="reverse-row"><span class="rk">匹配场次</span><span style="font-weight:700;">{same_matched}</span></div>
+        <div class="reverse-row"><span class="rk">历史置信</span><span>{same_conf:.0%}</span></div>
+        <div class="reverse-row"><span class="rk">偏差</span><span>{same_bias if same_bias else '中性'}</span></div>
+        <div class="reverse-row"><span class="rk">组合加成</span><span style="color:{'var(--green)' if combo_boost > 0 else 'var(--dim)'}">{combo_boost:+.2f}</span></div>
       </div>"""
 
 
@@ -818,9 +818,9 @@ def _tab_distribution(p, uid):
             elif isinstance(item, (list, tuple)) and len(item) >= 2:
                 cells += f'<div class="score-cell"><div class="sc-score">{item[0]}</div><div class="sc-prob">{item[1]*100:.1f}%</div></div>'
         if cells:
-            scores_html = f'<div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">Most Likely Scores</div><div class="scores-grid">{cells}</div>'
+            scores_html = f'<div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid">{cells}</div>'
     else:
-        scores_html = '<div style="font-size:0.72rem;color:var(--dim);font-style:italic;margin-bottom:12px;">Score distribution not available</div>'
+        scores_html = '<div style="font-size:0.72rem;color:var(--dim);font-style:italic;margin-bottom:12px;">比分分布暂无数据</div>'
 
     # Total goals bars
     goals_html = ""
@@ -842,9 +842,9 @@ def _tab_distribution(p, uid):
             <span class="goal-bar-label">{label}</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:{pct:.0f}%">{prob*100:.1f}%</div></div>
           </div>"""
-        goals_html = f'<div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">Total Goals Distribution</div><div class="goals-bars">{bars}</div>'
+        goals_html = f'<div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">{bars}</div>'
     else:
-        goals_html = '<div style="font-size:0.72rem;color:var(--dim);font-style:italic;margin:12px 0;">Total goals distribution not available</div>'
+        goals_html = '<div style="font-size:0.72rem;color:var(--dim);font-style:italic;margin:12px 0;">总进球分布暂无数据</div>'
 
     # xG comparison
     max_xg = max(xg_h, xg_a, 0.1)
@@ -852,7 +852,7 @@ def _tab_distribution(p, uid):
     xg_a_pct = (xg_a / (max_xg * 1.3)) * 100
     xg_html = f"""
       <div class="xg-compare">
-        <h5>Expected Goals (xG)</h5>
+        <h5>预期进球 (xG)</h5>
         <div class="xg-bar-row">
           <span class="xg-bar-label">{p.get('home_team', 'Home')[:8]}</span>
           <div class="xg-bar-track"><div class="xg-bar-fill home" style="width:{xg_h_pct:.0f}%">{xg_h:.2f}</div></div>
@@ -879,7 +879,7 @@ def _ticket_section(ticket, predictions):
 
     def _items(items):
         if not items:
-            return '<div class="ticket-empty">No selections</div>'
+            return '<div class="ticket-empty">暂无选择</div>'
         html = ""
         for it in items:
             match_id = it.get("match", "")
@@ -894,17 +894,17 @@ def _ticket_section(ticket, predictions):
         return html
 
     return f"""
-  <div class="section-title">Betting Plan (三票制 60/30/10)</div>
+  <div class="section-title">投注方案（三票制 60/30/10）</div>
   <div class="ticket-grid">
-    <div class="ticket-card"><h4 class="stable">稳胆 Stable (60%)</h4>{_items(stable)}</div>
-    <div class="ticket-card"><h4 class="value">搏冷 Value (30%)</h4>{_items(value)}</div>
-    <div class="ticket-card"><h4 class="lottery">彩票 Lottery (10%)</h4>{_items(lottery)}</div>
+    <div class="ticket-card"><h4 class="stable">稳胆（60%）</h4>{_items(stable)}</div>
+    <div class="ticket-card"><h4 class="value">搏冷（30%）</h4>{_items(value)}</div>
+    <div class="ticket-card"><h4 class="lottery">彩票（10%）</h4>{_items(lottery)}</div>
   </div>
   <div class="ticket-summary">
-    <div class="ts-chip"><div class="ts-label">Total Stake</div><div class="ts-val" style="color:var(--amber)">&yen;{total_stake:.0f}</div></div>
-    <div class="ts-chip"><div class="ts-label">Expected ROI</div><div class="ts-val" style="color:{'var(--green)' if exp_roi > 1 else 'var(--red)'}">{exp_roi:.2f}x</div></div>
-    <div class="ts-chip"><div class="ts-label">Bankroll</div><div class="ts-val">&yen;{bankroll:.0f}</div></div>
-    <div class="ts-chip"><div class="ts-label">Breaker Mult</div><div class="ts-val" style="color:{'var(--green)' if breaker_mult >= 1 else 'var(--red)'}">x{breaker_mult:.2f}</div></div>
+    <div class="ts-chip"><div class="ts-label">总投入</div><div class="ts-val" style="color:var(--amber)">&yen;{total_stake:.0f}</div></div>
+    <div class="ts-chip"><div class="ts-label">预期回报</div><div class="ts-val" style="color:{'var(--green)' if exp_roi > 1 else 'var(--red)'}">{exp_roi:.2f}x</div></div>
+    <div class="ts-chip"><div class="ts-label">资金池</div><div class="ts-val">&yen;{bankroll:.0f}</div></div>
+    <div class="ts-chip"><div class="ts-label">熔断系数</div><div class="ts-val" style="color:{'var(--green)' if breaker_mult >= 1 else 'var(--red)'}">x{breaker_mult:.2f}</div></div>
   </div>"""
 
 
@@ -916,38 +916,38 @@ def _system_panel(breaker, bundle, tier, mult):
     daily_pnl = breaker.get("daily_pnl", 0)
     weekly_pnl = breaker.get("weekly_pnl", 0)
     halted = breaker.get("halted", False)
-    sha = bundle.get("bundle_sha256", "N/A")
+    sha = bundle.get("bundle_sha256", "暂无")
     created = bundle.get("created_at", "")
 
     tier_cls = "safe" if tier <= 1 else "caution" if tier <= 2 else "danger"
-    tier_label = f"T{tier}" + (" HALTED" if halted else "")
+    tier_label = f"T{tier}" + (" 已停注" if halted else "")
 
     return f"""
-  <div class="section-title">System Status</div>
+  <div class="section-title">系统状态</div>
   <div class="sys-grid">
     <div class="sys-card">
-      <h4>Circuit Breaker</h4>
-      <div class="sys-row"><span class="k">Status</span><span class="tier-indicator {tier_cls}">{tier_label} &middot; x{mult:.2f}</span></div>
-      <div class="sys-row"><span class="k">Streak</span><span class="v" style="color:{'var(--green)' if streak >= 0 else 'var(--red)'}">{streak:+d}</span></div>
-      <div class="sys-row"><span class="k">Win Rate</span><span class="v">{wr:.1%} ({wins}W / {losses}L)</span></div>
-      <div class="sys-row"><span class="k">Daily PnL</span><span class="v" style="color:{'var(--green)' if daily_pnl >= 0 else 'var(--red)'}">&yen;{daily_pnl:+.0f}</span></div>
-      <div class="sys-row"><span class="k">Weekly PnL</span><span class="v" style="color:{'var(--green)' if weekly_pnl >= 0 else 'var(--red)'}">&yen;{weekly_pnl:+.0f}</span></div>
+      <h4>熔断器</h4>
+      <div class="sys-row"><span class="k">状态</span><span class="tier-indicator {tier_cls}">{tier_label} &middot; x{mult:.2f}</span></div>
+      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:{'var(--green)' if streak >= 0 else 'var(--red)'}">{streak:+d}</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">{wr:.1%} ({wins}胜 / {losses}负)</span></div>
+      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:{'var(--green)' if daily_pnl >= 0 else 'var(--red)'}">&yen;{daily_pnl:+.0f}</span></div>
+      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:{'var(--green)' if weekly_pnl >= 0 else 'var(--red)'}">&yen;{weekly_pnl:+.0f}</span></div>
     </div>
     <div class="sys-card">
-      <h4>Decision Integrity</h4>
-      <div class="sys-row"><span class="k">Created</span><span class="v">{created[:19] if created else 'N/A'}</span></div>
-      <div class="sys-row"><span class="k">Version</span><span class="v">{bundle.get('version', 'v1')}</span></div>
-      <div class="sys-row"><span class="k">Algorithm</span><span class="v">SHA-256</span></div>
+      <h4>决策完整性</h4>
+      <div class="sys-row"><span class="k">创建时间</span><span class="v">{created[:19] if created else '暂无'}</span></div>
+      <div class="sys-row"><span class="k">版本</span><span class="v">{bundle.get('version', 'v1')}</span></div>
+      <div class="sys-row"><span class="k">算法</span><span class="v">SHA-256</span></div>
       <div class="hash">{sha}</div>
     </div>
     <div class="sys-card">
-      <h4>Model Config</h4>
-      <div class="sys-row"><span class="k">Ensemble</span><span class="v">DC 60% + MC 40%</span></div>
-      <div class="sys-row"><span class="k">Fusion</span><span class="v">M60 / Mkt25 / DJYY15</span></div>
-      <div class="sys-row"><span class="k">Meta-Learner</span><span class="v">LGBM (10%)</span></div>
-      <div class="sys-row"><span class="k">Calibration</span><span class="v">Isotonic</span></div>
-      <div class="sys-row"><span class="k">MC Sims</span><span class="v">50,000</span></div>
-      <div class="sys-row"><span class="k">Trust</span><span class="v">Wilson Interval</span></div>
+      <h4>模型配置</h4>
+      <div class="sys-row"><span class="k">集成</span><span class="v">DC 60% + MC 40%</span></div>
+      <div class="sys-row"><span class="k">融合</span><span class="v">模型60 / 市场25 / DJYY15</span></div>
+      <div class="sys-row"><span class="k">元学习器</span><span class="v">LGBM (10%)</span></div>
+      <div class="sys-row"><span class="k">校准</span><span class="v">Isotonic</span></div>
+      <div class="sys-row"><span class="k">MC模拟</span><span class="v">50,000次</span></div>
+      <div class="sys-row"><span class="k">信任区间</span><span class="v">Wilson</span></div>
     </div>
   </div>"""
 
