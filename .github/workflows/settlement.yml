@@ -2,8 +2,8 @@ name: Settlement
 
 on:
   schedule:
-    # 北京时间 08:00（最晚比赛约05:00结束，出结果后2小时）= UTC 00:00
-    - cron: '0 0 * * *'
+    # 北京时间 10:00（确保所有比赛结果已出）= UTC 02:00
+    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       date:
