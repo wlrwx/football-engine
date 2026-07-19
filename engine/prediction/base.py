@@ -33,6 +33,9 @@ class MatchPrediction:
     handicap_home_prob: float = 0.0
     handicap_draw_prob: float = 0.0
     handicap_away_prob: float = 0.0
+    # Top-3 比分预测（蒙特卡洛输出）
+    top_scores: list = None
+    top_total_goals: list = None
     # 元数据
     model_name: str = ""
     confidence: float = 0.0

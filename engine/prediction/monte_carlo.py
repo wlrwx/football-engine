@@ -1,10 +1,11 @@
 """蒙特卡洛模拟模型 - 灵活处理复杂市场"""
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from .base import MatchPrediction, PredictionModel, TeamRating
+from .enhanced import build_seed, head_to_head_factor, top_score_predictions, top_total_goals
 
 
 @dataclass
@@ -51,13 +52,20 @@ class MonteCarloModel(PredictionModel):
         handicap: float | None = None,
         is_neutral: bool = False,
         is_knockout: bool = False,
+        h2h_history: list[dict] | None = None,
     ) -> MatchPrediction:
-        # 计算期望进球
-        home_xg, away_xg = self._expected_goals(home, away, is_neutral)
+        # 计算期望进球（含 H2H 调整）
+        h2h_factor = 1.0
+        if h2h_history:
+            h2h_factor = head_to_head_factor(home.name, away.name, h2h_history)
 
-        # 确定性种子（基于球队名 + xG，保证可复现）
-        seed = hash((home.name, away.name, round(home_xg, 2), round(away_xg, 2)))
-        rng = np.random.default_rng(abs(seed) % (2**32))
+        home_xg, away_xg = self._expected_goals(home, away, is_neutral, h2h_factor)
+
+        # 确定性种子（借鉴 lottery-football: 相同输入永远相同输出）
+        seed = build_seed(
+            f"{home.name}_{away.name}", home_xg, away_xg, self.cfg.simulations
+        )
+        rng = np.random.default_rng(seed % (2**32))
 
         # 蒙特卡洛模拟
         n = self.cfg.simulations
@@ -119,9 +127,9 @@ class MonteCarloModel(PredictionModel):
         )
 
     def _expected_goals(
-        self, home: TeamRating, away: TeamRating, is_neutral: bool
+        self, home: TeamRating, away: TeamRating, is_neutral: bool, h2h_factor: float = 1.0
     ) -> tuple[float, float]:
-        """计算期望进球（与 Dixon-Coles 共享逻辑）"""
+        """计算期望进球（含 H2H 调整）"""
         cfg = self.cfg
         base = math.log(cfg.base_goals)
         elo_term = (home.elo - away.elo) / 400 * cfg.elo_goal_weight
@@ -144,6 +152,13 @@ class MonteCarloModel(PredictionModel):
 
         home_xg = max(0.15, min(4.5, math.exp(log_home)))
         away_xg = max(0.15, min(4.5, math.exp(log_away)))
+
+        # H2H 调整：乘到主队，除到客队（借鉴 lottery-football）
+        home_xg *= h2h_factor
+        away_xg /= h2h_factor
+        home_xg = max(0.15, min(4.5, home_xg))
+        away_xg = max(0.15, min(4.5, away_xg))
+
         return home_xg, away_xg
 
     def time_decay_weight(self, days_ago: int) -> float:
