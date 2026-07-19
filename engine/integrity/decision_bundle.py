@@ -28,9 +28,16 @@ class DecisionBundle:
         config_strategy: dict,
         model_code_hashes: dict[str, str] | None = None,
     ) -> dict:
-        """创建决策包"""
+        """
+        创建决策包。同日多次运行自动递增版本号（v1, v2, ...）。
+        每个版本一旦写入不可篡改，但允许同一天有多个版本
+        （如 11:00 初判 = v1, 17:00 临场更新 = v2）。
+        """
+        # 确定版本号
+        version = self._next_version(date_str)
+
         bundle = {
-            "version": 1,
+            "version": version,
             "date": date_str,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "inputs": {
@@ -51,23 +58,39 @@ class DecisionBundle:
         bundle_content = json.dumps(bundle, sort_keys=True, ensure_ascii=False)
         bundle["bundle_sha256"] = hashlib.sha256(bundle_content.encode()).hexdigest()
 
-        # 原子写入（硬链接方式，防止覆盖）
-        bundle_path = self.output_dir / f"decision_bundle_{date_str}.json"
+        # 写入版本文件（不可变）
+        bundle_path = self.output_dir / f"decision_bundle_{date_str}_v{version}.json"
         if bundle_path.exists():
-            # 验证已有包是否一致
+            # 同版本同内容 → 幂等返回
             existing = json.loads(bundle_path.read_text())
-            if existing.get("bundle_sha256") != bundle["bundle_sha256"]:
-                raise ValueError(
-                    f"决策包冲突: {date_str} 已存在不同内容的决策包"
-                )
-            return existing
+            if existing.get("bundle_sha256") == bundle["bundle_sha256"]:
+                return existing
+            # 同版本不同内容 → 递增版本
+            version += 1
+            bundle["version"] = version
+            bundle_content = json.dumps(bundle, sort_keys=True, ensure_ascii=False)
+            bundle["bundle_sha256"] = hashlib.sha256(bundle_content.encode()).hexdigest()
+            bundle_path = self.output_dir / f"decision_bundle_{date_str}_v{version}.json"
 
-        # 写入临时文件再原子移动
+        # 原子写入
         tmp_path = bundle_path.with_suffix(".tmp")
         tmp_path.write_text(json.dumps(bundle, indent=2, ensure_ascii=False))
         os.replace(str(tmp_path), str(bundle_path))
 
+        # 更新 latest 指针
+        latest_path = self.output_dir / f"decision_bundle_{date_str}.json"
+        latest_tmp = latest_path.with_suffix(".tmp")
+        latest_tmp.write_text(json.dumps(bundle, indent=2, ensure_ascii=False))
+        os.replace(str(latest_tmp), str(latest_path))
+
         return bundle
+
+    def _next_version(self, date_str: str) -> int:
+        """查找当前日期的下一个版本号"""
+        version = 1
+        while (self.output_dir / f"decision_bundle_{date_str}_v{version}.json").exists():
+            version += 1
+        return version
 
     def verify(self, date_str: str) -> tuple[bool, str]:
         """验证决策包完整性"""
