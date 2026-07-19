@@ -164,6 +164,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     fusion_cfg.setdefault("combo_boost_cap", 0.03)
     fusion_cfg.setdefault("trust_shrink_enabled", True)
 
+    # 自我革新: 读取优化器冠军权重覆盖静态默认
+    from engine.learning.fusion_optimizer import FusionOptimizer, FusionWeights
+    from engine.review.post_match import ReviewLedger
+    _ledger = ReviewLedger(ROOT / "data" / "state" / "review_ledger.jsonl")
+    _fusion_opt = FusionOptimizer(ROOT / "data" / "state" / "fusion_weights.json", _ledger, pred_cfg.get("optimizer", {}))
+    _champion = _fusion_opt.get_champion()
+    fusion_cfg["model_weight"] = _champion.model
+    fusion_cfg["market_weight"] = _champion.market
+    fusion_cfg["djyy_weight"] = _champion.djyy
+    print(f"  融合权重(优化器): model={_champion.model:.3f} market={_champion.market:.3f} djyy={_champion.djyy:.3f}")
+
     predictions = []
     for fixture in fixtures:
         home_rating = elo_updater.get_rating(fixture.home_team)
@@ -684,6 +695,35 @@ def run_settlement(target_date: date):
     new_bankroll = bankroll + total_pnl
     cppi.update(new_bankroll)
     print(f"  ✓ 资产: {bankroll:.0f} → {new_bankroll:.0f}")
+
+    # 复盘 + 自我革新
+    print("\n[5/6] 赛后复盘...")
+    from engine.review.post_match import PostMatchReviewer, ReviewLedger
+    from engine.learning.fusion_optimizer import FusionOptimizer, FusionWeights
+
+    reviewer = PostMatchReviewer(ROOT / "data", pred_cfg.get("review", {}))
+    review_report = reviewer.review_day(target_date.isoformat())
+    if review_report.get("n_matches", 0) > 0:
+        print(f"  ✓ 复盘: {review_report['n_matches']}场, 命中率{review_report.get('hit_rate', 0):.0%}")
+        src_b = review_report.get("source_brier", {})
+        print(f"    Brier: model={src_b.get('model', '?')} market={src_b.get('market', '?')} djyy={src_b.get('djyy', '?')} final={src_b.get('final', '?')}")
+        for bias in review_report.get("biases", []):
+            print(f"    ⚠ 偏差: {bias['dimension']}:{bias['key']} {bias['outcome']} gap={bias['gap']:+.3f}")
+    else:
+        print(f"  - 无可复盘数据")
+
+    print("\n[6/6] 融合权重优化...")
+    ledger = ReviewLedger(ROOT / "data" / "state" / "review_ledger.jsonl")
+    fusion_opt = FusionOptimizer(
+        ROOT / "data" / "state" / "fusion_weights.json",
+        ledger,
+        pred_cfg.get("optimizer", {}),
+    )
+    decision = fusion_opt.step()
+    print(f"  决策: {decision.action} | 权重: {decision.champion}")
+    print(f"  原因: {decision.reason}")
+    if decision.guard_rails_applied:
+        print(f"  守卫: {decision.guard_rails_applied}")
 
     print(f"\n{'='*60}")
     print(f"  结算完成 ✓")
