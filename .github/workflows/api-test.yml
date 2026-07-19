@@ -121,7 +121,30 @@ jobs:
 
           print()
           print("=" * 50)
-          print("5. RUNNER IP INFO")
+          print("5. SINA LOTTERY (mix.lottery.sina.com.cn)")
+          print("=" * 50)
+          code, body = curl(
+              "https://mix.lottery.sina.com.cn/gateway/index/entry?format=json&__caller__=web&__version__=1.0.0&__verno__=1&cat1=jczqMatches&gameTypes=spf&date=2026-07-20&isPrized=&isAll=1&dpc=1",
+              {"User-Agent": UA, "Referer": "https://lottery.sina.com.cn/"}
+          )
+          print(f"HTTP: {code}")
+          if code == "200":
+              try:
+                  d = json.loads(body)
+                  matches = d.get("result", {}).get("data", [])
+                  print(f"OK - matches: {len(matches)}")
+                  if matches:
+                      m = matches[0]
+                      print(f"sample: {m.get('matchNo')} {m.get('team1')} vs {m.get('team2')}")
+                      print(f"spf: {m.get('spf')}, rqspf: {m.get('rqspf')}")
+              except Exception as e:
+                  print(f"Parse error: {e}, raw: {body[:200]}")
+          else:
+              print(f"BLOCKED! Body: {body[:300]}")
+
+          print()
+          print("=" * 50)
+          print("6. RUNNER IP INFO")
           print("=" * 50)
           code, body = curl("https://ipinfo.io/json")
           if code == "200":
