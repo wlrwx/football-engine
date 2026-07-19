@@ -243,6 +243,22 @@ body {{
 .prob-seg.d {{ background: linear-gradient(135deg, #4b5563, #6b7280); }}
 .prob-seg.a {{ background: linear-gradient(135deg, #dc2626, #ef4444); }}
 
+/* Prediction pick */
+.pred-pick {{
+  text-align: center; padding: 6px 0 2px; font-size: 0.82rem;
+}}
+.pick-label {{
+  font-size: 0.65rem; color: var(--dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px; margin-right: 6px;
+}}
+.pick-val {{
+  font-weight: 800; font-size: 0.88rem; padding: 2px 10px;
+  border-radius: 6px;
+}}
+.pick-val.home {{ color: var(--blue); background: rgba(59,130,246,0.1); }}
+.pick-val.draw {{ color: var(--text-secondary); background: rgba(107,114,128,0.15); }}
+.pick-val.away {{ color: var(--red); background: rgba(239,68,68,0.1); }}
+
 /* Collapsed info row */
 .match-info-row {{
   display: flex; align-items: center; justify-content: space-between;
@@ -608,6 +624,19 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {{
 </html>"""
 
 
+def _pred_pick(p):
+    """生成明确的预测结论"""
+    ph = p.get("home_win_prob") or 0
+    pd = p.get("draw_prob") or 0
+    pa = p.get("away_win_prob") or 0
+    if ph >= pd and ph >= pa:
+        return f'<span class="pick-label">预测</span> <span class="pick-val home">主胜 {ph:.0%}</span>'
+    elif pd >= ph and pd >= pa:
+        return f'<span class="pick-label">预测</span> <span class="pick-val draw">平局 {pd:.0%}</span>'
+    else:
+        return f'<span class="pick-label">预测</span> <span class="pick-val away">客胜 {pa:.0%}</span>'
+
+
 def _match_card(p, value_matches, idx):
     """Render a single match card with expandable detail tabs."""
     hp = p.get("home_win_prob", 0) * 100
@@ -652,6 +681,7 @@ def _match_card(p, value_matches, idx):
         <div class="prob-seg d" style="width:{dp:.1f}%">D {dp:.0f}%</div>
         <div class="prob-seg a" style="width:{ap:.1f}%">A {ap:.0f}%</div>
       </div>
+      <div class="pred-pick">{_pred_pick(p)}</div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot {conf_cls}"></span><b>{conf:.0%}</b></span>
         <span class="info-chip">xG <b>{xg_h:.2f} - {xg_a:.2f}</b></span>
