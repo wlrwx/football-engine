@@ -15,25 +15,36 @@ def build_site():
     web_dir = ROOT / "web"
     web_dir.mkdir(parents=True, exist_ok=True)
 
+    # 找最新有预测数据的日期（竞彩预测的是未来比赛）
+    daily_root = ROOT / "data" / "daily"
     today = date.today().isoformat()
-    daily_dir = ROOT / "data" / "daily" / today
+    target_date = today
+    if daily_root.exists():
+        dated_dirs = sorted(
+            [d.name for d in daily_root.iterdir() if d.is_dir() and (d / "predictions.json").exists()],
+            reverse=True,
+        )
+        if dated_dirs:
+            target_date = dated_dirs[0]
+
+    daily_dir = daily_root / target_date
 
     # 加载所有数据
     predictions = _load_json(daily_dir / "predictions.json", [])
-    bundle = _load_json(daily_dir / f"decision_bundle_{today}.json", {})
+    bundle = _load_json(daily_dir / f"decision_bundle_{target_date}.json", {})
     # 尝试带版本号
     if not bundle:
-        bundle = _load_json(daily_dir / f"decision_bundle_{today}_v1.json", {})
+        bundle = _load_json(daily_dir / f"decision_bundle_{target_date}_v1.json", {})
     ticket = _load_json(daily_dir / "ticket_plan.json", {})
     breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
     health = _load_json(web_dir / "health-status.json", {"healthy": True})
     results = _load_json(daily_dir / "results.json", [])
 
-    html = _render_html(today, predictions, bundle, ticket, breaker, health, results)
+    html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results)
     (web_dir / "index.html").write_text(html, encoding="utf-8")
 
     status = {
-        "date": today,
+        "date": target_date,
         "generated_at": datetime.now().isoformat(),
         "prediction_count": len(predictions),
         "bundle_hash": bundle.get("bundle_sha256", "")[:16],
