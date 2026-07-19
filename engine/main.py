@@ -41,6 +41,7 @@ from engine.integrity.plan_lock import PlanLock
 from engine.learning.elo_updater import EloUpdater
 from engine.learning.wilson_trust import TrustSystem
 from engine.learning.combo_miner import ComboMiner
+from engine.learning.online_weights import OnlineWeightLearner
 
 
 def load_config(name: str) -> dict:
@@ -83,12 +84,22 @@ def run_daily_pipeline(target_date: date):
     dc_cfg = DixonColesConfig(**{k: v for k, v in pred_cfg.get("prediction", {}).items()
                                   if k in DixonColesConfig.__dataclass_fields__})
     mc_cfg = MonteCarloConfig(simulations=pred_cfg.get("prediction", {}).get("monte_carlo_simulations", 50000))
-    weights = pred_cfg.get("ensemble", {"dixon_coles_weight": 0.6, "monte_carlo_weight": 0.4})
+    # 在线权重学习: 动态调整模型权重
+    weight_learner = OnlineWeightLearner(ROOT / "data" / "state" / "online_weights.json")
+    static_weights = pred_cfg.get("ensemble", {"dixon_coles_weight": 0.6, "monte_carlo_weight": 0.4})
+    default_w = {
+        "dixon_coles": static_weights.get("dixon_coles_weight", 0.6),
+        "monte_carlo": static_weights.get("monte_carlo_weight", 0.4),
+    }
+    dynamic_weights = weight_learner.get_weights(default=default_w)
+    print(f"  模型权重: DC={dynamic_weights.get('dixon_coles', 0.6):.3f}, "
+          f"MC={dynamic_weights.get('monte_carlo', 0.4):.3f} "
+          f"({'动态' if dynamic_weights != default_w else '静态'})")
+
     model = EnsembleModel(
         dc_config=dc_cfg,
         mc_config=mc_cfg,
-        weights={"dixon_coles": weights.get("dixon_coles_weight", 0.6),
-                 "monte_carlo": weights.get("monte_carlo_weight", 0.4)},
+        weights=dynamic_weights,
     )
 
     predictions = []
@@ -432,6 +443,35 @@ def run_settlement(target_date: date):
 
     print(f"  ✓ 命中 {wins}/{wins+losses}, PnL={total_pnl:.2f}")
     print(f"  熔断状态: {breaker.status_report()}")
+
+    # 在线权重学习反馈
+    print("\n[2.5/4] 在线权重学习更新...")
+    weight_learner = OnlineWeightLearner(ROOT / "data" / "state" / "online_weights.json")
+    for pred in predictions:
+        key = f"{pred['home_team']}_vs_{pred['away_team']}"
+        match_result = result_map.get(key)
+        if not match_result:
+            continue
+        if match_result.home_score > match_result.away_score:
+            actual_idx = 0  # home
+        elif match_result.home_score == match_result.away_score:
+            actual_idx = 1  # draw
+        else:
+            actual_idx = 2  # away
+
+        # Brier Score: sum of (prob - actual)^2 for all 3 outcomes
+        probs = [pred["home_win_prob"], pred["draw_prob"], pred["away_win_prob"]]
+        actuals = [0.0, 0.0, 0.0]
+        actuals[actual_idx] = 1.0
+        brier = sum((p - a) ** 2 for p, a in zip(probs, actuals))
+
+        best_sel_idx = probs.index(max(probs))
+        hit = best_sel_idx == actual_idx
+
+        # 更新ensemble整体表现（后续可扩展为per-model）
+        weight_learner.update("ensemble", brier=brier, hit=hit)
+
+    print(f"  ✓ 权重学习已更新: {weight_learner.get_weights()}")
 
     # 组合挖掘更新
     print("\n[3/4] 组合挖掘更新...")
