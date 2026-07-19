@@ -255,11 +255,14 @@ body {{
 }}
 .info-chip b {{ color: var(--text-secondary); font-weight: 600; }}
 .expand-icon {{
-  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
-  color: var(--dim); font-size: 0.75rem; transition: transform 0.3s;
-  border-radius: 4px; background: var(--surface2);
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 6px;
+  font-size: 0.68rem; font-weight: 600; color: var(--blue);
+  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
 }}
-.match.expanded .expand-icon {{ transform: rotate(180deg); }}
+.expand-icon:hover {{ background: rgba(59,130,246,0.2); border-color: var(--blue); }}
+.match.expanded .expand-icon {{ transform: none; color: var(--dim); background: var(--surface2); border-color: var(--border); }}
 
 /* ===== EXPANDED DETAIL PANEL ===== */
 .match-detail {{
@@ -599,7 +602,7 @@ def _match_card(p, value_matches, idx):
         <div class="match-meta">
           {'<span class="value-badge">价值精选</span>' if is_val else ''}
           <span class="match-id">{match_id.split('_', 1)[-1] if '_' in match_id else match_id}</span>
-          <span class="expand-icon">&#9660;</span>
+          <span class="expand-icon">详情 &#9660;</span>
         </div>
       </div>
       <div class="teams">
