@@ -330,28 +330,64 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "competition": pred.competition,
             "home_team": pred.home_team,
             "away_team": pred.away_team,
+            # 最终融合概率
             "home_win_prob": round(final_h, 4),
             "draw_prob": round(final_d, 4),
             "away_win_prob": round(final_a, 4),
+            # xG
             "home_xg": pred.home_xg,
             "away_xg": pred.away_xg,
+            # 市场赔率
             "home_odds": fixture.home_odds,
             "draw_odds": fixture.draw_odds,
             "away_odds": fixture.away_odds,
             "handicap": fixture.handicap,
+            # 置信度
             "confidence": round(pred.confidence * trust_score, 4),
-            "combo_boost": combo_boost,
+            "wilson_trust": round(trust_score, 4),
+            # 模型信号分解
+            "model_raw": {
+                "home": round(pred.home_win_prob, 4),
+                "draw": round(pred.draw_prob, 4),
+                "away": round(pred.away_win_prob, 4),
+            },
+            "market_fair": (
+                [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
+            ),
+            # 概率分布（MC模拟）
+            "top_scores": getattr(pred, "top_scores", None),
+            "total_goals": getattr(pred, "top_total_goals", None),
+            # 逆向赔率
             "reverse_upset_risk": (
                 reverse_result.direction.upset_risk if reverse_result else None
             ),
+            "reverse_direction": (
+                reverse_result.direction.label if reverse_result and hasattr(reverse_result.direction, 'label') else None
+            ),
+            "reverse_compression": (
+                round(reverse_result.compression_ratio, 3) if reverse_result and hasattr(reverse_result, 'compression_ratio') else None
+            ),
+            # 同赔分析
             "same_odds_matched": (
                 same_odds_result.matched_count if same_odds_result else 0
             ),
-            # DJYY增强追踪
+            "same_odds_confidence": (
+                round(same_odds_result.confidence, 3) if same_odds_result else 0
+            ),
+            "same_odds_bias": (
+                [round(same_odds_result.home_bias, 3), round(same_odds_result.draw_bias, 3), round(same_odds_result.away_bias, 3)]
+                if same_odds_result else None
+            ),
+            # 组合加分
+            "combo_boost": combo_boost,
+            # DJYY增强
             "djyy_enriched": bool(djyy_probs and djyy_probs.get("home")),
             "djyy_model_prob": (
                 djyy_probs if djyy_probs and djyy_probs.get("home") else None
             ),
+            # Elo
+            "elo_home": round(home_rating.rating, 1) if hasattr(home_rating, 'rating') else 1500,
+            "elo_away": round(away_rating.rating, 1) if hasattr(away_rating, 'rating') else 1500,
         })
 
     print(f"  ✓ 完成 {len(predictions)} 场预测（含增强分析）")
