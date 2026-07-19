@@ -61,6 +61,22 @@ class MonteCarloModel(PredictionModel):
 
         home_xg, away_xg = self._expected_goals(home, away, is_neutral, h2h_factor)
 
+        # 市场赔率校准xG：当球队缺少真实ratings时用赔率反推
+        is_default_home = (home.elo == 1500.0 and home.attack == 1.0)
+        is_default_away = (away.elo == 1500.0 and away.attack == 1.0)
+        if market_odds and (is_default_home or is_default_away):
+            odds_xg = self._xg_from_odds(market_odds)
+            if odds_xg:
+                if is_default_home and is_default_away:
+                    home_xg, away_xg = odds_xg
+                elif is_default_home:
+                    # 只校准缺失的一方，保持另一方的模型xG
+                    away_xg = odds_xg[1]
+                    home_xg = odds_xg[0] * (home_xg / max(0.3, odds_xg[0]))
+                else:
+                    home_xg = odds_xg[0]
+                    away_xg = odds_xg[1] * (away_xg / max(0.3, odds_xg[1]))
+
         # 确定性种子（借鉴 lottery-football: 相同输入永远相同输出）
         seed = build_seed(
             f"{home.name}_{away.name}", home_xg, away_xg, self.cfg.simulations
@@ -130,6 +146,38 @@ class MonteCarloModel(PredictionModel):
             top_total_goals=totals,
             model_name=self.name,
             confidence=round(float(max(home_win_prob, draw_prob, away_win_prob)), 4),
+        )
+
+    @staticmethod
+    def _xg_from_odds(market_odds: tuple[float, float, float]) -> tuple[float, float] | None:
+        """从市场赔率反推xG（用于缺少ratings的球队）
+        
+        原理: 平局概率与总进球强相关(高平局率=低进球),
+        主客胜率比例决定进球分配。
+        """
+        oh, od, oa = market_odds
+        if oh <= 1.0 or od <= 1.0 or oa <= 1.0:
+            return None
+
+        # 去水: 简单归一化
+        imp_h, imp_d, imp_a = 1.0 / oh, 1.0 / od, 1.0 / oa
+        total_imp = imp_h + imp_d + imp_a
+        ph = imp_h / total_imp
+        pd = imp_d / total_imp
+        pa = imp_a / total_imp
+
+        # 平局概率 → 总进球 (经验公式: pd≈0.30→2.0球, pd≈0.20→3.0球)
+        total_goals = max(1.2, min(4.0, 4.2 - 6.5 * pd))
+
+        # 主客胜率比例 → 进球分配
+        # 加入主场优势微调(+0.15)
+        home_share = (ph + 0.05) / (ph + pa + 0.10)
+        home_xg = total_goals * home_share
+        away_xg = total_goals * (1 - home_share)
+
+        return (
+            max(0.2, min(3.5, round(home_xg, 3))),
+            max(0.2, min(3.5, round(away_xg, 3))),
         )
 
     def _expected_goals(
