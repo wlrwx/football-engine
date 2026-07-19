@@ -3,128 +3,347 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>竞彩分析 - 2026-07-20</title>
+<title>Football Engine - 2026-07-20</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1419; color: #e7e9ea; padding: 20px; }
-.container { max-width: 900px; margin: 0 auto; }
-h1 { font-size: 1.5rem; margin-bottom: 8px; }
-.subtitle { color: #71767b; font-size: 0.9rem; margin-bottom: 24px; }
-.health { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; margin-bottom: 16px; }
-.health.ok { background: #0d3320; color: #4ade80; }
-.health.warn { background: #3d2000; color: #fbbf24; }
-.card { background: #1a1f26; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #2f3336; }
-.match-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.league { font-size: 0.75rem; color: #71767b; background: #2f3336; padding: 2px 8px; border-radius: 4px; }
-.conf { font-size: 0.75rem; font-weight: 600; }
-.conf.high { color: #4ade80; }
-.conf.medium { color: #fbbf24; }
-.conf.low { color: #71767b; }
-.teams { display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 1.1rem; font-weight: 600; margin: 8px 0; }
-.vs { color: #71767b; font-size: 0.8rem; }
-.prob-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin: 8px 0; font-size: 0.7rem; }
-.seg { display: flex; align-items: center; justify-content: center; min-width: 30px; }
-.seg.home { background: #1d4ed8; }
-.seg.draw { background: #4b5563; }
-.seg.away { background: #dc2626; }
-.meta { font-size: 0.75rem; color: #71767b; }
-.footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #2f3336; font-size: 0.75rem; color: #71767b; }
-.empty { text-align: center; padding: 60px 20px; color: #71767b; }
+:root {
+  --bg: #0a0e13; --surface: #131920; --surface2: #1a222c;
+  --border: #2a3440; --text: #e8ecf0; --dim: #8899a6;
+  --blue: #3b82f6; --red: #ef4444; --green: #22c55e;
+  --amber: #f59e0b; --purple: #a855f7;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+/* Header */
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px; }
+.header .sub { color: var(--dim); font-size: 0.82rem; margin-top: 4px; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px; }
+.badge.ok { background: #0d3320; color: var(--green); }
+.badge.warn { background: #3d2000; color: var(--amber); }
+
+/* Stats bar */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.stat .label { font-size: 0.68rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat .value { font-size: 1.3rem; font-weight: 700; margin-top: 2px; }
+.stat .value.green { color: var(--green); }
+.stat .value.amber { color: var(--amber); }
+.stat .value.red { color: var(--red); }
+
+/* Section titles */
+.section-title { font-size: 0.9rem; font-weight: 600; margin: 28px 0 12px; padding-left: 10px; border-left: 3px solid var(--blue); }
+
+/* Match cards */
+.match { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 10px; transition: border-color .2s; }
+.match:hover { border-color: var(--blue); }
+.match.value-pick { border-left: 3px solid var(--green); }
+.match-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.league-tag { font-size: 0.7rem; color: var(--dim); background: var(--surface2); padding: 2px 8px; border-radius: 4px; }
+.match-id { font-size: 0.68rem; color: var(--dim); }
+.teams { display: flex; justify-content: center; align-items: center; gap: 16px; margin: 6px 0 12px; }
+.team { font-size: 1.05rem; font-weight: 600; min-width: 80px; }
+.team.home { text-align: right; }
+.team.away { text-align: left; }
+.vs { color: var(--dim); font-size: 0.75rem; }
+
+/* Prob bar */
+.prob-row { display: flex; height: 26px; border-radius: 6px; overflow: hidden; margin: 8px 0; }
+.prob-seg { display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 600; color: #fff; min-width: 36px; }
+.prob-seg.h { background: var(--blue); }
+.prob-seg.d { background: #4b5563; }
+.prob-seg.a { background: var(--red); }
+
+/* Detail grid */
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 10px; }
+.detail { font-size: 0.72rem; color: var(--dim); }
+.detail b { color: var(--text); font-weight: 600; }
+.detail .val { color: var(--green); }
+.detail .risk { color: var(--red); }
+
+/* Confidence meter */
+.conf-meter { display: inline-flex; align-items: center; gap: 4px; }
+.conf-dot { width: 8px; height: 8px; border-radius: 50%; }
+.conf-dot.high { background: var(--green); }
+.conf-dot.med { background: var(--amber); }
+.conf-dot.low { background: var(--dim); }
+
+/* Ticket section */
+.ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.ticket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.ticket-card h4 { font-size: 0.8rem; margin-bottom: 8px; }
+.ticket-card h4.stable { color: var(--green); }
+.ticket-card h4.value { color: var(--blue); }
+.ticket-card h4.lottery { color: var(--purple); }
+.ticket-item { display: flex; justify-content: space-between; font-size: 0.75rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.ticket-item:last-child { border-bottom: none; }
+.ticket-empty { font-size: 0.75rem; color: var(--dim); font-style: italic; }
+
+/* System panel */
+.sys-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.sys-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.sys-card h4 { font-size: 0.78rem; color: var(--dim); margin-bottom: 8px; }
+.sys-row { display: flex; justify-content: space-between; font-size: 0.75rem; padding: 3px 0; }
+.sys-row .k { color: var(--dim); }
+.hash { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.68rem; color: var(--purple); word-break: break-all; }
+
+/* Footer */
+.footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--dim); }
+.footer a { color: var(--blue); text-decoration: none; }
+
+@media (max-width: 600px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .detail-grid { grid-template-columns: 1fr 1fr; }
+  .teams { gap: 8px; }
+  .team { font-size: 0.9rem; min-width: 60px; }
+}
 </style>
 </head>
 <body>
-<div class="container">
-    <h1>竞彩足球概率分析</h1>
-    <div class="subtitle">2026-07-20 | 4 场比赛 | Dixon-Coles + Monte Carlo 集成模型</div>
-    <span class="health ok">✓ 正常</span>
-
-    
-        <div class="card">
-            <div class="match-header">
-                <span class="league">芬超</span>
-                <span class="conf low">11%</span>
-            </div>
-            <div class="teams">
-                <span class="home">TPS图尔</span>
-                <span class="vs">vs</span>
-                <span class="away">坦山猫</span>
-            </div>
-            <div class="prob-bar">
-                <div class="seg home" style="width:39.0%">主 39%</div>
-                <div class="seg draw" style="width:25.2%">平 25%</div>
-                <div class="seg away" style="width:35.8%">客 36%</div>
-            </div>
-            <div class="meta">
-                xG: 1.65 - 1.49
-                | 赔率: 2.44/3.4/2.35
-            </div>
-        </div>
-        <div class="card">
-            <div class="match-header">
-                <span class="league">芬超</span>
-                <span class="conf low">11%</span>
-            </div>
-            <div class="teams">
-                <span class="home">玛丽港</span>
-                <span class="vs">vs</span>
-                <span class="away">拉赫蒂</span>
-            </div>
-            <div class="prob-bar">
-                <div class="seg home" style="width:28.5%">主 29%</div>
-                <div class="seg draw" style="width:24.6%">平 25%</div>
-                <div class="seg away" style="width:46.9%">客 47%</div>
-            </div>
-            <div class="meta">
-                xG: 1.37 - 1.36
-                | 赔率: 5.25/4.1/1.44
-            </div>
-        </div>
-        <div class="card">
-            <div class="match-header">
-                <span class="league">瑞超</span>
-                <span class="conf low">20%</span>
-            </div>
-            <div class="teams">
-                <span class="home">厄格里特</span>
-                <span class="vs">vs</span>
-                <span class="away">佐加顿斯</span>
-            </div>
-            <div class="prob-bar">
-                <div class="seg home" style="width:46.0%">主 46%</div>
-                <div class="seg draw" style="width:17.6%">平 18%</div>
-                <div class="seg away" style="width:36.4%">客 36%</div>
-            </div>
-            <div class="meta">
-                xG: 2.39 - 0.92
-                | 赔率: 6.6/5.25/1.27
-            </div>
-        </div>
-        <div class="card">
-            <div class="match-header">
-                <span class="league">瑞超</span>
-                <span class="conf low">27%</span>
-            </div>
-            <div class="teams">
-                <span class="home">卡尔马</span>
-                <span class="vs">vs</span>
-                <span class="away">马尔默</span>
-            </div>
-            <div class="prob-bar">
-                <div class="seg home" style="width:59.5%">主 59%</div>
-                <div class="seg draw" style="width:20.8%">平 21%</div>
-                <div class="seg away" style="width:19.7%">客 20%</div>
-            </div>
-            <div class="meta">
-                xG: 2.27 - 0.62
-                | 赔率: 2.3/3.45/2.47
-            </div>
-        </div>
-
-    <div class="footer">
-        <p>模型: Dixon-Coles (60%) + Monte Carlo 50K (40%) | 市场混合: 28%</p>
-        <p>决策包: e8e0201b1bd2c3aa983d75b49a939761...</p>
-        <p>仅供研究学习，不构成投注建议。</p>
+<div class="page">
+  <div class="header">
+    <div>
+      <h1>Football Engine</h1>
+      <div class="sub">2026-07-20 | DC+MC集成 | Shin去水 | 逆向赔率 | 四源融合</div>
     </div>
+    <span class="badge ok">SYSTEM ONLINE</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Matches</div><div class="value">7</div></div>
+    <div class="stat"><div class="label">Value Bets</div><div class="value green">1</div></div>
+    <div class="stat"><div class="label">Avg Conf</div><div class="value">11%</div></div>
+    <div class="stat"><div class="label">Total Stake</div><div class="value amber">&yen;1700</div></div>
+    <div class="stat"><div class="label">Exp ROI</div><div class="value green">1.42x</div></div>
+    <div class="stat"><div class="label">Breaker</div><div class="value green">T0 x0.9</div></div>
+  </div>
+
+  <div class="section-title">Match Predictions</div>
+  
+  <div class="match value-pick">
+    <div class="match-top">
+      <span class="league-tag">世界杯</span>
+      <span class="match-id">周日104</span>
+    </div>
+    <div class="teams">
+      <span class="team home">西班牙</span>
+      <span class="vs">VS</span>
+      <span class="team away">阿根廷</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:49.0%">H 49%</div>
+      <div class="prob-seg d" style="width:21.1%">D 21%</div>
+      <div class="prob-seg a" style="width:29.9%">A 30%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>17%</b></span></div>
+      <div class="detail">xG: <b>4.50</b> - <b>3.74</b></div>
+      <div class="detail">Odds: <b>2.2/3.0/3.7</b></div>
+      <div class="detail">Edge(H): <b class="val">+3.6%</b></div>
+      <div class="detail">Upset Risk: <b class="risk">52%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      
+      <div class="detail"><b class="val">VALUE PICK</b></div>
+    </div>
+  </div>
+  <div class="match ">
+    <div class="match-top">
+      <span class="league-tag">K1联赛</span>
+      <span class="match-id">周日202</span>
+    </div>
+    <div class="teams">
+      <span class="team home">安养FC</span>
+      <span class="vs">VS</span>
+      <span class="team away">光州FC</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:46.9%">H 47%</div>
+      <div class="prob-seg d" style="width:25.0%">D 25%</div>
+      <div class="prob-seg a" style="width:28.1%">A 28%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>12%</b></span></div>
+      <div class="detail">xG: <b>1.65</b> - <b>1.49</b></div>
+      <div class="detail">Odds: <b>1.65/3.6/4.75</b></div>
+      <div class="detail">Edge(H): <b class="">-13.7%</b></div>
+      <div class="detail">Upset Risk: <b class="risk">41%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      
+      
+    </div>
+  </div>
+  <div class="match ">
+    <div class="match-top">
+      <span class="league-tag">瑞典超</span>
+      <span class="match-id">周日205</span>
+    </div>
+    <div class="teams">
+      <span class="team home">哈马比</span>
+      <span class="vs">VS</span>
+      <span class="team away">代格福什</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:48.1%">H 48%</div>
+      <div class="prob-seg d" style="width:20.3%">D 20%</div>
+      <div class="prob-seg a" style="width:31.6%">A 32%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>12%</b></span></div>
+      <div class="detail">xG: <b>1.25</b> - <b>1.78</b></div>
+      <div class="detail">Odds: <b>1.2/6.5/15.0</b></div>
+      <div class="detail">Edge(H): <b class="">-35.2%</b></div>
+      <div class="detail">Upset Risk: <b class="">20%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      
+      
+    </div>
+  </div>
+  <div class="match ">
+    <div class="match-top">
+      <span class="league-tag">K1联赛</span>
+      <span class="match-id">周日201</span>
+    </div>
+    <div class="teams">
+      <span class="team home">富川FC</span>
+      <span class="vs">VS</span>
+      <span class="team away">首尔FC</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:31.1%">H 31%</div>
+      <div class="prob-seg d" style="width:24.9%">D 25%</div>
+      <div class="prob-seg a" style="width:44.0%">A 44%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span></div>
+      <div class="detail">xG: <b>1.65</b> - <b>1.49</b></div>
+      <div class="detail">Odds: <b>5.5/3.6/1.57</b></div>
+      <div class="detail">Edge(H): <b class="val">+12.9%</b></div>
+      <div class="detail">Upset Risk: <b class="risk">52%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      
+      
+    </div>
+  </div>
+  <div class="match ">
+    <div class="match-top">
+      <span class="league-tag">瑞典超</span>
+      <span class="match-id">周日204</span>
+    </div>
+    <div class="teams">
+      <span class="team home">哈尔姆斯</span>
+      <span class="vs">VS</span>
+      <span class="team away">赫根</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:31.2%">H 31%</div>
+      <div class="prob-seg d" style="width:25.4%">D 25%</div>
+      <div class="prob-seg a" style="width:43.4%">A 43%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span></div>
+      <div class="detail">xG: <b>1.41</b> - <b>1.17</b></div>
+      <div class="detail">Odds: <b>5.25/4.2/1.57</b></div>
+      <div class="detail">Edge(H): <b class="val">+12.2%</b></div>
+      <div class="detail">Upset Risk: <b class="risk">50%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      <div class="detail">DJYY: 26/25/49%</div>
+      
+    </div>
+  </div>
+  <div class="match ">
+    <div class="match-top">
+      <span class="league-tag">芬超</span>
+      <span class="match-id">周日206</span>
+    </div>
+    <div class="teams">
+      <span class="team home">雅罗</span>
+      <span class="vs">VS</span>
+      <span class="team away">国际图尔</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:33.6%">H 34%</div>
+      <div class="prob-seg d" style="width:24.9%">D 25%</div>
+      <div class="prob-seg a" style="width:41.5%">A 42%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span></div>
+      <div class="detail">xG: <b>1.65</b> - <b>1.49</b></div>
+      <div class="detail">Odds: <b>3.9/3.6/1.75</b></div>
+      <div class="detail">Edge(H): <b class="val">+8.0%</b></div>
+      <div class="detail">Upset Risk: <b class="risk">52%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      
+      
+    </div>
+  </div>
+  <div class="match ">
+    <div class="match-top">
+      <span class="league-tag">瑞典超</span>
+      <span class="match-id">周日203</span>
+    </div>
+    <div class="teams">
+      <span class="team home">埃夫斯堡</span>
+      <span class="vs">VS</span>
+      <span class="team away">天狼星</span>
+    </div>
+    <div class="prob-row">
+      <div class="prob-seg h" style="width:34.2%">H 34%</div>
+      <div class="prob-seg d" style="width:25.3%">D 25%</div>
+      <div class="prob-seg a" style="width:40.5%">A 40%</div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail">Confidence: <span class="conf-meter"><span class="conf-dot low"></span><b>8%</b></span></div>
+      <div class="detail">xG: <b>1.64</b> - <b>1.54</b></div>
+      <div class="detail">Odds: <b>3.6/3.6/2.0</b></div>
+      <div class="detail">Edge(H): <b class="val">+6.5%</b></div>
+      <div class="detail">Upset Risk: <b class="risk">54%</b></div>
+      <div class="detail">Same-Odds: <b>0</b> hits</div>
+      
+      
+    </div>
+  </div>
+
+  
+  <div class="section-title">Betting Plan (三票制 60/30/10)</div>
+  <div class="ticket-grid">
+    <div class="ticket-card"><h4 class="stable">稳胆 (60%)</h4><div class="ticket-empty">None</div></div>
+    <div class="ticket-card"><h4 class="value">搏冷 (30%)</h4><div class="ticket-item"><span>西班牙 vs 阿根廷 [主胜]</span><span>@2.20 / &yen;800</span></div></div>
+    <div class="ticket-card"><h4 class="lottery">彩票 (10%)</h4><div class="ticket-item"><span>哈马比 vs 代格福什 [客胜]</span><span>@15.00 / &yen;566</span></div><div class="ticket-item"><span>富川FC vs 首尔FC [主胜]</span><span>@5.50 / &yen;334</span></div></div>
+  </div>
+
+  
+  <div class="section-title">System Status</div>
+  <div class="sys-grid">
+    <div class="sys-card">
+      <h4>CIRCUIT BREAKER</h4>
+      <div class="sys-row"><span class="k">Tier</span><span>0 (x0.90)</span></div>
+      <div class="sys-row"><span class="k">Streak</span><span>+0</span></div>
+      <div class="sys-row"><span class="k">Win Rate</span><span>0.0% (0W/0L)</span></div>
+      <div class="sys-row"><span class="k">Daily PnL</span><span>&yen;+0</span></div>
+      <div class="sys-row"><span class="k">Weekly PnL</span><span>&yen;+0</span></div>
+    </div>
+    <div class="sys-card">
+      <h4>DECISION INTEGRITY</h4>
+      <div class="sys-row"><span class="k">Created</span><span>2026-07-20T05:40:00</span></div>
+      <div class="sys-row"><span class="k">Version</span><span>1</span></div>
+      <div class="hash">SHA-256: 9ebb17967fd837d7c64a82406979dd6bac108d84c808bf2b987caa8efc85c540</div>
+    </div>
+    <div class="sys-card">
+      <h4>MODEL CONFIG</h4>
+      <div class="sys-row"><span class="k">Ensemble</span><span>DC 60% + MC 40%</span></div>
+      <div class="sys-row"><span class="k">Fusion</span><span>Model 60 / Market 25 / DJYY 15</span></div>
+      <div class="sys-row"><span class="k">LGBM</span><span>Cold start (&lt;500 samples)</span></div>
+      <div class="sys-row"><span class="k">Calibration</span><span>Isotonic (pending)</span></div>
+      <div class="sys-row"><span class="k">MC Sims</span><span>50,000</span></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Prediction Chain: Dixon-Coles(60%) + Monte Carlo 50K(40%) &rarr; Shin Devig &rarr; Reverse Odds &rarr; Same-Odds &rarr; Fusion(Model 60% + Market 25% + DJYY 15%) &rarr; LGBM(10%) &rarr; Isotonic &rarr; Wilson</p>
+    <p style="margin-top:6px;">Data: Sporttery / Sina / 500wan / DJYY | Zero-server GitHub Actions | <a href="https://github.com/wlrwx/football-engine">Source</a></p>
+    <p style="margin-top:6px;">仅供研究学习，不构成投注建议。</p>
+  </div>
 </div>
 </body>
 </html>
