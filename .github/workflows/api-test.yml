@@ -1,0 +1,119 @@
+name: API Connectivity Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/api-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  connectivity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Sporttery API
+        id: sporttery
+        run: |
+          echo "=== Sporttery (webapi.sporttery.cn) ==="
+          HTTP_CODE=$(curl -s -o /tmp/st.json -w "%{http_code}" --max-time 15 \
+            "https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry?channel=c" \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Referer: https://www.sporttery.cn/")
+          echo "HTTP: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            python3 -c "
+import json
+d = json.load(open('/tmp/st.json'))
+v = d.get('value', {})
+ml = v.get('matchInfoList', [])
+total = sum(len(day.get('subMatchList',[])) for day in ml) if isinstance(ml, list) else 0
+print(f'matchInfoList days: {len(ml) if isinstance(ml,list) else \"?\"}, total matches: {total}')
+if isinstance(ml, list) and ml:
+    subs = ml[0].get('subMatchList',[])
+    if subs:
+        m = subs[0]
+        print(f'sample: {m.get(\"matchNumStr\")} {m.get(\"homeTeamAbbName\")} vs {m.get(\"awayTeamAbbName\")}')
+"
+          else
+            echo "BLOCKED or ERROR"
+            head -c 500 /tmp/st.json
+          fi
+
+      - name: Test 500wan live list
+        id: wancai
+        run: |
+          echo "=== 500wan (live.500.com) ==="
+          HTTP_CODE=$(curl -s -o /tmp/live.html -w "%{http_code}" --max-time 15 \
+            "https://live.500.com/" \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Referer: https://live.500.com/")
+          echo "HTTP: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            python3 -c "
+import re
+raw = open('/tmp/live.html','rb').read()
+text = raw.decode('gbk', errors='replace')
+fids = re.findall(r'fid=\"(\d+)\"', text)
+print(f'GBK decode OK, fid count: {len(fids)}')
+if fids: print(f'sample fids: {fids[:5]}')
+"
+          else
+            echo "BLOCKED or ERROR"
+            head -c 500 /tmp/live.html
+          fi
+
+      - name: Test 500wan odds API
+        id: odds
+        run: |
+          echo "=== 500wan odds (odds.500.com) ==="
+          HTTP_CODE=$(curl -s -o /tmp/odds.json -w "%{http_code}" --max-time 15 \
+            "https://odds.500.com/json/odds.php?fid=1359167&cid=3&type=europe" \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Referer: https://odds.500.com/" \
+            -H "X-Requested-With: XMLHttpRequest")
+          echo "HTTP: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            python3 -c "
+import json
+d = json.load(open('/tmp/odds.json'))
+if isinstance(d, list) and d:
+    print(f'odds rows: {len(d)}, sample: {d[0]}')
+else:
+    print(f'response type: {type(d).__name__}, content: {str(d)[:200]}')
+"
+          else
+            echo "BLOCKED or ERROR"
+            head -c 500 /tmp/odds.json
+          fi
+
+      - name: Test DJYY API
+        id: djyy
+        run: |
+          echo "=== DJYY (djyylive.com) ==="
+          HTTP_CODE=$(curl -s -o /tmp/djyy.json -w "%{http_code}" --max-time 15 \
+            "https://djyylive.com/api/leagues/fixtures?date_from=2026-07-20&date_to=2026-07-21&category=all" \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+          echo "HTTP: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            python3 -c "
+import json
+d = json.load(open('/tmp/djyy.json'))
+if isinstance(d, list):
+    print(f'fixtures: {len(d)}')
+    if d: print(f'sample keys: {list(d[0].keys())[:8]}')
+else:
+    print(f'type: {type(d).__name__}, keys: {list(d.keys())[:8] if isinstance(d,dict) else \"?\"} ')
+"
+          else
+            echo "BLOCKED or ERROR"
+            head -c 500 /tmp/djyy.json
+          fi
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "========== SUMMARY =========="
+          echo "Runner IP region: $(curl -s --max-time 5 https://ipinfo.io/json | python3 -c 'import sys,json;d=json.load(sys.stdin);print(f\"{d.get(\"country\")}/{d.get(\"region\")}/{d.get(\"city\")} IP={d.get(\"ip\")}\")' 2>/dev/null || echo 'unknown')"
+          echo "============================="
