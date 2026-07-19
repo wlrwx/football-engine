@@ -27,7 +27,8 @@ from engine.prediction.dixon_coles import DixonColesConfig
 from engine.prediction.monte_carlo import MonteCarloConfig
 from engine.prediction.base import TeamRating
 from engine.prediction.calibration import (
-    shin_devig,
+    devig_shin,
+    select_devig_method,
     multi_market_calibration,
     MarketOdds,
 )
@@ -102,6 +103,15 @@ def run_daily_pipeline(target_date: date):
         weights=dynamic_weights,
     )
 
+    # 融合参数（可由 param_optimizer 自动调整，不写死）
+    fusion_cfg = pred_cfg.get("fusion", {})
+    fusion_cfg.setdefault("model_weight", 0.7)
+    fusion_cfg.setdefault("market_weight", 0.3)
+    fusion_cfg.setdefault("same_odds_max_adjust", 0.05)
+    fusion_cfg.setdefault("same_odds_min_confidence", 0.3)
+    fusion_cfg.setdefault("combo_boost_cap", 0.03)
+    fusion_cfg.setdefault("trust_shrink_enabled", True)
+
     predictions = []
     for fixture in fixtures:
         home_rating = elo_updater.get_rating(fixture.home_team)
@@ -123,7 +133,7 @@ def run_daily_pipeline(target_date: date):
         # --- 增强: Shin去水 + 多市场校准 ---
         calibrated_probs = None
         if market_odds:
-            fair_probs = shin_devig(*market_odds)
+            fair_probs = select_devig_method(list(market_odds))
             # 多市场KL校准（如果有让球/大小球赔率）
             if fixture.handicap is not None:
                 try:
@@ -177,27 +187,29 @@ def run_daily_pipeline(target_date: date):
         )
 
         # 综合概率（融合校准概率 + 模型概率 + 同赔偏差 + 组合加分）
+        # 所有融合参数从 config/prediction.json["fusion"] 读取，可由优化器自动调整
         final_h, final_d, final_a = pred.home_win_prob, pred.draw_prob, pred.away_win_prob
         if calibrated_probs:
-            # 加权融合: 70%模型 + 30%市场校准
-            final_h = 0.7 * pred.home_win_prob + 0.3 * calibrated_probs[0]
-            final_d = 0.7 * pred.draw_prob + 0.3 * calibrated_probs[1]
-            final_a = 0.7 * pred.away_win_prob + 0.3 * calibrated_probs[2]
+            mw = fusion_cfg["model_weight"]
+            kw = fusion_cfg["market_weight"]
+            final_h = mw * pred.home_win_prob + kw * calibrated_probs[0]
+            final_d = mw * pred.draw_prob + kw * calibrated_probs[1]
+            final_a = mw * pred.away_win_prob + kw * calibrated_probs[2]
 
-        # 同赔偏差微调（最多±5%）
-        if same_odds_result and same_odds_result.confidence > 0.3:
-            adj_strength = 0.05 * same_odds_result.confidence
+        # 同赔偏差微调
+        if same_odds_result and same_odds_result.confidence > fusion_cfg["same_odds_min_confidence"]:
+            adj_strength = fusion_cfg["same_odds_max_adjust"] * same_odds_result.confidence
             final_h += same_odds_result.home_bias * adj_strength
             final_d += same_odds_result.draw_bias * adj_strength
             final_a += same_odds_result.away_bias * adj_strength
 
-        # 组合挖掘加分（最多+3%给最优选项）
+        # 组合挖掘加分
         if combo_boost > 0:
             best_sel = max(
                 [("H", final_h), ("D", final_d), ("A", final_a)],
                 key=lambda x: x[1],
             )
-            boost_amount = min(combo_boost, 0.03)
+            boost_amount = min(combo_boost, fusion_cfg["combo_boost_cap"])
             if best_sel[0] == "H":
                 final_h += boost_amount
             elif best_sel[0] == "D":
