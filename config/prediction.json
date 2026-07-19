@@ -1,0 +1,29 @@
+{
+  "prediction": {
+    "base_goals": 1.35,
+    "elo_goal_weight": 0.62,
+    "attack_weight": 1.0,
+    "defense_weight": 0.9,
+    "form_weight": 0.65,
+    "injury_weight": 1.0,
+    "rest_weight": 0.035,
+    "home_adv_weight": 1.0,
+    "market_blend_weight": 0.28,
+    "dixon_coles_rho": -0.10,
+    "max_goals": 10,
+    "monte_carlo_simulations": 50000,
+    "time_decay_anchors": [
+      [0, 1.0],
+      [7, 0.987],
+      [30, 0.946],
+      [90, 0.844],
+      [180, 0.712],
+      [365, 0.507],
+      [730, 0.258]
+    ]
+  },
+  "ensemble": {
+    "dixon_coles_weight": 0.6,
+    "monte_carlo_weight": 0.4
+  }
+}

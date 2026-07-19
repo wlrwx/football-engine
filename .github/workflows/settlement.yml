@@ -1,0 +1,49 @@
+name: Settlement
+
+on:
+  schedule:
+    # 北京时间 14:00 = UTC 06:00（结算前一天比赛）
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Settlement date (YYYY-MM-DD)'
+        required: false
+
+concurrency:
+  group: sporttery-engine
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt --quiet
+
+      - name: Run settlement + Elo update
+        run: |
+          DATE="${{ github.event.inputs.date || '' }}"
+          if [ -z "$DATE" ]; then
+            # 默认结算昨天
+            python -m engine.main --settle --date "$(date -d 'yesterday' +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)"
+          else
+            python -m engine.main --settle --date "$DATE"
+          fi
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "settle: $(date +%Y-%m-%d)"
+          git push

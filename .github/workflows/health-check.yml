@@ -1,0 +1,76 @@
+name: Health Check
+
+on:
+  schedule:
+    # 每天北京时间 18:00 = UTC 10:00 检查当天是否正常
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check pipeline health
+        id: health
+        run: |
+          python -c "
+          import json, sys
+          from pathlib import Path
+          from datetime import date
+
+          today = date.today().isoformat()
+          daily_dir = Path('data/daily') / today
+
+          issues = []
+
+          # 检查预测是否生成
+          if not (daily_dir / 'predictions.json').exists():
+              issues.append(f'{today} 预测未生成')
+
+          # 检查决策包
+          if not (daily_dir / f'decision_bundle_{today}.json').exists():
+              issues.append(f'{today} 决策包缺失')
+
+          # 检查数据源健康
+          try:
+              from engine.sources.manager import SourceManager
+              mgr = SourceManager(Path('data'))
+              status = mgr.health_check()
+              for name, ok in status.items():
+                  if not ok:
+                      issues.append(f'数据源 {name} 不可用')
+          except Exception as e:
+              issues.append(f'健康检查异常: {e}')
+
+          if issues:
+              print('::error::' + '; '.join(issues))
+              # 写入状态文件供外部监控读取
+              Path('web/health-status.json').write_text(json.dumps({
+                  'date': today,
+                  'healthy': False,
+                  'issues': issues,
+              }))
+              sys.exit(1)
+          else:
+              Path('web/health-status.json').write_text(json.dumps({
+                  'date': today,
+                  'healthy': True,
+                  'issues': [],
+              }))
+              print('All checks passed ✓')
+          "
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ 流水线健康检查失败，请检查 GitHub Actions 日志"
+          # 可扩展：发送企业微信/钉钉/邮件通知
+          # curl -X POST "${{ secrets.WEBHOOK_URL }}" -d '{"text": "流水线异常"}'

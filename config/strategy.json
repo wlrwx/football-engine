@@ -1,0 +1,38 @@
+{
+  "activation_mode": "shadow",
+  "kelly_fraction": 0.25,
+  "reference_bankroll": 5000,
+  "stake_unit": 2,
+  "limits": {
+    "max_single_stake": 200,
+    "max_match_exposure": 200,
+    "max_daily_stake": 500,
+    "max_monthly_budget": 5000,
+    "monthly_stop_loss": 5000,
+    "max_parlay_stake": 30,
+    "max_parlay_legs": 2,
+    "max_singles_per_match": 1
+  },
+  "edge_gates": {
+    "min_probability_edge": 0.03,
+    "min_ev": 0.03,
+    "strict_min_probability_edge": 0.05,
+    "strict_min_ev": 0.05
+  },
+  "model_weight": {
+    "base": 0.15,
+    "max": 0.75,
+    "calibration_prior": 100
+  },
+  "strict_mode": {
+    "until_samples": 100,
+    "max_stake": 50
+  },
+  "handicap_smoothing_weight": 0.274,
+  "recommendation": {
+    "pair_switch_threshold": 0.6816,
+    "handicap_inversion_threshold": 0.4678,
+    "single_recommendation_threshold": 0.7172,
+    "min_odds": 1.03
+  }
+}
