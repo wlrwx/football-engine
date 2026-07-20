@@ -46,6 +46,7 @@ from engine.learning.online_weights import OnlineWeightLearner
 from engine.prediction.lgbm_model import LGBMModel, LGBMConfig, build_features
 from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
 from engine.learning.league_params import LeagueParamsManager
+from engine.storage.match_db import MatchDB
 
 
 def load_config(name: str) -> dict:
@@ -130,6 +131,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         pass
     print(f"  ✓ 联赛参数: {len(league_mgr.summary())} 个联赛已配置")
 
+    # MatchDB: 历史xG作为预测辅助
+    match_db = MatchDB(ROOT / "data" / "state" / "match_history.db")
+
     # 5. 预测 + 增强分析
     print("\n[4/8] 运行预测模型 + 增强分析...")
     dc_cfg = DixonColesConfig(**{k: v for k, v in pred_cfg.get("prediction", {}).items()
@@ -189,6 +193,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 home_rating.attack = form_xg["home_avg"] / base_goals
             if away_rating.attack == 1.0 and form_xg.get("away_avg"):
                 away_rating.attack = form_xg["away_avg"] / base_goals
+
+        # MatchDB fallback: DJYY无数据时用历史积累xG
+        base_goals = pred_cfg.get("prediction", {}).get("base_goals", 1.35)
+        if home_rating.attack == 1.0:
+            db_xg = match_db.get_team_xg(fixture.home_team, fixture.competition)
+            if db_xg and db_xg.get("avg_xg_for"):
+                home_rating.attack = db_xg["avg_xg_for"] / base_goals
+        if away_rating.attack == 1.0:
+            db_xg = match_db.get_team_xg(fixture.away_team, fixture.competition)
+            if db_xg and db_xg.get("avg_xg_for"):
+                away_rating.attack = db_xg["avg_xg_for"] / base_goals
 
         market_odds = None
         if fixture.home_odds and fixture.draw_odds and fixture.away_odds:
@@ -408,6 +423,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "djyy_model_prob": (
                 djyy_probs if djyy_probs and djyy_probs.get("home") else None
             ),
+            "_djyy_id": djyy_data.get("djyy_id") if djyy_data else None,
             # Elo
             "elo_home": round(home_rating.elo, 1),
             "elo_away": round(away_rating.elo, 1),
@@ -543,6 +559,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     print(f"  投注: {ticket_plan.total_stake} 元 (乘数={effective_mult:.2f})")
     print(f"{'='*60}")
 
+    match_db.close()
     return predictions, plan
 
 
@@ -567,13 +584,91 @@ def run_settlement(target_date: date):
     elo_updater.save()
     print(f"  ✓ Elo 已更新 ({len(results)} 场)")
 
-    # 读取当日预测，对比结果
-    print("\n[2/4] 熔断 + 信任更新...")
+    # MatchDB: 记录比赛历史 + 积累球队xG
+    print("\n[1.5/4] MatchDB 数据积累...")
+    pred_cfg = load_config("prediction")
+    db = MatchDB(ROOT / "data" / "state" / "match_history.db")
+    db_recorded = 0
+
+    # 读取当日预测用于关联
     daily_dir = ROOT / "data" / "daily" / target_date.isoformat()
     predictions = []
     pred_file = daily_dir / "predictions.json"
     if pred_file.exists():
         predictions = json.loads(pred_file.read_text())
+
+    pred_map = {}
+    for p in predictions:
+        pred_map[f"{p['home_team']}_vs_{p['away_team']}"] = p
+
+    for r in results:
+        key = f"{r.home_team}_vs_{r.away_team}"
+        pred = pred_map.get(key)
+
+        # 尝试获取DJYY赛后真实xG
+        actual_xg = None
+        djyy_id = pred.get("_djyy_id") if pred else None
+
+        if djyy_id:
+            try:
+                actual_xg = source_mgr._djyy.fetch_post_match_xg(djyy_id)
+            except Exception:
+                pass
+
+        # 记录到match_history
+        if pred:
+            db.record_match({
+                "match_id": pred.get("match_id", key),
+                "date": target_date.isoformat(),
+                "league": pred.get("competition"),
+                "home_team": r.home_team,
+                "away_team": r.away_team,
+                "pred_home_prob": pred.get("home_win_prob"),
+                "pred_draw_prob": pred.get("draw_prob"),
+                "pred_away_prob": pred.get("away_win_prob"),
+                "pred_home_xg": pred.get("home_xg"),
+                "pred_away_xg": pred.get("away_xg"),
+                "pred_top_score": pred.get("top_scores", [])[:1],
+                "score_home": r.home_score,
+                "score_away": r.away_score,
+                "actual_home_xg": actual_xg.get("home_xg") if actual_xg else None,
+                "actual_away_xg": actual_xg.get("away_xg") if actual_xg else None,
+                "ht_home": actual_xg.get("ht_home") if actual_xg else None,
+                "ht_away": actual_xg.get("ht_away") if actual_xg else None,
+                "djyy_id": djyy_id,
+            })
+            db_recorded += 1
+
+        # 更新球队赛季统计（无论有无预测都记录）
+        league = pred.get("competition", "unknown") if pred else "unknown"
+        home_xg = actual_xg.get("home_xg") if actual_xg else None
+        away_xg = actual_xg.get("away_xg") if actual_xg else None
+
+        db.update_team_stats(
+            team_name=r.home_team, league=league,
+            goals_for=r.home_score, goals_against=r.away_score,
+            xg_for=home_xg, xg_against=away_xg,
+        )
+        db.update_team_stats(
+            team_name=r.away_team, league=league,
+            goals_for=r.away_score, goals_against=r.home_score,
+            xg_for=away_xg, xg_against=home_xg,
+        )
+
+    # 同步联赛基线（从DJYY league-matrix）
+    try:
+        matrix = source_mgr.get_league_params()
+        if matrix and isinstance(matrix, list):
+            db.sync_league_baselines(matrix)
+            print(f"  联赛基线已同步: {len(matrix)} 个联赛")
+    except Exception:
+        pass
+
+    print(f"  ✓ MatchDB: {db_recorded} 场记录, 球队统计已更新")
+    db.close()
+
+    # 熔断 + 逐场结算
+    print("\n[2/4] 熔断 + 信任更新...")
 
     breaker = CircuitBreaker(ROOT / "data" / "state" / "circuit_breaker.json")
     strat_cfg = load_config("strategy")
