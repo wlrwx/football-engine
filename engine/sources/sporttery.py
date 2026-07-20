@@ -12,12 +12,18 @@ import time
 from datetime import date, datetime
 from typing import Optional
 
+import os
 import requests
 
 from .base import DataSource, Fixture, MatchResult, OddsSnapshot
 
 
-SPORTTERY_API = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry"
+# CF Worker代理: 解决GH Actions海外IP被WAF拦截
+_PROXY = os.environ.get("SPORTTERY_PROXY", "")
+if _PROXY:
+    SPORTTERY_API = f"{_PROXY.rstrip('/')}/gateway/uniform/football/getMatchCalculatorV1.qry"
+else:
+    SPORTTERY_API = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry"
 
 # 桌面 Chrome UA — 不要用移动端，也不要加 poolCode
 HEADERS = {
@@ -120,7 +126,10 @@ class SportterySource(DataSource):
 
     def fetch_results(self, target_date: date) -> list[MatchResult]:
         """获取比赛结果"""
-        url = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchResultV1.qry"
+        if _PROXY:
+            url = f"{_PROXY.rstrip('/')}/gateway/uniform/football/getMatchResultV1.qry"
+        else:
+            url = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchResultV1.qry"
         params = {"channel": "c"}
 
         try:
