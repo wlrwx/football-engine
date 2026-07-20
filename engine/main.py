@@ -241,14 +241,20 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
 
         market_odds = None
         if fixture.home_odds and fixture.draw_odds and fixture.away_odds:
-            market_odds = (fixture.home_odds, fixture.draw_odds, fixture.away_odds)
-        elif djyy_pre.get("pinnacle_odds"):
+            # 验证: 真实十进制赔率必须 > 1.0 (概率才 < 1.0)
+            if all(o > 1.0 for o in (fixture.home_odds, fixture.draw_odds, fixture.away_odds)):
+                market_odds = (fixture.home_odds, fixture.draw_odds, fixture.away_odds)
+        if market_odds is None and djyy_pre.get("pinnacle_odds"):
             # 国内源被WAF挡时, 用DJYY的Pinnacle赔率作为fallback
             po = djyy_pre["pinnacle_odds"]
+            _po_vals = None
             if isinstance(po, (list, tuple)) and len(po) >= 3:
-                market_odds = (float(po[0]), float(po[1]), float(po[2]))
+                _po_vals = (float(po[0]), float(po[1]), float(po[2]))
             elif isinstance(po, dict):
-                market_odds = (float(po.get("home", 0)), float(po.get("draw", 0)), float(po.get("away", 0)))
+                _po_vals = (float(po.get("home", 0)), float(po.get("draw", 0)), float(po.get("away", 0)))
+            # DJYY有时返回概率(0-1)而非赔率(>1), 需验证
+            if _po_vals and all(o > 1.0 for o in _po_vals):
+                market_odds = _po_vals
 
         pred = model.predict(
             home=home_rating,

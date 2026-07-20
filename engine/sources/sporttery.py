@@ -19,9 +19,10 @@ from .base import DataSource, Fixture, MatchResult, OddsSnapshot
 
 
 # CF Worker代理: 解决GH Actions海外IP被WAF拦截
+# Worker路由: /api/sporttery/gateway/... → webapi.sporttery.cn/gateway/...
 _PROXY = os.environ.get("SPORTTERY_PROXY", "")
 if _PROXY:
-    SPORTTERY_API = f"{_PROXY.rstrip('/')}/gateway/uniform/football/getMatchCalculatorV1.qry"
+    SPORTTERY_API = f"{_PROXY.rstrip('/')}/api/sporttery/gateway/uniform/football/getMatchCalculatorV1.qry"
 else:
     SPORTTERY_API = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry"
 
