@@ -242,6 +242,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         market_odds = None
         if fixture.home_odds and fixture.draw_odds and fixture.away_odds:
             market_odds = (fixture.home_odds, fixture.draw_odds, fixture.away_odds)
+        elif djyy_pre.get("pinnacle_odds"):
+            # 国内源被WAF挡时, 用DJYY的Pinnacle赔率作为fallback
+            po = djyy_pre["pinnacle_odds"]
+            if isinstance(po, (list, tuple)) and len(po) >= 3:
+                market_odds = (float(po[0]), float(po[1]), float(po[2]))
+            elif isinstance(po, dict):
+                market_odds = (float(po.get("home", 0)), float(po.get("draw", 0)), float(po.get("away", 0)))
 
         pred = model.predict(
             home=home_rating,
@@ -394,6 +401,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # 半全场概率 (基于最终xG)
         _htft = htft_probabilities(pred.home_xg, pred.away_xg)
 
+        # 无真实赔率时, 用融合概率+竞彩返还率生成参考赔率 (供Kelly计算)
+        _odds_synthetic = False
+        if market_odds is None and final_h > 0 and final_d > 0 and final_a > 0:
+            _margin = 0.87
+            market_odds = (round(_margin / final_h, 2), round(_margin / final_d, 2), round(_margin / final_a, 2))
+            _odds_synthetic = True
+
         predictions.append({
             "match_id": pred.match_id,
             "competition": pred.competition,
@@ -406,10 +420,11 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # xG
             "home_xg": pred.home_xg,
             "away_xg": pred.away_xg,
-            # 市场赔率
-            "home_odds": fixture.home_odds,
-            "draw_odds": fixture.draw_odds,
-            "away_odds": fixture.away_odds,
+            # 市场赔率 (真实或合成)
+            "home_odds": market_odds[0] if market_odds else None,
+            "draw_odds": market_odds[1] if market_odds else None,
+            "away_odds": market_odds[2] if market_odds else None,
+            "odds_synthetic": _odds_synthetic,
             "handicap": fixture.handicap,
             # 置信度
             "confidence": round(pred.confidence * trust_score, 4),
