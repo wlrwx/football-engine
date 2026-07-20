@@ -1,3 +1,4 @@
+from __future__ import annotations
 """蒙特卡洛模拟模型 - 灵活处理复杂市场"""
 import math
 from dataclasses import dataclass, field

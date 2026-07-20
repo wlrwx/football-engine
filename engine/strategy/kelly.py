@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Kelly 准则 + 风控"""
 import json
 from dataclasses import dataclass, field

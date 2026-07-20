@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Champion/Challenger 模型自动晋升机制"""
 import json
 import time

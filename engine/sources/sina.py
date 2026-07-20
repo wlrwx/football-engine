@@ -1,3 +1,4 @@
+from __future__ import annotations
 """新浪竞彩数据源 - 海外IP可用的体彩赔率替代
 
 API: mix.lottery.sina.com.cn/gateway/index/entry

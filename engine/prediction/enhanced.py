@@ -1,3 +1,4 @@
+from __future__ import annotations
 """增强预测模块 - 移植自 lottery-football 的核心算法"""
 import csv
 import math

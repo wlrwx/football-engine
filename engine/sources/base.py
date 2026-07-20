@@ -1,3 +1,4 @@
+from __future__ import annotations
 """数据源抽象基类 - 所有数据源必须实现此接口"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """竞彩官方数据源 - 核心权威数据（中国体育彩票）
 
 关键坑（已踩）：

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """预测模型抽象基类"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

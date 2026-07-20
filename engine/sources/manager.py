@@ -1,3 +1,4 @@
+from __future__ import annotations
 """数据源管理器 - fallback 链调度 + DJYY增强"""
 import hashlib
 import json
@@ -363,6 +364,26 @@ class SourceManager:
                 continue
 
         return enrichment
+
+    def _normalize_team_name(self, name: str) -> str:
+        """标准化队名，解决翻译/缩写差异（如"坦佩雷山猫" vs "坦山猫"）"""
+        if not name:
+            return ""
+        # 去掉常见后缀
+        suffixes = ["FC", "队", "俱乐部", "足球"]
+        for s in suffixes:
+            name = name.replace(s, "")
+        # 去掉空格、符号
+        name = name.replace(" ", "").replace("-", "").replace("_", "")
+        # 去掉城市名中常见后缀（只保留核心词）
+        # "坦佩雷山猫" → "山猫"，"TPS图尔库" → "图尔库"（保留后半段关键队名）
+        # 核心思路：取最独特的部分（通常是后半段）
+        for prefix_len in range(2, min(4, len(name))):
+            # 如果后半段有常见队名词（猫、鹰、马、堡），优先保留
+            if any(c in name[prefix_len:] for c in ["猫", "鹰", "马", "堡", "城", "斯", "顿", "特"]):
+                name = name[prefix_len:]
+                break
+        return name
 
     def get_league_params(self) -> dict:
         """获取联赛场均数据（支持联赛独立参数）"""

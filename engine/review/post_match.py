@@ -1,3 +1,4 @@
+from __future__ import annotations
 """赛后复盘 + 偏差检测 + 滚动账本
 
 核心: 对每场已结算比赛, 计算各信号源(model/market/DJYY)的Brier score,

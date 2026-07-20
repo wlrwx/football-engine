@@ -1,3 +1,4 @@
+from __future__ import annotations
 """逆向赔率引擎 - 从赔率结构反推博彩公司意图
 移植自 JCZQ-Reverse-Odds-Engine-V6
 """

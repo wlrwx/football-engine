@@ -1,3 +1,4 @@
+from __future__ import annotations
 """静态报告生成器 - 专业体育分析仪表盘
 
 展示: 预测概率/赔率对比/价值检测/xG/置信度/冷门风险/三票方案/熔断状态/决策链完整性
@@ -830,7 +831,7 @@ def _match_card(p, value_matches, idx, results_map=None):
 
 
 def _tab_model(p, uid):
-    """模型 tab: model_raw vs market_fair vs djyy vs final, Elo, Wilson."""
+    """模型 tab: model_raw vs market_fair vs djyy vs final, Elo, Wilson, + DJYY xG/ injuries."""
     model_raw = p.get("model_raw") or {}
     market_fair = p.get("market_fair")
     djyy = p.get("djyy_model_prob")
@@ -840,6 +841,71 @@ def _tab_model(p, uid):
     elo_home = p.get("elo_home")
     elo_away = p.get("elo_away")
     wilson = p.get("wilson_trust") or 0
+    
+    # ===== DJYY 增强数据 =====
+    # xG 预期进球
+    xg_home = 0
+    xg_away = 0
+    xg_html = ""
+    djyy_xg = p.get("djyy_xg") or {}
+    if djyy_xg:
+        xg_home = float(djyy_xg.get("home_avg") or 0)
+        xg_away = float(djyy_xg.get("away_avg") or 0)
+        max_xg = max(2.0, xg_home, xg_away)
+        h_pct = (xg_home / max_xg) * 100 if max_xg > 0 else 0
+        a_pct = (xg_away / max_xg) * 100 if max_xg > 0 else 0
+        xg_html = f"""
+      <div class="xg-compare">
+        <h5>xG 预期进球 (近5场平均)</h5>
+        <div class="xg-bar-row">
+          <span class="xg-bar-label">主队</span>
+          <div class="xg-bar-track"><div class="xg-bar-fill home" style="width:{h_pct}%">{xg_home:.2f}</div></div>
+        </div>
+        <div class="xg-bar-row">
+          <span class="xg-bar-label">客队</span>
+          <div class="xg-bar-track"><div class="xg-bar-fill away" style="width:{a_pct}%">{xg_away:.2f}</div></div>
+        </div>
+      </div>"""
+    
+    # 赛程密度/休息天数
+    rest_html = ""
+    rest_days = p.get("rest_days") or {}
+    if rest_days:
+        rh = rest_days.get("home") or 7
+        ra = rest_days.get("away") or 7
+        # 颜色: <=2天=红色(疲劳), 3-4天=橙色, >=5天=绿色(充足)
+        h_color = "var(--red)" if rh <= 2 else "var(--amber)" if rh <= 4 else "var(--green)"
+        a_color = "var(--red)" if ra <= 2 else "var(--amber)" if ra <= 4 else "var(--green)"
+        rest_html = f"""
+      <div class="xg-compare">
+        <h5>赛程密度 (距上场天数)</h5>
+        <div class="xg-bar-row">
+          <span class="xg-bar-label">主队</span>
+          <div class="xg-bar-track"><div class="xg-bar-fill" style="width:{min(rh/7*100, 100)}%; background:{h_color}">{rh}天</div></div>
+        </div>
+        <div class="xg-bar-row">
+          <span class="xg-bar-label">客队</span>
+          <div class="xg-bar-track"><div class="xg-bar-fill" style="width:{min(ra/7*100, 100)}%; background:{a_color}">{ra}天</div></div>
+        </div>
+      </div>"""
+    
+    # 伤停预警
+    inj_html = ""
+    injuries = p.get("injuries") or {}
+    if injuries:
+        h_cnt = injuries.get("home_count", 0)
+        h_att = injuries.get("home_attackers", 0)
+        a_cnt = injuries.get("away_count", 0)
+        a_att = injuries.get("away_attackers", 0)
+        # 前锋/中场缺阵 = 高亮预警
+        h_warn = "⚠️" if h_att >= 1 else ""
+        a_warn = "⚠️" if a_att >= 1 else ""
+        inj_html = f"""
+      <div class="reverse-box">
+        <h5>伤停预警</h5>
+        <div class="reverse-row"><span class="rk">主队</span><span>伤停{h_cnt}人{h_warn} (含攻击线{h_att}人)</span></div>
+        <div class="reverse-row"><span class="rk">客队</span><span>伤停{a_cnt}人{a_warn} (含攻击线{a_att}人)</span></div>
+      </div>"""
 
     rows = ""
     # Model Raw (DC+MC)
@@ -894,6 +960,9 @@ def _tab_model(p, uid):
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         {rows}
       </table>
+      {xg_html}
+      {rest_html}
+      {inj_html}
       {elo_html}
       {wilson_html}"""
 
@@ -921,7 +990,7 @@ def _model_row_empty(label):
 
 
 def _tab_odds(p, uid):
-    """赔率 tab: market odds, shin fair, implied probs, edge, reverse, same-odds."""
+    """赔率 tab: market odds, shin fair, implied probs, edge, reverse, same-odds, + 四庄家对比."""
     odds_h = p.get("home_odds") or 0
     odds_d = p.get("draw_odds") or 0
     odds_a = p.get("away_odds") or 0
@@ -930,6 +999,44 @@ def _tab_odds(p, uid):
     final_h = p.get("home_win_prob", 0)
     final_d = p.get("draw_prob", 0)
     final_a = p.get("away_win_prob", 0)
+    
+    # 四庄家赔率对比
+    # 1. 体彩官方
+    sporttery_odds = p.get("sporttery_odds") or {}
+    st_h = sporttery_odds.get("home") or odds_h
+    st_d = sporttery_odds.get("draw") or odds_d
+    st_a = sporttery_odds.get("away") or odds_a
+    
+    # 2. Bet365
+    bet365_odds = p.get("bet365_odds") or {}
+    b365_h = bet365_odds.get("home") or odds_h
+    b365_d = bet365_odds.get("draw") or odds_d
+    b365_a = bet365_odds.get("away") or odds_a
+    
+    # 3. Pinnacle
+    pinn_odds = p.get("pinnacle_odds") or {}
+    pinn_h = pinn_odds.get("home") or odds_h
+    pinn_d = pinn_odds.get("draw") or odds_d
+    pinn_a = pinn_odds.get("away") or odds_a
+    
+    # 4. DJYY 模型赔率（反向计算）
+    djyy_odds = p.get("djyy_model_prob") or {}
+    djyy_h = 1 / djyy_odds.get("home") if djyy_odds.get("home") and djyy_odds.get("home") > 0 else None
+    djyy_d = 1 / djyy_odds.get("draw") if djyy_odds.get("draw") and djyy_odds.get("draw") > 0 else None
+    djyy_a = 1 / djyy_odds.get("away") if djyy_odds.get("away") and djyy_odds.get("away") > 0 else None
+    
+    # 赔率对比表格
+    def _o(v):
+        return f"{v:.2f}" if v and v > 0 else "-"
+    
+    bookies_html = f"""
+      <table class="edge-table" style="margin-top: 16px;">
+        <tr><th>庄家</th><th>主胜</th><th>平局</th><th>客胜</th></tr>
+        <tr><td class="src-label">体彩官方</td><td>{_o(st_h)}</td><td>{_o(st_d)}</td><td>{_o(st_a)}</td></tr>
+        <tr><td class="src-label">Bet365</td><td>{_o(b365_h)}</td><td>{_o(b365_d)}</td><td>{_o(b365_a)}</td></tr>
+        <tr><td class="src-label">Pinnacle</td><td>{_o(pinn_h)}</td><td>{_o(pinn_d)}</td><td>{_o(pinn_a)}</td></tr>
+        <tr><td class="src-label" style="color:var(--purple);">DJYY模型</td><td>{_o(djyy_h)}</td><td>{_o(djyy_d)}</td><td>{_o(djyy_a)}</td></tr>
+      </table>"""
 
     # Implied probs from raw odds
     imp_h = (1 / odds_h * 100) if odds_h else 0
@@ -967,6 +1074,8 @@ def _tab_odds(p, uid):
         <div class="odds-box"><div class="ob-label">客胜</div><div class="ob-val">{odds_a:.2f}</div></div>
         <div class="odds-box"><div class="ob-label">让球</div><div class="ob-val">{handicap if handicap else '暂无'}</div></div>
       </div>
+      <h5 style="margin: 16px 0 8px 0; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">四庄家赔率对比</h5>
+      {bookies_html}
       <table class="edge-table">
         <tr><th>结果</th><th>隐含概率</th><th>Shin公平</th><th>模型</th><th>边际</th></tr>
         <tr>

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """推荐引擎 - 移植自 lottery-football 的核心推荐逻辑"""
 from dataclasses import dataclass, field
 

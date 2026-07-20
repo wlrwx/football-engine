@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Dixon-Coles 泊松模型 - 解析解，速度快"""
 import math
 from dataclasses import dataclass

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """集成模型 - 多模型加权融合"""
 from .base import MatchPrediction, PredictionModel, TeamRating
 from .dixon_coles import DixonColesModel, DixonColesConfig

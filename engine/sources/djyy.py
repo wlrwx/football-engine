@@ -1,3 +1,4 @@
+from __future__ import annotations
 """DJYY 数据源 - 第三方模型概率 + 多庄家赔率 + xG
 
 来源: https://djyylive.com

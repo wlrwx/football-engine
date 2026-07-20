@@ -1,3 +1,4 @@
+from __future__ import annotations
 """比赛历史数据库 - SQLite持久化层
 
 存储策略:

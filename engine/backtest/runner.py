@@ -1,3 +1,4 @@
+from __future__ import annotations
 """回测引擎 - 用历史数据验证系统是否有正期望
 
 数据源:

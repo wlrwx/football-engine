@@ -1,3 +1,4 @@
+from __future__ import annotations
 """TimeSeriesSplit 回测 - 严格时间切分，杜绝未来信息泄露
 
 设计原则:

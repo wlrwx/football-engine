@@ -1,3 +1,4 @@
+from __future__ import annotations
 """不可变决策包 - 密码学绑定每一步输入输出"""
 import hashlib
 import json

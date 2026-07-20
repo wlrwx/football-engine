@@ -1,3 +1,4 @@
+from __future__ import annotations
 """数据源插件层
 
 已注册数据源（按优先级）:

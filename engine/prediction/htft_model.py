@@ -1,3 +1,4 @@
+from __future__ import annotations
 """半全场模型 - 9种HT/FT组合概率
 
 竞彩半全场: 主主/主和/主客/和主/和和/和客/客主/客和/客客

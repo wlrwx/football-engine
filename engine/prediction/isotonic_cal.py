@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Isotonic 校准层 - 分区间独立校准概率
 
 设计原则:

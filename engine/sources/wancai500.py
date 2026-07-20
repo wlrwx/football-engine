@@ -1,3 +1,4 @@
+from __future__ import annotations
 """500万数据源 - 机构赔率（Bet365/平博）+ 实时列表
 
 关键坑（已踩）：

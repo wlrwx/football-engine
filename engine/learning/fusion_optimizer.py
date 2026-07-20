@@ -1,3 +1,4 @@
+from __future__ import annotations
 """融合权重优化器 - 基于反事实重放的 champion/challenger 自进化
 
 核心原理: predictions.json 已存 model_raw / market_fair / djyy_model_prob 三路原始概率,

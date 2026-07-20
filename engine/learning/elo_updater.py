@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Elo 自动更新器 - 每次结算后自动更新球队评级"""
 import json
 from dataclasses import dataclass

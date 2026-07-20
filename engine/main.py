@@ -1,3 +1,4 @@
+from __future__ import annotations
 """主入口 - 每日预测流水线（增强版）
 
 集成模块:

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """ESPN 数据源 - 备用数据源"""
 import time
 from datetime import date, datetime

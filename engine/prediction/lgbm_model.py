@@ -1,3 +1,4 @@
+from __future__ import annotations
 """LightGBM 第三模型层 - 非线性特征交互捕捉
 
 设计原则:
@@ -17,8 +18,9 @@ import numpy as np
 try:
     import lightgbm as lgb
     HAS_LGBM = True
-except ImportError:
+except (ImportError, OSError):
     HAS_LGBM = False
+    lgb = None  # type: ignore
 
 
 @dataclass

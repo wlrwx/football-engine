@@ -1,3 +1,4 @@
+from __future__ import annotations
 """多市场校准 + Shin去水 + 对数意见池 + 温度校准
 移植自 football-prediction-skill (JetQiao)
 """

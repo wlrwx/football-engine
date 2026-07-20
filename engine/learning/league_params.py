@@ -1,3 +1,4 @@
+from __future__ import annotations
 """联赛独立参数 - 每个联赛维护自己的参数组
 
 设计原则:
