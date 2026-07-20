@@ -533,13 +533,26 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         if p.get("confidence", 0) < conf_threshold:
             filtered_count += 1
             continue
+        is_synthetic = p.get("odds_synthetic", False)
         for sel, prob, odds_key in [
             ("home", p["home_win_prob"], "home_odds"),
             ("draw", p["draw_prob"], "draw_odds"),
             ("away", p["away_win_prob"], "away_odds"),
         ]:
             odds = p.get(odds_key)
-            if odds and prob * odds > 1.0:  # 正期望
+            if not odds:
+                continue
+            if is_synthetic:
+                # 合成赔率: 用置信度推荐 (概率>50%的最优选项)
+                if prob > 0.50 and prob == max(p["home_win_prob"], p["draw_prob"], p["away_win_prob"]):
+                    candidates.append({
+                        "match_id": p["match_id"],
+                        "selection": sel,
+                        "odds": odds,
+                        "prob": prob,
+                        "kelly_fraction": 0.05,  # 保守固定仓位
+                    })
+            elif prob * odds > 1.0:  # 真实赔率: 正期望
                 kelly_f = (prob * odds - 1) / (odds - 1) * 0.25  # quarter-Kelly
                 candidates.append({
                     "match_id": p["match_id"],
