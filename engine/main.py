@@ -180,6 +180,16 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         home_rating = elo_updater.get_rating(fixture.home_team)
         away_rating = elo_updater.get_rating(fixture.away_team)
 
+        # DJYY form_xG 修正: 用真实近期xG替代默认ratings
+        djyy_pre = djyy_enrichment.get(fixture.match_id, {})
+        form_xg = djyy_pre.get("form_xg")
+        if form_xg:
+            base_goals = pred_cfg.get("prediction", {}).get("base_goals", 1.35)
+            if home_rating.attack == 1.0 and form_xg.get("home_avg"):
+                home_rating.attack = form_xg["home_avg"] / base_goals
+            if away_rating.attack == 1.0 and form_xg.get("away_avg"):
+                away_rating.attack = form_xg["away_avg"] / base_goals
+
         market_odds = None
         if fixture.home_odds and fixture.draw_odds and fixture.away_odds:
             market_odds = (fixture.home_odds, fixture.draw_odds, fixture.away_odds)

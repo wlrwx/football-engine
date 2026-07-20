@@ -157,6 +157,61 @@ class DJYYSource(DataSource):
             "limit": limit, "v": 2,
         })
 
+    def fetch_match_live(self, djyy_id: int) -> Optional[dict]:
+        """获取比赛直播数据（SSE流）
+        
+        已完场: 返回最终xG/比分/半场比分
+        进行中: 返回实时xG/滚球赔率/模型概率
+        """
+        try:
+            resp = self._client.get(
+                f"{self.base_url}/api/match/{djyy_id}/live",
+                timeout=12, follow_redirects=True,
+            )
+            if resp.status_code != 200:
+                return None
+            # SSE格式: "data: {...}" 行
+            for line in resp.text.split("\n"):
+                if line.startswith("data: "):
+                    return json.loads(line[6:])
+            return None
+        except Exception:
+            return None
+
+    def fetch_match_events(self, djyy_id: int) -> Optional[dict]:
+        """获取比赛事件（进球/红黄牌/换人/乌龙球）
+        
+        返回: {fixture_id, available, events: [{minute, type, side, player_name_zh, ...}]}
+        """
+        return self._get_json(f"/api/match/{djyy_id}/events")
+
+    def fetch_match_lineups(self, djyy_id: int) -> Optional[dict]:
+        """获取首发+替补（含球员rating/个人xG/xGOT）
+        
+        返回: {fixture_id, available, home: {starting: [{name_zh, position, rating, xg, xgot, stats}], bench: [...]}, away: {...}}
+        """
+        return self._get_json(f"/api/match/{djyy_id}/lineups")
+
+    def fetch_post_match_xg(self, djyy_id: int) -> Optional[dict]:
+        """便捷方法: 从live端点提取已完场比赛的真实xG
+        
+        返回: {home_xg, away_xg, ht_home, ht_away, score_home, score_away} 或 None
+        """
+        live = self.fetch_match_live(djyy_id)
+        if not live or live.get("state") not in ("ft", "aet", "pen"):
+            return None
+        xg = live.get("xg") or {}
+        score = live.get("score") or {}
+        ht = live.get("ht_score") or {}
+        return {
+            "home_xg": xg.get("home"),
+            "away_xg": xg.get("away"),
+            "score_home": score.get("home"),
+            "score_away": score.get("away"),
+            "ht_home": ht.get("home"),
+            "ht_away": ht.get("away"),
+        }
+
     def fetch_results(self, target_date: date) -> list[MatchResult]:
         """从赛程API提取已完场比赛的结果"""
         fixtures = self.fetch_fixtures(target_date)

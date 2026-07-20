@@ -281,6 +281,23 @@ class SourceManager:
                 model = comparison.get("model", {})
                 bookmaker = comparison.get("bookmaker", {})
 
+                # team_form: 提取近期真实xG均值
+                form_xg = None
+                try:
+                    form = self._djyy.fetch_team_form(djyy_id, limit=5)
+                    if form and form.get("available"):
+                        home_xgs = [fx.get("xg") for fx in form.get("home", {}).get("fixtures", []) if fx.get("xg")]
+                        away_xgs = [fx.get("xg") for fx in form.get("away", {}).get("fixtures", []) if fx.get("xg")]
+                        if home_xgs or away_xgs:
+                            form_xg = {
+                                "home_avg": round(sum(home_xgs) / len(home_xgs), 3) if home_xgs else None,
+                                "away_avg": round(sum(away_xgs) / len(away_xgs), 3) if away_xgs else None,
+                                "home_n": len(home_xgs),
+                                "away_n": len(away_xgs),
+                            }
+                except Exception:
+                    pass
+
                 enrichment[fixture.match_id] = {
                     "djyy_id": djyy_id,
                     "model_probs": {
@@ -292,6 +309,7 @@ class SourceManager:
                     "top_scores": model.get("top_scores", []) if model else [],
                     "btts": model.get("btts") if model else None,
                     "totals": model.get("totals") if model else None,
+                    "form_xg": form_xg,
                 }
             except Exception:
                 continue
