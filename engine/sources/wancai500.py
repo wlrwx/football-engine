@@ -149,7 +149,14 @@ class Wancai500Source(DataSource):
                 })
 
         self._match_cache = matches
-        return matches
+
+        # 只保留世界杯比赛（用户需求是世界杯预测工具）
+        world_cup_matches = [
+            m for m in matches
+            if m.get("league") and "世界杯" in m.get("league")
+        ]
+
+        return world_cup_matches if world_cup_matches else matches
 
     def fetch_500_odds(self, fid: str, odds_type: str = "europe",
                        cid: int = 3) -> Optional[list]:
