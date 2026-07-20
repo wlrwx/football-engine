@@ -59,7 +59,8 @@ class SportterySource(DataSource):
                 resp = _SESSION.get(url, params=params, headers=HEADERS, timeout=15)
                 resp.raise_for_status()
                 return resp.json()
-            except (requests.RequestException, json.JSONDecodeError):
+            except (requests.RequestException, json.JSONDecodeError) as e:
+                print(f"    [sporttery] attempt {attempt+1}/{retries} failed: {type(e).__name__}: {e}")
                 if attempt == retries - 1:
                     raise
                 time.sleep(2 ** attempt)
@@ -72,10 +73,12 @@ class SportterySource(DataSource):
         一次性返回: had / hhad / ttg / crs / hafu
         """
         params = {"channel": "c"}  # 关键：只传 channel，千万别加 poolCode
+        print(f"    [sporttery] URL: {SPORTTERY_API}")
 
         try:
             data = self._fetch_json(SPORTTERY_API, params)
-        except Exception:
+        except Exception as e:
+            print(f"    [sporttery] 最终失败: {e}")
             return []
 
         fixtures = []
