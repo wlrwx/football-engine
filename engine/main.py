@@ -205,6 +205,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             if db_xg and db_xg.get("avg_xg_for"):
                 away_rating.attack = db_xg["avg_xg_for"] / base_goals
 
+        # xG校准反馈: 用历史偏差修正联赛级别系统误差
+        if fixture.competition:
+            cal = match_db.get_xg_calibration(league=fixture.competition, limit=50)
+            if cal.get("n", 0) >= 5 and cal.get("avg_pred_total_xg"):
+                # factor = 真实xG / 预测xG, >1说明低估, <1说明高估
+                factor = cal["avg_actual_total_xg"] / cal["avg_pred_total_xg"]
+                factor = max(0.80, min(1.20, factor))  # 防过矫
+                if abs(factor - 1.0) > 0.03:  # 偏差>3%才修正
+                    home_rating.attack *= factor
+                    away_rating.attack *= factor
+
         market_odds = None
         if fixture.home_odds and fixture.draw_odds and fixture.away_odds:
             market_odds = (fixture.home_odds, fixture.draw_odds, fixture.away_odds)
@@ -877,7 +888,30 @@ def main():
     parser.add_argument("--date", default="today", help="目标日期 (YYYY-MM-DD 或 today)")
     parser.add_argument("--settle", action="store_true", help="执行结算")
     parser.add_argument("--predict-only", action="store_true", help="仅预测不锁定")
+    parser.add_argument("--backtest", action="store_true", help="回测历史表现")
     args = parser.parse_args()
+
+    if args.backtest:
+        from engine.backtest.runner import BacktestRunner
+        runner = BacktestRunner(ROOT / "data")
+        report = runner.run()
+        print(report.summary())
+        # 保存报告
+        out = ROOT / "data" / "state" / "backtest_report.json"
+        out.write_text(json.dumps({
+            "n_matches": report.n_matches,
+            "n_days": report.n_days,
+            "hit_rate": report.hit_rate,
+            "avg_brier": report.avg_brier,
+            "roi": report.roi,
+            "total_pnl": report.total_pnl,
+            "by_league": report.by_league,
+            "by_confidence": report.by_confidence,
+            "calibration": report.calibration,
+            "source_comparison": report.source_comparison,
+        }, indent=2, ensure_ascii=False))
+        print(f"\n报告已保存: {out}")
+        return
 
     if args.date == "today":
         target = date.today()
