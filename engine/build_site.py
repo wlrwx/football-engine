@@ -11,60 +11,53 @@ ROOT = Path(__file__).parent.parent
 
 
 def build_site():
-    """生成静态 HTML 报告"""
+    """生成静态 HTML 报告（多日期）"""
     web_dir = ROOT / "web"
     web_dir.mkdir(parents=True, exist_ok=True)
 
-    # 找最新有预测数据的日期（竞彩预测的是未来比赛）
     daily_root = ROOT / "data" / "daily"
     today = date.today().isoformat()
-    target_date = today
+
+    # 收集所有有预测数据的日期
+    all_dates = []
     if daily_root.exists():
-        dated_dirs = sorted(
+        all_dates = sorted(
             [d.name for d in daily_root.iterdir() if d.is_dir() and (d / "predictions.json").exists()],
             reverse=True,
         )
-        if dated_dirs:
-            target_date = dated_dirs[0]
 
-    daily_dir = daily_root / target_date
+    if not all_dates:
+        all_dates = [today]
 
-    # 加载所有数据
-    predictions = _load_json(daily_dir / "predictions.json", [])
-    bundle = _load_json(daily_dir / f"decision_bundle_{target_date}.json", {})
-    # 尝试带版本号
-    if not bundle:
-        bundle = _load_json(daily_dir / f"decision_bundle_{target_date}_v1.json", {})
-    ticket = _load_json(daily_dir / "ticket_plan.json", {})
-    breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
-    health = _load_json(web_dir / "health-status.json", {"healthy": True})
-    results = _load_json(daily_dir / "results.json", [])
-    results_html_preds = predictions  # 默认用当前预测
-    # 如果当前日期没有赛果，找最近有赛果的日期
-    if not results and daily_root.exists():
-        for d in sorted([x.name for x in daily_root.iterdir() if x.is_dir()], reverse=True):
-            r_path = daily_root / d / "results.json"
-            r_data = _load_json(r_path, [])
-            if r_data:
-                results = r_data
-                # 用该日期的predictions做对比
-                rp = _load_json(daily_root / d / "predictions.json", [])
-                if rp:
-                    results_html_preds = rp
-                break
+    # 为每个日期生成页面
+    for target_date in all_dates:
+        daily_dir = daily_root / target_date
+        predictions = _load_json(daily_dir / "predictions.json", [])
+        bundle = _load_json(daily_dir / f"decision_bundle_{target_date}.json", {})
+        if not bundle:
+            bundle = _load_json(daily_dir / f"decision_bundle_{target_date}_v1.json", {})
+        ticket = _load_json(daily_dir / "ticket_plan.json", {})
+        breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
+        health = _load_json(web_dir / "health-status.json", {"healthy": True})
+        results = _load_json(daily_dir / "results.json", [])
+        results_html_preds = predictions
 
-    html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results, results_html_preds)
-    (web_dir / "index.html").write_text(html, encoding="utf-8")
+        html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results, results_html_preds, all_dates)
+
+        # 最新日期写index.html, 所有日期写dated页面
+        if target_date == all_dates[0]:
+            (web_dir / "index.html").write_text(html, encoding="utf-8")
+        (web_dir / f"{target_date}.html").write_text(html, encoding="utf-8")
 
     status = {
-        "date": target_date,
+        "date": all_dates[0] if all_dates else today,
         "generated_at": datetime.now().isoformat(),
-        "prediction_count": len(predictions),
-        "bundle_hash": bundle.get("bundle_sha256", "")[:16],
-        "healthy": health.get("healthy", True),
+        "prediction_count": len(_load_json(daily_root / all_dates[0] / "predictions.json", [])) if all_dates else 0,
+        "available_dates": all_dates,
+        "healthy": True,
     }
     (web_dir / "report-status.json").write_text(json.dumps(status, indent=2))
-    print(f"[build_site] 仪表盘已生成: web/index.html ({len(predictions)} 场)")
+    print(f"[build_site] 仪表盘已生成: {len(all_dates)} 个日期页面")
 
 
 def _load_json(path: Path, default):
@@ -76,7 +69,7 @@ def _load_json(path: Path, default):
     return default
 
 
-def _render_html(today, predictions, bundle, ticket, breaker, health, results=None, results_preds=None):
+def _render_html(today, predictions, bundle, ticket, breaker, health, results=None, results_preds=None, all_dates=None):
     # 计算摘要
     total = len(predictions)
     # 三票方案中的场次 = 真正的价值投注
@@ -177,6 +170,18 @@ body {{
   letter-spacing: 0.3px;
 }}
 .header-right {{ display: flex; align-items: center; gap: 10px; }}
+.date-nav {{
+  display: flex; gap: 6px; padding: 10px 0; overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}}
+.date-btn {{
+  padding: 5px 14px; border-radius: 16px; font-size: 0.78rem; font-weight: 600;
+  color: var(--dim); background: var(--card); border: 1px solid var(--border);
+  text-decoration: none; white-space: nowrap; transition: all 0.2s;
+}}
+.date-btn.active {{ color: #fff; background: var(--blue); border-color: var(--blue); }}
+.date-btn:hover {{ border-color: var(--blue); color: var(--blue); }}
+.date-btn.active:hover {{ color: #fff; }}
 .badge {{
   display: inline-flex; align-items: center; gap: 5px;
   padding: 5px 12px; border-radius: 20px;
@@ -630,6 +635,11 @@ body {{
     </div>
   </div>
 
+  <!-- 日期导航 -->
+  <div class="date-nav">
+    {''.join(f'<a href="{d}.html" class="date-btn {"active" if d == today else ""}">{d[5:]}</a>' for d in (all_dates or [today]))}
+  </div>
+
   <!-- KPI STATS -->
   <div class="stats">
     <div class="stat"><div class="label">场次</div><div class="value">{total}</div></div>
@@ -763,7 +773,14 @@ def _match_card(p, value_matches, idx, results_map=None):
             hit = pred_outcome == ("home" if hs > as_ else "draw" if hs == as_ else "away")
             hit_icon = "✓" if hit else "✗"
             hit_cls = "hit" if hit else "miss"
-            result_html = f'<div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">{hs}-{as_}</span> <span class="ar-outcome {actual_cls}">{actual_label}</span> <span class="ar-hit {hit_cls}">{hit_icon}</span></div>'
+            # 比分命中检查
+            score_hit_html = ""
+            top_scores = p.get("top_scores") or []
+            if top_scores:
+                ts = top_scores[0] if isinstance(top_scores[0], (list, tuple)) else None
+                if ts and len(ts) >= 2 and int(ts[0]) == hs and int(ts[1]) == as_:
+                    score_hit_html = ' <span class="ar-hit hit" title="比分命中">比✓</span>'
+            result_html = f'<div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">{hs}-{as_}</span> <span class="ar-outcome {actual_cls}">{actual_label}</span> <span class="ar-hit {hit_cls}">{hit_icon}</span>{score_hit_html}</div>'
 
     # Build detail tabs
     model_tab = _tab_model(p, uid)
