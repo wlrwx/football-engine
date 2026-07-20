@@ -97,6 +97,27 @@ class MatchDB:
             CREATE INDEX IF NOT EXISTS idx_match_date ON match_history(date);
             CREATE INDEX IF NOT EXISTS idx_match_league ON match_history(league);
             CREATE INDEX IF NOT EXISTS idx_team_name ON team_season_stats(team_name);
+
+            CREATE TABLE IF NOT EXISTS player_xg_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name TEXT NOT NULL,
+                team_name TEXT NOT NULL,
+                league TEXT,
+                match_date TEXT,
+                -- 单场数据
+                xg REAL,
+                xgot REAL,
+                rating REAL,
+                position TEXT,
+                minutes INTEGER,
+                -- 累计
+                season_xg_sum REAL DEFAULT 0,
+                season_matches INTEGER DEFAULT 0,
+                UNIQUE(player_name, team_name, match_date)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_player_team ON player_xg_history(team_name);
+            CREATE INDEX IF NOT EXISTS idx_player_name ON player_xg_history(player_name);
         """)
         self.conn.commit()
 
@@ -285,6 +306,56 @@ class MatchDB:
             "xg_bias": round((pred_xg_sum - actual_xg_sum) / n, 3),  # >0=高估
             "xg_to_goals_ratio": round(actual_xg_sum / max(1, actual_goals_sum), 3),
         }
+
+    def record_lineup_xg(self, team_name: str, league: str, match_date: str,
+                         players: list[dict]):
+        """存储赛后阵容球员xG数据 (结算时调用)
+
+        players: [{name, position, xg, xgot, rating, minutes}]
+        """
+        for p in players:
+            name = p.get("name") or p.get("name_zh")
+            if not name:
+                continue
+            self.conn.execute("""
+                INSERT OR REPLACE INTO player_xg_history
+                (player_name, team_name, league, match_date, xg, xgot, rating, position, minutes)
+                VALUES (?,?,?,?,?,?,?,?,?)
+            """, (
+                name, team_name, league, match_date,
+                p.get("xg"), p.get("xgot"), p.get("rating"),
+                p.get("position"), p.get("minutes"),
+            ))
+        self.conn.commit()
+
+    def get_team_key_players(self, team_name: str, top_n: int = 5) -> list[dict]:
+        """获取球队xG贡献最高的球员 (预测时参考)
+
+        返回按场均xG排序的球员列表
+        """
+        rows = self.conn.execute("""
+            SELECT player_name, position,
+                   SUM(xg) as total_xg, COUNT(*) as matches,
+                   SUM(xg) / COUNT(*) as avg_xg,
+                   AVG(rating) as avg_rating
+            FROM player_xg_history
+            WHERE team_name = ? AND xg IS NOT NULL
+            GROUP BY player_name
+            ORDER BY avg_xg DESC
+            LIMIT ?
+        """, (team_name, top_n)).fetchall()
+
+        return [
+            {
+                "name": r["player_name"],
+                "position": r["position"],
+                "avg_xg": round(r["avg_xg"], 3),
+                "total_xg": round(r["total_xg"], 3),
+                "matches": r["matches"],
+                "avg_rating": round(r["avg_rating"], 2) if r["avg_rating"] else None,
+            }
+            for r in rows
+        ]
 
     def close(self):
         self.conn.close()

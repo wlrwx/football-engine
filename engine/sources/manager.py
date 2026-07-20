@@ -281,19 +281,65 @@ class SourceManager:
                 model = comparison.get("model", {})
                 bookmaker = comparison.get("bookmaker", {})
 
-                # team_form: 提取近期真实xG均值
+                # team_form: 提取近期真实xG均值 + 赛程密度
                 form_xg = None
+                rest_days = None
                 try:
                     form = self._djyy.fetch_team_form(djyy_id, limit=5)
                     if form and form.get("available"):
-                        home_xgs = [fx.get("xg") for fx in form.get("home", {}).get("fixtures", []) if fx.get("xg")]
-                        away_xgs = [fx.get("xg") for fx in form.get("away", {}).get("fixtures", []) if fx.get("xg")]
+                        home_fixtures = form.get("home", {}).get("fixtures", [])
+                        away_fixtures = form.get("away", {}).get("fixtures", [])
+                        home_xgs = [fx.get("xg") for fx in home_fixtures if fx.get("xg")]
+                        away_xgs = [fx.get("xg") for fx in away_fixtures if fx.get("xg")]
                         if home_xgs or away_xgs:
                             form_xg = {
                                 "home_avg": round(sum(home_xgs) / len(home_xgs), 3) if home_xgs else None,
                                 "away_avg": round(sum(away_xgs) / len(away_xgs), 3) if away_xgs else None,
                                 "home_n": len(home_xgs),
                                 "away_n": len(away_xgs),
+                            }
+                        # 赛程密度: 最近一场比赛距今天数
+                        rest_days = {}
+                        for side, fxs in [("home", home_fixtures), ("away", away_fixtures)]:
+                            dates = [fx.get("date") or fx.get("played_at", "")[:10]
+                                     for fx in fxs if fx.get("date") or fx.get("played_at")]
+                            if dates:
+                                last = max(dates)
+                                try:
+                                    last_dt = datetime.strptime(last, "%Y-%m-%d").date()
+                                    rest_days[side] = (target_date - last_dt).days
+                                except (ValueError, TypeError):
+                                    pass
+                        if not rest_days:
+                            rest_days = None
+                except Exception:
+                    pass
+
+                # 伤停: 提取缺阵球员 (影响攻击力评估)
+                injuries = None
+                try:
+                    info = self._djyy.fetch_match_info(djyy_id)
+                    if info and info.get("available"):
+                        inj_data = info.get("injuries") or {}
+                        home_inj = inj_data.get("home", [])
+                        away_inj = inj_data.get("away", [])
+                        if home_inj or away_inj:
+                            injuries = {
+                                "home_count": len(home_inj),
+                                "away_count": len(away_inj),
+                                # 前锋/中场缺阵影响更大
+                                "home_attackers": sum(
+                                    1 for p in home_inj
+                                    if p.get("position", "") in ("F", "M", "Forward", "Midfielder")
+                                    or "前锋" in p.get("position_zh", "")
+                                    or "中场" in p.get("position_zh", "")
+                                ),
+                                "away_attackers": sum(
+                                    1 for p in away_inj
+                                    if p.get("position", "") in ("F", "M", "Forward", "Midfielder")
+                                    or "前锋" in p.get("position_zh", "")
+                                    or "中场" in p.get("position_zh", "")
+                                ),
                             }
                 except Exception:
                     pass
@@ -310,6 +356,8 @@ class SourceManager:
                     "btts": model.get("btts") if model else None,
                     "totals": model.get("totals") if model else None,
                     "form_xg": form_xg,
+                    "rest_days": rest_days,
+                    "injuries": injuries,
                 }
             except Exception:
                 continue

@@ -185,6 +185,13 @@ class DJYYSource(DataSource):
         """
         return self._get_json(f"/api/match/{djyy_id}/events")
 
+    def fetch_match_info(self, djyy_id: int) -> Optional[dict]:
+        """获取比赛信息: 教练/伤停/裁判/天气/场地
+
+        返回: {fixture_id, available, injuries: {home: [{name_zh, reason, type}], away: [...]}, ...}
+        """
+        return self._get_json(f"/api/match/{djyy_id}/info")
+
     def fetch_match_lineups(self, djyy_id: int) -> Optional[dict]:
         """获取首发+替补（含球员rating/个人xG/xGOT）
         

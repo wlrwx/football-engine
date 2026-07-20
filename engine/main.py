@@ -47,6 +47,7 @@ from engine.prediction.lgbm_model import LGBMModel, LGBMConfig, build_features
 from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
 from engine.learning.league_params import LeagueParamsManager
 from engine.storage.match_db import MatchDB
+from engine.prediction.htft_model import htft_probabilities, top_htft
 
 
 def load_config(name: str) -> dict:
@@ -216,6 +217,28 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                     home_rating.attack *= factor
                     away_rating.attack *= factor
 
+        # 赛程密度: 休息不足→疲劳惩罚 (attack下降)
+        rest = djyy_pre.get("rest_days")
+        if rest:
+            home_rest = rest.get("home")
+            away_rest = rest.get("away")
+            # <3天休息: 每少1天扣5%攻击力, 最多扣15%
+            if home_rest is not None and home_rest < 3:
+                home_rating.attack *= max(0.85, 1.0 - (3 - home_rest) * 0.05)
+            if away_rest is not None and away_rest < 3:
+                away_rating.attack *= max(0.85, 1.0 - (3 - away_rest) * 0.05)
+
+        # 伤停缺阵: 攻击型球员缺阵→下调attack
+        inj = djyy_pre.get("injuries")
+        if inj:
+            home_miss = inj.get("home_attackers", 0)
+            away_miss = inj.get("away_attackers", 0)
+            # 每个缺阵攻击手扣4%, 最多扣12%
+            if home_miss > 0:
+                home_rating.attack *= max(0.88, 1.0 - home_miss * 0.04)
+            if away_miss > 0:
+                away_rating.attack *= max(0.88, 1.0 - away_miss * 0.04)
+
         market_odds = None
         if fixture.home_odds and fixture.draw_odds and fixture.away_odds:
             market_odds = (fixture.home_odds, fixture.draw_odds, fixture.away_odds)
@@ -368,6 +391,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         if calibrator.is_fitted:
             final_h, final_d, final_a = calibrator.calibrate((final_h, final_d, final_a))
 
+        # 半全场概率 (基于最终xG)
+        _htft = htft_probabilities(pred.home_xg, pred.away_xg)
+
         predictions.append({
             "match_id": pred.match_id,
             "competition": pred.competition,
@@ -406,6 +432,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 djyy_data.get("totals") if djyy_data and djyy_data.get("totals")
                 else getattr(pred, "top_total_goals", None)
             ),
+            # 半全场概率
+            "htft": _htft,
+            "htft_top3": top_htft(_htft),
             # 逆向赔率
             "reverse_upset_risk": (
                 reverse_result.direction.upset_risk if reverse_result else None
@@ -623,6 +652,28 @@ def run_settlement(target_date: date):
         if djyy_id:
             try:
                 actual_xg = source_mgr._djyy.fetch_post_match_xg(djyy_id)
+            except Exception:
+                pass
+            # 存储球员xG (积累关键球员数据)
+            try:
+                lineups = source_mgr._djyy.fetch_match_lineups(djyy_id)
+                if lineups and lineups.get("available"):
+                    league = pred.get("competition", "unknown") if pred else "unknown"
+                    for side, team in [("home", r.home_team), ("away", r.away_team)]:
+                        side_data = lineups.get(side, {})
+                        players = []
+                        for p in (side_data.get("starting") or []) + (side_data.get("bench") or []):
+                            if p.get("xg") is not None:
+                                players.append({
+                                    "name": p.get("name_zh") or p.get("name"),
+                                    "position": p.get("position"),
+                                    "xg": p.get("xg"),
+                                    "xgot": p.get("xgot"),
+                                    "rating": p.get("rating"),
+                                    "minutes": p.get("minutes"),
+                                })
+                        if players:
+                            db.record_lineup_xg(team, league, target_date.isoformat(), players)
             except Exception:
                 pass
 
