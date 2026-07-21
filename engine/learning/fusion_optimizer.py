@@ -337,7 +337,8 @@ class FusionOptimizer:
             state = json.loads(self.state_path.read_text())
             prev = state.get("previous")
             if prev:
-                return FusionWeights(prev.get("model", 0.6), prev.get("market", 0.25), prev.get("djyy", 0.15))
+                w = FusionWeights(prev.get("model", 0.6), prev.get("market", 0.25), prev.get("djyy", 0.15))
+                return w.normalized()
         except Exception:
             pass
         return None

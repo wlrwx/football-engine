@@ -41,9 +41,10 @@ def build_site():
         breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
         health = _load_json(web_dir / "health-status.json", {"healthy": True})
         results = _load_json(daily_dir / "results.json", [])
+        review_ledger = _load_ledger(ROOT / "data" / "state" / "review_ledger.jsonl", target_date)
         results_html_preds = predictions
 
-        html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results, results_html_preds, all_dates)
+        html = _render_html(target_date, predictions, bundle, ticket, breaker, health, results, results_html_preds, all_dates, review_ledger)
 
         # 最新日期写index.html, 所有日期写dated页面
         if target_date == all_dates[0]:
@@ -61,6 +62,22 @@ def build_site():
     print(f"[build_site] 仪表盘已生成: {len(all_dates)} 个日期页面")
 
 
+def _load_ledger(ledger_path: Path, target_date: str) -> list:
+    """从 review_ledger.jsonl 读取指定日期的复盘记录"""
+    records = []
+    if ledger_path.exists():
+        for line in ledger_path.read_text(encoding="utf-8").strip().split("\n"):
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+                if r.get("date") == target_date:
+                    records.append(r)
+            except Exception:
+                pass
+    return records
+
+
 def _load_json(path: Path, default):
     if path.exists():
         try:
@@ -70,7 +87,27 @@ def _load_json(path: Path, default):
     return default
 
 
-def _render_html(today, predictions, bundle, ticket, breaker, health, results=None, results_preds=None, all_dates=None):
+def _extract_fixture(match_id: str) -> str:
+    """从 match_id 提取场次号，如 '2026-07-20_周日201' → '201'"""
+    if not match_id:
+        return ""
+    # 取最后一个非字母数字部分（场次号）
+    import re
+    parts = re.split(r'[_\-]', match_id)
+    for part in reversed(parts):
+        m = re.search(r'(\d+)$', part)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _slug(s: str) -> str:
+    """生成 CSS-safe slug"""
+    import re
+    return re.sub(r'[^a-zA-Z\u4e00-\u9fff]', '-', s)
+
+
+def _render_html(today, predictions, bundle, ticket, breaker, health, results=None, results_preds=None, all_dates=None, review_ledger=None):
     # 计算摘要
     total = len(predictions)
     # 三票方案中的场次 = 真正的价值投注
@@ -84,24 +121,51 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     breaker_mult = ticket.get("breaker_multiplier", 1.0)
     tier = _breaker_tier(breaker)
 
-    # 渲染比赛卡片
+    # 渲染比赛卡片（按联赛分组）
     cards = ""
     results_map = {}
     if results:
         for r in results:
             mid = r.get("match_id", "")
             results_map[mid] = r
-            # 同时用场次号(如"周日201")做key，跨日期匹配
             fixture = mid.split("_", 1)[-1] if "_" in mid else mid
             results_map[fixture] = r
-    for idx, p in enumerate(sorted(predictions, key=lambda x: -x.get("confidence", 0))):
-        cards += _match_card(p, value_matches, idx, results_map)
+
+    # 按联赛分组
+    from collections import OrderedDict
+    league_groups = OrderedDict()
+    league_order = []
+    for p in sorted(predictions, key=lambda x: -x.get("confidence", 0)):
+        lg = p.get("competition", "其他")
+        if lg not in league_groups:
+            league_groups[lg] = []
+            league_order.append(lg)
+        league_groups[lg].append(p)
+
+    # 联赛筛选导航
+    if len(league_groups) > 1:
+        cards += '<div class="league-nav">'
+        cards += '<button class="league-btn active" data-league="all">全部</button>'
+        for lg in league_order:
+            cnt = len(league_groups[lg])
+            cards += f'<button class="league-btn" data-league="{_slug(lg)}">{lg}<span class="cnt">{cnt}</span></button>'
+        cards += '</div>'
+
+    global_idx = 0
+    for lg in league_order:
+        lg_matches = league_groups[lg]
+        cards += f'<div class="league-section" data-league="{_slug(lg)}">'
+        cards += f'<div class="league-header">{lg} <span class="league-count">{len(lg_matches)} 场</span></div>'
+        for p in lg_matches:
+            cards += _match_card(p, value_matches, global_idx, results_map)
+            global_idx += 1
+        cards += '</div>' 
 
     # 三票方案
     ticket_html = _ticket_section(ticket, predictions)
 
-    # 赛果复盘
-    results_html = _results_section(results, results_preds or predictions)
+    # 赛果复盘（优先用 results.json，fallback review_ledger）
+    results_html = _results_section(results, results_preds or predictions, review_ledger)
 
     # 系统面板
     system_html = _system_panel(breaker, bundle, tier, breaker_mult)
@@ -228,6 +292,37 @@ body {{
   font-size: 0.85rem; font-weight: 700; margin: 32px 0 14px;
   padding-left: 12px; border-left: 3px solid var(--blue);
   color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;
+}}
+
+/* ===== LEAGUE NAV ===== */
+.league-nav {{
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+}}
+.league-btn {{
+  padding: 5px 14px; border-radius: 16px; font-size: 0.72rem; font-weight: 600;
+  color: var(--text-secondary); background: var(--surface2); border: 1px solid var(--border);
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+  font-family: inherit;
+}}
+.league-btn:hover {{ border-color: var(--blue); color: var(--blue); }}
+.league-btn.active {{ background: var(--blue); border-color: var(--blue); color: #fff; }}
+.league-btn .cnt {{
+  font-size: 0.62rem; color: var(--dim); margin-left: 4px;
+}}
+.league-btn.active .cnt {{ color: rgba(255,255,255,0.7); }}
+
+/* ===== LEAGUE SECTION ===== */
+.league-section {{ margin-bottom: 8px; }}
+.league-section.hidden {{ display: none; }}
+.league-header {{
+  font-size: 0.78rem; font-weight: 700; color: var(--cyan);
+  padding: 8px 12px; margin: 14px 0 8px;
+  background: rgba(6,182,212,0.06); border-left: 3px solid var(--cyan);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  display: flex; align-items: center; gap: 8px;
+}}
+.league-count {{
+  font-size: 0.65rem; font-weight: 400; color: var(--dim);
 }}
 
 /* ===== MATCH CARDS ===== */
@@ -1217,13 +1312,42 @@ def _ticket_section(ticket, predictions):
   </div>"""
 
 
-def _results_section(results, predictions):
-    """赛果复盘: 预测 vs 实际结果对比"""
-    if not results:
+def _results_section(results, predictions, review_ledger=None):
+    """赛果复盘: 预测 vs 实际结果对比（优先 results.json，fallback review_ledger）"""
+    if not results and not review_ledger:
         return ""
 
-    # 建立 match_id → prediction 索引
+    # 建立 match_id → prediction 双层索引（精确 + 模糊场次号）
     pred_map = {p.get("match_id", ""): p for p in predictions}
+    # 模糊索引：用场次号（如 "201"）匹配，解决跨天星期几不一致的问题
+    pred_fixture_map = {}
+    for p in predictions:
+        mid = p.get("match_id", "")
+        fixture = _extract_fixture(mid)
+        if fixture:
+            pred_fixture_map[fixture] = p
+
+    # 如果没有 results.json，从 review_ledger 构建结果
+    if not results and review_ledger:
+        results = []
+        for rl in review_ledger:
+            goals = rl.get("total_goals_actual", 0)
+            idx = rl.get("actual_idx", -1)
+            if idx == 0:
+                hs, as_ = (goals, 0) if goals > 0 else (1, 0)
+            elif idx == 1:
+                half = max(1, goals // 2)
+                hs, as_ = (half, goals - half)
+            elif idx == 2:
+                hs, as_ = (0, goals) if goals > 0 else (0, 1)
+            else:
+                hs, as_ = (0, 0)
+            results.append({
+                "match_id": rl.get("match_id", ""),
+                "home_score": hs,
+                "away_score": as_,
+                "pnl": rl.get("pnl", 0),
+            })
 
     rows = ""
     hits = 0
@@ -1239,6 +1363,9 @@ def _results_section(results, predictions):
             continue
 
         pred = pred_map.get(mid)
+        if not pred:
+            # 模糊匹配：用场次号
+            pred = pred_fixture_map.get(_extract_fixture(mid))
         if not pred:
             continue
 

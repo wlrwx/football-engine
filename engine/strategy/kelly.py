@@ -78,7 +78,6 @@ class KellyStrategy:
         candidates = []
         for pred in predictions:
             for sel in ["home", "draw", "away"]:
-                prob_key = f"{sel}_prob" if sel != "home" else "home_win_prob"
                 if sel == "home":
                     prob_key = "home_win_prob"
                 elif sel == "draw":

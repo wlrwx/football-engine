@@ -154,13 +154,15 @@ class TimeSeriesSplitter:
             else:
                 actual_splits = cfg.n_splits
 
-            # 均匀分布测试折
-            test_starts = np.linspace(
-                cfg.min_train_size,
-                n_samples - cfg.test_size,
+            # 均匀分布测试折，使用 round 避免整数截断产生重复索引
+            test_starts_float = np.linspace(
+                float(cfg.min_train_size),
+                float(n_samples - cfg.test_size),
                 actual_splits,
-                dtype=int,
             )
+            test_starts = list(dict.fromkeys(np.round(test_starts_float).astype(int)))
+            if not test_starts:
+                return splits
 
             for start in test_starts:
                 train_idx = np.arange(0, start)
@@ -174,12 +176,14 @@ class TimeSeriesSplitter:
             if n_samples < cfg.rolling_window + cfg.test_size:
                 return splits
 
-            test_starts = np.linspace(
-                cfg.rolling_window,
-                n_samples - cfg.test_size,
+            test_starts_float = np.linspace(
+                float(cfg.rolling_window),
+                float(n_samples - cfg.test_size),
                 cfg.n_splits,
-                dtype=int,
             )
+            test_starts = list(dict.fromkeys(np.round(test_starts_float).astype(int)))
+            if not test_starts:
+                return splits
 
             for start in test_starts:
                 train_start = max(0, start - cfg.rolling_window)

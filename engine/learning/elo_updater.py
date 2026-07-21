@@ -115,10 +115,12 @@ class EloUpdater:
 
         la = self.cfg.attack_learning
         ld = self.cfg.defense_learning
-        home.attack = (1 - la) * home.attack + la * home_attack_actual
-        away.attack = (1 - la) * away.attack + la * away_attack_actual
-        home.defense = (1 - ld) * home.defense + ld * home_defense_actual
-        away.defense = (1 - ld) * away.defense + ld * away_defense_actual
+        da = self.cfg.attack_decay
+        dd = self.cfg.defense_decay
+        home.attack = da * ((1 - la) * home.attack + la * home_attack_actual)
+        away.attack = da * ((1 - la) * away.attack + la * away_attack_actual)
+        home.defense = dd * ((1 - ld) * home.defense + ld * home_defense_actual)
+        away.defense = dd * ((1 - ld) * away.defense + ld * away_defense_actual)
 
         # 状态更新（简化：近 5 场得分率）
         home.form = self._update_form(home.form, actual_home)

@@ -243,8 +243,12 @@ class BacktestRunner:
             for p in predictions:
                 result = db_results.get(p.get("match_id"))
                 if not result:
-                    key = f"{p['home_team']}_vs_{p['away_team']}"
+                    # 优先用带日期的键，避免同主客队不同比赛日的结果错配
+                    key = f"{date_str}_{p['home_team']}_vs_{p['away_team']}"
                     result = db_results.get(key)
+                    if not result:
+                        key = f"{p['home_team']}_vs_{p['away_team']}"
+                        result = db_results.get(key)
                 if not result:
                     continue
 
@@ -299,6 +303,8 @@ class BacktestRunner:
                 entry = {"score_home": r["score_home"], "score_away": r["score_away"]}
                 results[r["match_id"]] = entry
                 results[f"{r['home_team']}_vs_{r['away_team']}"] = entry
+                if "match_date" in r.keys():
+                    results[f"{r['match_date']}_{r['home_team']}_vs_{r['away_team']}"] = entry
         except Exception:
             pass
         finally:

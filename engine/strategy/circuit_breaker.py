@@ -226,6 +226,9 @@ class CircuitBreaker:
         elif streak >= self.cfg.tier1_streak:
             s.tier = max(s.tier, 1)
 
+        # 检查日/周止损并设置 halted 标志
+        self._check_loss_limits(bankroll)
+
         # 记录历史
         s.history.append({
             "date": today,
@@ -239,6 +242,18 @@ class CircuitBreaker:
             s.history = s.history[-200:]
 
         self.save()
+
+    def _check_loss_limits(self, bankroll: float) -> None:
+        """检查日/周止损并设置 halted 标志"""
+        s = self.state
+        today = date.today().isoformat()
+        if s.daily_date == today and s.daily_pnl < 0:
+            if abs(s.daily_pnl) >= bankroll * self.cfg.max_daily_loss_ratio:
+                s.halted = True
+                s.halt_date = today
+        if s.weekly_pnl < 0 and abs(s.weekly_pnl) >= bankroll * self.cfg.max_weekly_loss_ratio:
+            s.halted = True
+            s.halt_date = today
 
     def _reset(self) -> None:
         """重置熔断状态（保留历史）"""
