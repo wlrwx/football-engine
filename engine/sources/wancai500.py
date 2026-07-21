@@ -319,3 +319,65 @@ class Wancai500Source(DataSource):
             return v if v is not None and v >= 0 else None
         except (ValueError, TypeError):
             return None
+
+    def fetch_results(self, target_date: date) -> list[MatchResult]:
+        """从 zx.500.com 获取已完赛比赛结果（用于复盘对账）
+
+        接口: https://zx.500.com/jczq/kaijiang.php?d=YYYY-MM-DD
+        返回: list[MatchResult]
+        """
+        try:
+            url = f"https://zx.500.com/jczq/kaijiang.php?d={target_date.strftime('%Y-%m-%d')}"
+            resp = _SESSION.get(url, headers=H_LIVE, timeout=15)
+            resp.encoding = "gb2312"  # 开奖页面是 GB2312 编码
+            html = resp.text
+        except requests.RequestException:
+            return []
+
+        results = []
+        
+        # 用正则解析 HTML 表格中的赛果
+        # 匹配表格行: <tr ...>...</tr>
+        import re
+        
+        # 匹配: 场次号（周一201）、队名、比分
+        # 格式通常为: <td class="num">周一201</td>...<td class="team">主队 vs 客队</td>...<td class="score">2-1</td>
+        row_pattern = re.compile(r'<tr[^>]*>(.*?)</tr>', re.DOTALL)
+        rows = row_pattern.findall(html)
+        
+        for row in rows:
+            # 提取场次号
+            num_match = re.search(r'<td[^>]*>(周[一二三四五六日]\\d+)</td>', row)
+            if not num_match:
+                continue
+            num = num_match.group(1)
+            
+            # 提取队名
+            team_match = re.search(r'<td[^>]*>([^<]+)\\s*VS\\s*([^<]+)</td>', row, re.IGNORECASE)
+            if not team_match:
+                continue
+            home = team_match.group(1).strip()
+            away = team_match.group(2).strip()
+            
+            # 提取比分
+            score_match = re.search(r'<td[^>]*>(\\d+)\\s*[-:比]\\s*(\\d+)</td>', row, re.IGNORECASE)
+            if not score_match:
+                continue
+            home_score = int(score_match.group(1))
+            away_score = int(score_match.group(2))
+            
+            # 提取联赛名
+            league_match = re.search(r'<td[^>]*>([^<]+联赛|[^<]+超)</td>', row)
+            league = league_match.group(1).strip() if league_match else ""
+            
+            results.append(MatchResult(
+                match_id=num,
+                home_score=home_score,
+                away_score=away_score,
+                home_team=home,
+                away_team=away,
+                competition=league,
+                match_date=target_date.strftime("%Y-%m-%d"),
+            ))
+
+        return results
