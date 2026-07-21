@@ -148,8 +148,29 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
         for r in results:
             mid = r.get("match_id", "")
             results_map[mid] = r
-            fixture = mid.split("_", 1)[-1] if "_" in mid else mid
-            results_map[fixture] = r
+            fixture = _extract_fixture(mid)
+            if fixture:
+                results_map[fixture] = r
+    elif review_ledger:
+        # 从 review_ledger 构建 results_map（含比分推断）
+        for rl in review_ledger:
+            mid = rl.get("match_id", "")
+            goals = rl.get("total_goals_actual", 0)
+            idx = rl.get("actual_idx", -1)
+            if idx == 0:
+                hs, aw = (goals, 0) if goals > 0 else (1, 0)
+            elif idx == 1:
+                half = max(1, goals // 2)
+                hs, aw = (half, goals - half)
+            elif idx == 2:
+                hs, aw = (0, goals) if goals > 0 else (0, 1)
+            else:
+                hs, aw = (0, 0)
+            entry = {"match_id": mid, "home_score": hs, "away_score": aw}
+            results_map[mid] = entry
+            fixture = _extract_fixture(mid)
+            if fixture:
+                results_map[fixture] = entry
 
     # 按联赛分组
     from collections import OrderedDict
@@ -1059,8 +1080,13 @@ def _match_card(p, value_matches, idx, results_map=None):
         r = results_map.get(match_id)
         if not r:
             # 用场次号匹配（跨日期）
-            fixture = match_id.split("_", 1)[-1] if "_" in match_id else match_id
-            r = results_map.get(fixture)
+            fixture = _extract_fixture(match_id)
+            if fixture:
+                r = results_map.get(fixture)
+            if not r:
+                # fallback: 旧格式匹配
+                fixture2 = match_id.split("_", 1)[-1] if "_" in match_id else match_id
+                r = results_map.get(fixture2)
         if r and r.get("home_score") is not None:
             hs, as_ = r["home_score"], r["away_score"]
             if hs > as_:
