@@ -11,6 +11,19 @@ import math
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
+import re
+
+
+def _extract_fixture(match_id: str) -> str:
+    """从 match_id 提取场次号，如 '2026-07-20_周日201' → '201'"""
+    if not match_id:
+        return ""
+    parts = re.split(r'[_\-]', match_id)
+    for part in reversed(parts):
+        m = re.search(r'(\d+)$', part)
+        if m:
+            return m.group(1)
+    return ""
 
 
 @dataclass
@@ -145,8 +158,14 @@ class PostMatchReviewer:
         for p in predictions:
             mid = p.get("match_id", "")
             pred_map[mid] = p
-            fixture = mid.split("_", 1)[-1] if "_" in mid else mid
-            pred_map[fixture] = p
+            fixture = _extract_fixture(mid)
+            if fixture:
+                pred_map[fixture] = p
+            # 也用 "主队_vs_客队" 建索引
+            hm = p.get("home_team", "")
+            aw = p.get("away_team", "")
+            if hm and aw:
+                pred_map[f"{hm}_vs_{aw}"] = p
 
         reviews = []
         for r in results:
@@ -157,8 +176,19 @@ class PostMatchReviewer:
 
             pred = pred_map.get(mid)
             if not pred:
+                fixture = _extract_fixture(mid)
+                if fixture:
+                    pred = pred_map.get(fixture)
+            if not pred:
+                # fallback: 旧格式
                 fixture = mid.split("_", 1)[-1] if "_" in mid else mid
                 pred = pred_map.get(fixture)
+            if not pred:
+                # 用队伍名匹配
+                hm = r.get("home_team", "")
+                aw = r.get("away_team", "")
+                if hm and aw:
+                    pred = pred_map.get(f"{hm}_vs_{aw}")
             if not pred:
                 continue
 
