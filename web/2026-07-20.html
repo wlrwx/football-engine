@@ -559,7 +559,7 @@ body {
 
   <!-- 日期导航 -->
   <div class="date-nav">
-    <a href="2026-07-21.html" class="date-btn ">07-21</a><a href="2026-07-20.html" class="date-btn active">07-20</a><a href="2026-07-19.html" class="date-btn ">07-19</a>
+    <a href="2026-07-21.html" class="date-btn ">07-21</a><a href="2026-07-20.html" class="date-btn active">07-20</a>
   </div>
 
   <!-- KPI STATS -->
@@ -1363,6 +1363,24 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     // Activate clicked
     this.classList.add('active');
     panel.querySelector('#' + tabId).classList.add('active');
+  });
+});
+
+// ===== LEAGUE FILTER =====
+document.querySelectorAll('.league-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var league = this.getAttribute('data-league');
+    // Update active button
+    document.querySelectorAll('.league-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    // Show/hide sections
+    document.querySelectorAll('.league-section').forEach(function(sec) {
+      if (league === 'all' || sec.getAttribute('data-league') === league) {
+        sec.classList.remove('hidden');
+      } else {
+        sec.classList.add('hidden');
+      }
+    });
   });
 });
 </script>

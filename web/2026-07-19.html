@@ -811,6 +811,22 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     panel.querySelector('#' + tabId).classList.add('active');
   });
 });
+
+// ===== LEAGUE FILTER =====
+document.querySelectorAll('.league-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var league = this.getAttribute('data-league');
+    document.querySelectorAll('.league-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    document.querySelectorAll('.league-section').forEach(function(sec) {
+      if (league === 'all' || sec.getAttribute('data-league') === league) {
+        sec.classList.remove('hidden');
+      } else {
+        sec.classList.add('hidden');
+      }
+    });
+  });
+});
 </script>
 </body>
 </html>
