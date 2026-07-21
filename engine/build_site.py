@@ -1111,10 +1111,10 @@ def _match_card(p, value_matches, idx, results_map=None):
             # 比分命中检查
             score_hit_html = ""
             top_scores = p.get("top_scores") or []
-            if top_scores:
-                ts = top_scores[0] if isinstance(top_scores[0], (list, tuple)) else None
-                if ts and len(ts) >= 2 and int(ts[0]) == hs and int(ts[1]) == as_:
+            for item in top_scores:
+                if isinstance(item, (list, tuple)) and len(item) >= 2 and int(item[0]) == hs and int(item[1]) == as_:
                     score_hit_html = ' <span class="ar-hit hit" title="比分命中">比✓</span>'
+                    break
             result_html = f'<div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">{hs}-{as_}</span> <span class="ar-outcome {actual_cls}">{actual_label}</span> <span class="ar-hit {hit_cls}">{hit_icon}</span>{score_hit_html}</div>'
 
     # Build detail tabs
