@@ -30,6 +30,22 @@ def build_site():
     if not all_dates:
         all_dates = [today]
 
+    # 缓存 league_matrix 到本地（从 DJYY 获取）
+    league_matrix_path = ROOT / "data" / "league_matrix.json"
+    if not league_matrix_path.exists():
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                "https://djyylive.com/data/league-matrix.json",
+                headers={"User-Agent": "football-engine/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = resp.read()
+                league_matrix_path.parent.mkdir(parents=True, exist_ok=True)
+                league_matrix_path.write_bytes(data)
+        except Exception:
+            pass
+
     # 为每个日期生成页面
     for target_date in all_dates:
         daily_dir = daily_root / target_date
@@ -121,6 +137,10 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     breaker_mult = ticket.get("breaker_multiplier", 1.0)
     tier = _breaker_tier(breaker)
 
+    # 联赛矩阵面板
+    league_matrix = _load_league_matrix(ROOT / "data" / "league_matrix.json")
+    league_matrix_html = _league_matrix_section(league_matrix, predictions)
+
     # 渲染比赛卡片（按联赛分组）
     cards = ""
     results_map = {}
@@ -155,7 +175,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     for lg in league_order:
         lg_matches = league_groups[lg]
         cards += f'<div class="league-section" data-league="{_slug(lg)}">'
-        cards += f'<div class="league-header">{lg} <span class="league-count">{len(lg_matches)} 场</span></div>'
+        cards += _league_header_enriched(lg, len(lg_matches), league_matrix)
         for p in lg_matches:
             cards += _match_card(p, value_matches, global_idx, results_map)
             global_idx += 1
@@ -324,6 +344,62 @@ body {{
 .league-count {{
   font-size: 0.65rem; font-weight: 400; color: var(--dim);
 }}
+
+
+/* ===== LEAGUE MATRIX TABLE ===== */
+.lm-wrap {{
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  margin-bottom: 4px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}}
+.lm-table {{
+  width: 100%; border-collapse: collapse; font-size: 0.68rem;
+  white-space: nowrap;
+}}
+.lm-table thead {{ position: sticky; top: 0; z-index: 2; }}
+.lm-table th {{
+  background: var(--surface2); color: var(--dim); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 8px 10px; text-align: center; border-bottom: 2px solid var(--border);
+  font-size: 0.6rem;
+}}
+.lm-table th:first-child {{ text-align: left; padding-left: 12px; }}
+.lm-table th:nth-child(2) {{ text-align: left; }}
+.lm-table td {{
+  padding: 6px 10px; text-align: center; border-bottom: 1px solid rgba(38,51,68,0.5);
+  color: var(--text-secondary);
+}}
+.lm-table td:first-child {{ padding-left: 12px; }}
+.lm-table td:nth-child(2) {{ text-align: left; font-weight: 600; color: var(--text); }}
+.lm-row:hover td {{ background: rgba(59,130,246,0.05); }}
+.lm-row.active td {{ background: rgba(59,130,246,0.08); }}
+.lm-row.active td:nth-child(2) {{ color: var(--blue); }}
+.lm-name {{ font-weight: 600; }}
+.lm-num {{ font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; }}
+.lm-pct {{ font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; }}
+.lm-cat {{
+  display: inline-block; padding: 1px 8px; border-radius: 10px;
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase;
+}}
+.lm-cat-tier1 {{ background: rgba(34,197,94,0.12); color: var(--green); }}
+.lm-cat-tier2 {{ background: rgba(245,158,11,0.12); color: var(--amber); }}
+.lm-cat-world {{ background: rgba(59,130,246,0.12); color: var(--blue); }}
+.lm-cat-other {{ background: rgba(148,168,192,0.1); color: var(--dim); }}
+#league-matrix.collapsed {{ display: none; }}
+
+/* ===== LEAGUE STATS BAR ===== */
+.lg-stats-bar {{
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+}}
+.lg-stat {{
+  font-size: 0.62rem; padding: 2px 8px; border-radius: 4px;
+  font-weight: 600; white-space: nowrap;
+  background: rgba(148,168,192,0.08); color: var(--text-secondary);
+}}
+.lg-stat.h {{ color: var(--blue); }}
+.lg-stat.d {{ color: var(--dim); }}
+.lg-stat.a {{ color: var(--red); }}
 
 /* ===== MATCH CARDS ===== */
 .match {{
@@ -746,6 +822,9 @@ body {{
     <div class="stat"><div class="label">熔断器</div><div class="value {'green' if tier == 0 else 'red'}">T{tier} &middot; x{breaker_mult:.1f}</div></div>
   </div>
 
+  <!-- LEAGUE MATRIX -->
+  {league_matrix_html}
+
   <!-- MATCH PREDICTIONS -->
   <div class="section-title">比赛预测</div>
   {cards if cards else '<p style="color:var(--dim);padding:48px;text-align:center;font-size:0.85rem;">等待每日流水线运行...</p>'}
@@ -838,6 +917,122 @@ def _pred_score(p):
     if scores:
         return f' <span class="pred-score">比分 {" / ".join(scores)}</span>'
     return ""
+
+
+def _load_league_matrix(path):
+    """加载 DJYY 联赛矩阵数据"""
+    import json
+    try:
+        if path.exists():
+            return json.loads(path.read_text())
+    except Exception:
+        pass
+    return {"leagues": []}
+
+
+def _league_matrix_section(league_matrix, predictions):
+    """联赛矩阵面板：展示联赛统计数据，高亮当天有预测的联赛"""
+    if not league_matrix or not league_matrix.get("leagues"):
+        return ""
+
+    leagues = league_matrix["leagues"]
+    predicted_leagues = set()
+    # 联赛名称映射（竞彩名称 → DJYY 矩阵名称）
+    name_map = {
+        "K1联赛": "韩K联", "韩K联": "韩K联",
+        "巴甲": "巴西甲", "巴西甲": "巴西甲",
+        "K联赛": "韩K联",
+    }
+    for p in predictions:
+        comp = p.get("competition", "")
+        if comp:
+            predicted_leagues.add(comp)
+            mapped = name_map.get(comp, comp)
+            if mapped != comp:
+                predicted_leagues.add(mapped)
+
+    sorted_leagues = sorted(leagues, key=lambda x: -x.get("avg_goals", 0))
+
+    rows = ""
+    for lg in sorted_leagues:
+        name = lg["name_zh"]
+        is_active = name in predicted_leagues
+        row_cls = "active" if is_active else ""
+        cat = lg.get("category", "other")
+        cat_label = {"tier1": "顶级", "tier2": "次级", "world": "全球", "other": "其他"}.get(cat, cat)
+        cat_cls = cat
+
+        rows += '<tr class="lm-row ' + row_cls + '">'
+        rows += '<td><span class="lm-cat lm-cat-' + cat_cls + '">' + cat_label + '</span></td>'
+        rows += '<td class="lm-name">' + name + '</td>'
+        rows += '<td class="lm-num">' + str(lg.get("matches", 0)) + '</td>'
+        rows += '<td class="lm-num">' + f'{lg.get("avg_goals", 0):.1f}' + '</td>'
+        rows += '<td class="lm-num">' + f'{lg.get("avg_xg", 0):.2f}' + '</td>'
+        rows += '<td class="lm-pct">' + f'{lg.get("btts_pct", 0):.0f}%' + '</td>'
+        rows += '<td class="lm-pct">' + f'{lg.get("home_win_pct", 0):.0f}%' + '</td>'
+        rows += '<td class="lm-pct">' + f'{lg.get("draw_pct", 0):.0f}%' + '</td>'
+        rows += '<td class="lm-pct">' + f'{lg.get("away_win_pct", 0):.0f}%' + '</td>'
+        rows += '<td class="lm-pct">' + f'{lg.get("clean_sheet_pct", 0):.0f}%' + '</td>'
+        rows += '<td class="lm-num">' + f'{lg.get("avg_corners", 0):.1f}' + '</td>'
+        rows += '<td class="lm-num">' + f'{lg.get("avg_yellow", 0):.1f}' + '</td>'
+        rows += '</tr>'
+
+    gen_time = league_matrix.get("generated_at", "")[:10]
+
+    return (
+        '<div class="section-title" onclick="document.getElementById(\'league-matrix\').classList.toggle(\'collapsed\')" style="cursor:pointer">'
+        + '联赛矩阵 &middot; ' + str(len(leagues)) + ' 联赛 &middot; 更新于 ' + gen_time
+        + ' <span style="font-size:0.65rem;color:var(--dim)">&#9660; 点击折叠</span></div>'
+        + '<div id="league-matrix"><div class="lm-wrap"><table class="lm-table">'
+        + '<thead><tr><th>级别</th><th>联赛</th><th>场次</th><th>场均进球</th><th>场均xG</th>'
+        + '<th>BTTS</th><th>主胜</th><th>平局</th><th>客胜</th><th>零封</th>'
+        + '<th>角球</th><th>黄牌</th></tr></thead>'
+        + '<tbody>' + rows + '</tbody></table></div>'
+        + '<div style="padding:8px 12px;font-size:0.62rem;color:var(--dim);display:flex;gap:12px;flex-wrap:wrap">'
+        + '<span>数据来源: <a href="https://djyylive.com" style="color:var(--blue)">DJYY</a></span>'
+        + '<span>&#x25cf; 高亮行 = 当天有预测的联赛</span>'
+        + '<span>BTTS = 双方进球率</span></div></div>'
+    )
+
+
+def _league_header_enriched(lg_name, count, league_matrix):
+    """生成带联赛统计的增强版联赛头部"""
+    if not league_matrix or not league_matrix.get("leagues"):
+        return '<div class="league-header">' + lg_name + ' <span class="league-count">' + str(count) + ' 场</span></div>'
+
+    lg_data = None
+    name_map = {"K1联赛": "韩K联", "巴甲": "巴西甲", "K联赛": "韩K联"}
+    search_name = name_map.get(lg_name, lg_name)
+    for lg in league_matrix["leagues"]:
+        if lg["name_zh"] == search_name or lg["name_zh"] == lg_name or lg.get("short_zh", "") == lg_name:
+            lg_data = lg
+            break
+
+    if not lg_data:
+        return '<div class="league-header">' + lg_name + ' <span class="league-count">' + str(count) + ' 场</span></div>'
+
+    goals = lg_data.get("avg_goals", 0)
+    btts = lg_data.get("btts_pct", 0)
+    home = lg_data.get("home_win_pct", 0)
+    draw = lg_data.get("draw_pct", 0)
+    away = lg_data.get("away_win_pct", 0)
+    xg = lg_data.get("avg_xg", 0)
+    matches = lg_data.get("matches", 0)
+
+    return (
+        '<div class="league-header">'
+        + '<span>' + lg_name + '</span>'
+        + '<span class="league-count">' + str(count) + ' 场 &middot; 赛季 ' + str(matches) + '场</span>'
+        + '<div class="lg-stats-bar">'
+        + '<span class="lg-stat" title="场均进球">&#x26BD; ' + f'{goals:.1f}' + '</span>'
+        + '<span class="lg-stat" title="场均xG">xG ' + f'{xg:.2f}' + '</span>'
+        + '<span class="lg-stat" title="双方进球率">BTTS ' + f'{btts:.0f}%' + '</span>'
+        + '<span class="lg-stat h" title="主胜率">主 ' + f'{home:.0f}%' + '</span>'
+        + '<span class="lg-stat d" title="平局率">平 ' + f'{draw:.0f}%' + '</span>'
+        + '<span class="lg-stat a" title="客胜率">客 ' + f'{away:.0f}%' + '</span>'
+        + '</div></div>'
+    )
+
 
 
 def _match_card(p, value_matches, idx, results_map=None):
