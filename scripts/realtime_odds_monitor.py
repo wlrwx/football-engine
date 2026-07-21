@@ -157,7 +157,7 @@ def run_prediction_pipeline() -> bool:
 
 
 def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
-    """Git推送（带重试）"""
+    """Git推送（带重试 + 自动同步）"""
     try:
         # Add所有变更
         subprocess.run(
@@ -193,6 +193,15 @@ def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
             # 配置Git网络优化
             subprocess.run(["git", "config", "http.version", "HTTP/1.1"], cwd=PROJECT_ROOT)
             subprocess.run(["git", "config", "http.postBuffer", "524288000"], cwd=PROJECT_ROOT)
+            
+            # 先拉取远程变更（自动解决数据冲突，用本地最新数据覆盖）
+            log(f"    同步远程变更...")
+            subprocess.run(
+                ["git", "pull", "--rebase", "-X", "ours"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                timeout=60
+            )
             
             result = subprocess.run(
                 ["git", "push"],
