@@ -155,11 +155,15 @@ class ThreeTicketAllocator:
         """按Kelly比例分配池内资金"""
         if not picks:
             return
-        total_kelly = sum(max(p.kelly_fraction, 0.01) for p in picks)
+        total_kelly = sum(p.kelly_fraction for p in picks if p.kelly_fraction > 0)
+        if total_kelly <= 0:
+            return
         max_single = self.bankroll * self.cfg.max_single_ratio
 
         for p in picks:
-            weight = max(p.kelly_fraction, 0.01) / total_kelly
+            if p.kelly_fraction <= 0:
+                continue
+            weight = p.kelly_fraction / total_kelly
             raw_stake = pool * weight
             p.stake = round(min(raw_stake, max_single), 2)
 
