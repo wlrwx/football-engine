@@ -120,6 +120,37 @@ body {
   color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;
 }
 
+/* ===== LEAGUE NAV ===== */
+.league-nav {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+}
+.league-btn {
+  padding: 5px 14px; border-radius: 16px; font-size: 0.72rem; font-weight: 600;
+  color: var(--text-secondary); background: var(--surface2); border: 1px solid var(--border);
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+  font-family: inherit;
+}
+.league-btn:hover { border-color: var(--blue); color: var(--blue); }
+.league-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.league-btn .cnt {
+  font-size: 0.62rem; color: var(--dim); margin-left: 4px;
+}
+.league-btn.active .cnt { color: rgba(255,255,255,0.7); }
+
+/* ===== LEAGUE SECTION ===== */
+.league-section { margin-bottom: 8px; }
+.league-section.hidden { display: none; }
+.league-header {
+  font-size: 0.78rem; font-weight: 700; color: var(--cyan);
+  padding: 8px 12px; margin: 14px 0 8px;
+  background: rgba(6,182,212,0.06); border-left: 3px solid var(--cyan);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.league-count {
+  font-size: 0.65rem; font-weight: 400; color: var(--dim);
+}
+
 /* ===== MATCH CARDS ===== */
 .match {
   background: var(--surface); border: 1px solid var(--border);
@@ -543,7 +574,7 @@ body {
 
   <!-- MATCH PREDICTIONS -->
   <div class="section-title">比赛预测</div>
-  
+  <div class="league-section" data-league="世界杯"><div class="league-header">世界杯 <span class="league-count">1 场</span></div>
   <div class="match ">
     <div class="match-header">
       <div class="match-top">
@@ -565,7 +596,7 @@ body {
         <div class="prob-seg a" style="width:34.2%">A 34%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 41%</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">1-0</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>11%</b></span>
         <span class="info-chip">xG <b>1.65 - 1.49</b></span>
@@ -678,7 +709,7 @@ body {
         </div>
       </div></div>
     </div>
-  </div>
+  </div></div>
 
   <!-- BETTING PLAN -->
   
@@ -697,6 +728,27 @@ body {
 
   <!-- RESULTS REVIEW -->
   
+  <div class="section-title">赛果复盘</div>
+  <div class="results-summary">
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--green)">100% (1/1)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.528</div></div>
+    <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
+  </div>
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <tr><th>比赛</th><th>比分</th><th>实际</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
+      
+        <tr class="hit">
+          <td>Spain vs Argentina</td>
+          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td>主胜</td>
+          <td>主胜 (41%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.528</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
+    </table>
+  </div>
 
   <!-- SYSTEM STATUS -->
   
@@ -705,10 +757,10 @@ body {
     <div class="sys-card">
       <h4>熔断器</h4>
       <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T0 &middot; x0.90</span></div>
-      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--green)">+0</span></div>
-      <div class="sys-row"><span class="k">胜率</span><span class="v">0.0% (0胜 / 0负)</span></div>
-      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--green)">&yen;+0</span></div>
-      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--green)">&yen;+0</span></div>
+      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-2</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">33.3% (1胜 / 2负)</span></div>
+      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--red)">&yen;-1700</span></div>
+      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-1700</span></div>
     </div>
     <div class="sys-card">
       <h4>决策完整性</h4>
