@@ -132,7 +132,7 @@ class SportterySource(DataSource):
     def fetch_results(self, target_date: date) -> list[MatchResult]:
         """获取比赛结果"""
         if _PROXY:
-            url = f"{_PROXY.rstrip('/')}/gateway/uniform/football/getMatchResultV1.qry"
+            url = f"{_PROXY.rstrip('/')}/api/sporttery/gateway/uniform/football/getMatchResultV1.qry"
         else:
             url = "https://webapi.sporttery.cn/gateway/uniform/football/getMatchResultV1.qry"
         params = {"channel": "c"}
