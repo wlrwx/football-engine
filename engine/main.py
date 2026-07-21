@@ -659,6 +659,21 @@ def run_settlement(target_date: date):
     elo_updater.save()
     print(f"  ✓ Elo 已更新 ({len(results)} 场)")
 
+    # 保存结果到 results.json（供复盘/网页使用）
+    daily_dir = ROOT / "data" / "daily" / target_date.isoformat()
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    results_data = []
+    for r in results:
+        results_data.append({
+            "match_id": getattr(r, "match_id", f"{r.home_team}_vs_{r.away_team}"),
+            "home_score": r.home_score,
+            "away_score": r.away_score,
+            "home_team": r.home_team,
+            "away_team": r.away_team,
+        })
+    (daily_dir / "results.json").write_text(json.dumps(results_data, ensure_ascii=False, indent=2))
+    print(f"  ✓ results.json 已保存 ({len(results_data)} 场)")
+
     # MatchDB: 记录比赛历史 + 积累球队xG
     print("\n[1.5/4] MatchDB 数据积累...")
     pred_cfg = load_config("prediction")
