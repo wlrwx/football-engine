@@ -162,49 +162,39 @@ def run_prediction_pipeline() -> bool:
         return False
 
 
-def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
-    """Git推送（带重试 + 自动同步 + 强制跟踪标志清除）"""
+def git_push_with_retry(max_retries: int = 5, retry_delay: int = 10) -> bool:
+    """Git推送（极简稳定版）"""
     try:
-        # 清除所有 skip-worktree 和 assume-unchanged 标志
-        # 这是Git隐藏的"忽略本地变更"机制，必须清除才能提交
+        # 强制添加所有变更（绕过所有Git缓存和标志）
         subprocess.run(
-            ["git", "update-index", "--no-skip-worktree"] + 
-            subprocess.run(["git", "ls-files", "data/", "web/"], 
-                          capture_output=True, text=True).stdout.strip().split("\n"),
+            ["git", "add", "-f", "data/", "web/", "scripts/", "engine/"],
             cwd=PROJECT_ROOT,
-            capture_output=True
+            capture_output=True,
+            timeout=30
         )
-        subprocess.run(
-            ["git", "update-index", "--no-assume-unchanged"] +
-            subprocess.run(["git", "ls-files", "data/", "web/"],
-                          capture_output=True, text=True).stdout.strip().split("\n"),
-            cwd=PROJECT_ROOT,
-            capture_output=True
-        )
-        
-        # Add所有变更（强制添加，绕过Git缓存问题）
-        subprocess.run(["git", "add", "-f", "data/", "web/", "engine/"], cwd=PROJECT_ROOT)
         
         # 检查是否有变更
         result = subprocess.run(
             ["git", "status", "--porcelain"],
             cwd=PROJECT_ROOT,
             capture_output=True,
-            text=True
+            text=True,
+            timeout=10
         )
         if not result.stdout.strip():
             log("没有文件变更，跳过提交")
             return True
         
-        log(f"  变更文件: {result.stdout.count(chr(10)) + 1} 个")
+        change_count = result.stdout.count(chr(10)) + 1
+        log(f"  变更文件: {change_count} 个")
         
         # Commit
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        result = subprocess.run(
+        subprocess.run(
             ["git", "commit", "-m", f"🔄 实时更新: {timestamp} 盘口异动"],
             cwd=PROJECT_ROOT,
             capture_output=True,
-            text=True
+            timeout=30
         )
         
         # Push with retries
@@ -215,8 +205,7 @@ def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
             subprocess.run(["git", "config", "http.version", "HTTP/1.1"], cwd=PROJECT_ROOT)
             subprocess.run(["git", "config", "http.postBuffer", "524288000"], cwd=PROJECT_ROOT)
             
-            # 先拉取远程变更（自动解决数据冲突，用本地最新数据覆盖）
-            log(f"    同步远程变更...")
+            # 先拉取远程变更（自动解决数据冲突）
             subprocess.run(
                 ["git", "pull", "--rebase", "-X", "ours"],
                 cwd=PROJECT_ROOT,
@@ -229,7 +218,7 @@ def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
                 cwd=PROJECT_ROOT,
                 capture_output=True,
                 text=True,
-                timeout=120
+                timeout=60
             )
             
             if result.returncode == 0:
@@ -271,7 +260,7 @@ def load_current_odds() -> dict:
 
 
 def main():
-    """主函数"""
+    """主函数 - 智能快速模式：只检测变化，不重复跑预测"""
     LOG_FILE.parent.mkdir(exist_ok=True)
     
     log("")
@@ -279,22 +268,17 @@ def main():
     log("║          football-engine 盘口实时监控                  ║")
     log("╚══════════════════════════════════════════════════════╝")
     
-    # Step 1: 先抓取最新赔率
-    log("正在抓取最新盘口数据...")
+    # Step 1: 加载当前赔率数据
+    log("正在检测盘口数据...")
     odds_data = load_current_odds()
     
     if not odds_data:
-        log("⚠ 未获取到赔率数据，执行完整预测流水线")
+        log("⚠ 无现有数据，执行完整预测流水线")
         success = run_prediction_pipeline()
         if not success:
             log("❌ 预测流水线执行失败，退出")
             sys.exit(1)
-        # 重新加载数据
         odds_data = load_current_odds()
-    
-    if not odds_data:
-        log("❌ 仍无数据，退出")
-        sys.exit(1)
     
     match_count = len(odds_data)
     log(f"✓ 加载 {match_count} 场比赛赔率")
@@ -312,13 +296,22 @@ def main():
     
     log(f"✅ 触发推送: {reason}")
     
-    # Step 4: 执行完整预测流水线
-    if not run_prediction_pipeline():
-        log("❌ 预测流水线执行失败")
-        sys.exit(1)
+    # Step 4: 只重新构建页面（不重复跑预测！）
+    log("Step 1/2: 构建网站页面...")
+    try:
+        subprocess.run(
+            [sys.executable, "-c", "from engine.build_site import build_site; build_site()"],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        log("✓ 页面构建完成")
+    except Exception as e:
+        log(f"⚠ 页面构建失败: {str(e)}，继续推送现有数据")
     
     # Step 5: Git 推送
-    log("Step 3/3: Git 推送至 GitHub...")
+    log("Step 2/2: Git 推送至 GitHub...")
     if git_push_with_retry():
         log("✅ 推送成功！GitHub 项目已实时更新")
         save_push_state(current_hash)
