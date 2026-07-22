@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   fetch:
@@ -21,15 +23,29 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Fetch DJYY SSR data
         run: |
           python scripts/fetch_djyy_ssr.py
           echo "Matches extracted: $(python -c "import json; d=json.load(open('data/djyy_matches.json')); print(d['total'])")"
 
-      - name: Commit update
+      - name: Rebuild site with latest odds
+        run: python engine/build_site.py
+
+      - name: Commit data update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/djyy_matches.json
-          git diff --cached --quiet || git commit -m "data: DJYY SSR $(date +%Y-%m-%d)"
+          git diff --cached --quiet || git commit -m "data: DJYY SSR $(date +%Y-%m-%d %H:%M)"
           git push
+
+      - name: Deploy to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./web
+
+      - name: Deploy Pages
+        uses: actions/deploy-pages@v4
