@@ -111,6 +111,12 @@ def should_push(current_hash: str) -> tuple[bool, str]:
     
     # 检查赔率是否变化
     if current_hash == state["last_hash"]:
+        # ✅ 优化：每4小时至少强制同步一次，确保项目保持活跃
+        # 解决：赔率没变但一整天不更新的问题
+        last_push = datetime.strptime(state["last_push_time"], "%Y-%m-%d %H:%M:%S")
+        hours_since_last = (now - last_push).total_seconds() / 3600
+        if hours_since_last >= 4:
+            return True, f"每4小时强制同步（距上次推送{hours_since_last:.1f}小时）"
         return False, "赔率无变化"
     
     return True, "赔率变化超过阈值"
