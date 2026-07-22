@@ -561,6 +561,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             filtered_count += 1
             continue
         is_synthetic = p.get("odds_synthetic", False)
+        max_edge = -1.0  # 记录最大期望值 (prob * odds - 1)
         for sel, prob, odds_key in [
             ("home", p["home_win_prob"], "home_odds"),
             ("draw", p["draw_prob"], "draw_odds"),
@@ -569,6 +570,11 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             odds = p.get(odds_key)
             if not odds:
                 continue
+            
+            edge = prob * odds - 1  # 期望值
+            if edge > max_edge:
+                max_edge = edge
+
             if is_synthetic:
                 # 合成赔率: 用置信度推荐 (概率>50%的最优选项)
                 if prob > 0.50 and prob == max(p["home_win_prob"], p["draw_prob"], p["away_win_prob"]):
@@ -579,8 +585,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                         "prob": prob,
                         "kelly_fraction": 0.05,  # 保守固定仓位
                     })
-            elif prob * odds > 1.0:  # 真实赔率: 正期望
-                kelly_f = (prob * odds - 1) / (odds - 1) * 0.25  # quarter-Kelly
+            elif edge > 0:  # 真实赔率: 正期望
+                kelly_f = edge / (odds - 1) * 0.25  # quarter-Kelly
                 candidates.append({
                     "match_id": p["match_id"],
                     "selection": sel,
@@ -588,6 +594,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                     "prob": prob,
                     "kelly_fraction": kelly_f,
                 })
+        
+        # 写回 kelly_edge 到预测字典，解决 Kelly=0 问题
+        p["kelly_edge"] = round(max_edge, 4) if max_edge > -1.0 else 0.0
+
     if filtered_count > 0:
         print(f"  置信过滤: {filtered_count} 场低于阈值 {conf_threshold:.2f}，已跳过")
 

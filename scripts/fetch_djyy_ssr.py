@@ -46,7 +46,7 @@ def extract_matches(html: str) -> list[dict]:
         for hm in re.finditer(r'"home_name":"([^"]+)"', decoded):
             home = hm.group(1)
             pos = hm.start()
-            snippet = decoded[pos:pos + 3000]
+            snippet = decoded[pos:pos + 6000]  # 扩大到 6000 以包含 odds_comparison
 
             away = re.search(r'"away_name":"([^"]+)"', snippet)
             home_cn = re.search(r'"home_name_cn":"([^"]+)"', snippet)
@@ -67,6 +67,8 @@ def extract_matches(html: str) -> list[dict]:
             in_today = re.search(r'"in_today":(\d)', snippet)
             pt_value = re.search(r'"pt_value_bet":(\d+)', snippet)
             pt_home = re.search(r'"pt_home_advantage":(\d+)', snippet)
+            # 提取 odds_comparison（双重转义的 JSON）
+            odds_raw = re.search(r'"odds_comparison":"(\{.*?\})"', snippet)
 
             match = {
                 "fs_match_id": int(fs_match_id.group(1)) if fs_match_id else None,
@@ -89,6 +91,7 @@ def extract_matches(html: str) -> list[dict]:
                 "in_today": bool(int(in_today.group(1))) if in_today else False,
                 "pt_value_bet": int(pt_value.group(1)) if pt_value else 0,
                 "pt_home_advantage": int(pt_home.group(1)) if pt_home else 0,
+                "odds_comparison": odds_raw.group(1).replace('\\\\"', '"').replace('\\"', '"') if odds_raw else "",
             }
             matches.append(match)
 

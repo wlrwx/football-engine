@@ -2,10 +2,8 @@ name: Fetch DJYY SSR Data
 
 on:
   schedule:
-    # UTC 02:00 = 北京时间 10:00 (赛后)
-    - cron: '0 2 * * *'
-    # UTC 08:00 = 北京时间 16:00 (赛前更新)
-    - cron: '0 8 * * *'
+    # 每30分钟抓取一次赔率数据
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
