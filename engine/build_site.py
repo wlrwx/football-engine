@@ -60,9 +60,12 @@ def build_site():
         breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
         health = _load_json(web_dir / "health-status.json", {"healthy": True})
         results = _load_json(daily_dir / "results.json", [])
-        # 如果当日 results.json 为空，用全局索引匹配
+        # 如果当日 results.json 为空，用全局索引匹配（仅对历史日期）
+        from datetime import date as dt_date
         if not results and predictions:
-            results = _match_results_to_predictions(predictions, all_results)
+            is_today = (target_date == dt_date.today().isoformat())
+            if not is_today:
+                results = _match_results_to_predictions(predictions, all_results)
         review_ledger = _load_ledger(ROOT / "data" / "state" / "review_ledger.jsonl", target_date)
         results_html_preds = predictions
 
