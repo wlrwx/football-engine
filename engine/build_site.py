@@ -209,7 +209,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     total_stake = ticket.get("total_stake", 0)
     exp_roi = ticket.get("expected_roi", 0)
     breaker_mult = ticket.get("breaker_multiplier", 1.0)
-    tier = _breaker_tier(breaker)
+    tier, tier_reason = _breaker_tier(breaker)
 
     # 联赛矩阵面板
     league_matrix = _load_league_matrix(ROOT / "data" / "league_matrix.json")
@@ -288,7 +288,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     results_html = _results_section(results, results_preds or predictions, review_ledger)
 
     # 系统面板
-    system_html = _system_panel(breaker, bundle, tier, breaker_mult)
+    system_html = _system_panel(breaker, bundle, tier, breaker_mult, tier_reason)
 
     health_badge = '<span class="badge ok">系统正常</span>' if health.get("healthy") else '<span class="badge warn">降级</span>'
 
@@ -1817,7 +1817,7 @@ def _results_section(results, predictions, review_ledger=None):
   </div>"""
 
 
-def _system_panel(breaker, bundle, tier, mult):
+def _system_panel(breaker, bundle, tier, mult, tier_reason=""):
     streak = breaker.get("current_streak", 0)
     wins = breaker.get("total_wins", 0)
     losses = breaker.get("total_losses", 0)
@@ -1829,7 +1829,7 @@ def _system_panel(breaker, bundle, tier, mult):
     created = bundle.get("created_at", "")
 
     tier_cls = "safe" if tier <= 1 else "caution" if tier <= 2 else "danger"
-    tier_label = f"T{tier}" + (" 已停注" if halted else "")
+    tier_label = f"T{tier}" + (" · " + tier_reason if tier_reason else "")
 
     return f"""
   <div class="section-title">系统状态</div>
@@ -1869,18 +1869,21 @@ def _is_value(p, value_matches=None):
 
 
 def _breaker_tier(breaker):
+    """返回熔断级别，区分真实 tier 和 halted 原因"""
     streak = abs(min(breaker.get("current_streak", 0), 0))
-    if breaker.get("halted"):
-        return 4
+    actual_tier = max(0, breaker.get("tier", 0))
     if streak >= 15:
-        return 4
+        return 4, "连败≥15 停注"
     if streak >= 12:
-        return 3
+        return 3, ""
     if streak >= 6:
-        return 2
+        return 2, ""
     if streak >= 3:
-        return 1
-    return max(0, breaker.get("tier", 0))
+        return 1, ""
+    if breaker.get("halted"):
+        # 非连败触发的停注（日/周止损），显示实际tier
+        return actual_tier, "周/日止损停注"
+    return actual_tier, ""
 
 
 if __name__ == "__main__":
