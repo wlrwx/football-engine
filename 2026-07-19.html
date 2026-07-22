@@ -177,9 +177,26 @@ body {
 }
 .lm-table td:first-child { padding-left: 12px; }
 .lm-table td:nth-child(2) { text-align: left; font-weight: 600; color: var(--text); }
-.lm-row:hover td { background: rgba(59,130,246,0.05); }
-.lm-row.active td { background: rgba(59,130,246,0.08); }
-.lm-row.active td:nth-child(2) { color: var(--blue); }
+.lm-row:hover td { background: rgba(59,130,246,0.08); }
+.lm-row.active td {
+  background: rgba(34,197,94,0.12);
+  font-weight: 600;
+}
+.lm-row.active td:first-child { border-left: 3px solid var(--green); }
+.lm-row.active td:nth-child(2) {
+  color: var(--green);
+  font-weight: 700;
+}
+.lm-row.active td:nth-child(2)::before {
+  content: '● ';
+  font-size: 0.5rem;
+  vertical-align: middle;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 .lm-name { font-weight: 600; }
 .lm-num { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; }
 .lm-pct { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; }
