@@ -30,6 +30,9 @@ def build_site():
     if not all_dates:
         all_dates = [today]
 
+    # 构建全局结果索引（扫描所有日期目录的 results.json，按队名索引）
+    all_results = _load_all_results(daily_root, all_dates)
+
     # 缓存 league_matrix 到本地（从 DJYY 获取）
     league_matrix_path = ROOT / "data" / "league_matrix.json"
     if not league_matrix_path.exists():
@@ -57,6 +60,9 @@ def build_site():
         breaker = _load_json(ROOT / "data" / "state" / "circuit_breaker.json", {})
         health = _load_json(web_dir / "health-status.json", {"healthy": True})
         results = _load_json(daily_dir / "results.json", [])
+        # 如果当日 results.json 为空，用全局索引匹配
+        if not results and predictions:
+            results = _match_results_to_predictions(predictions, all_results)
         review_ledger = _load_ledger(ROOT / "data" / "state" / "review_ledger.jsonl", target_date)
         results_html_preds = predictions
 
@@ -76,6 +82,67 @@ def build_site():
     }
     (web_dir / "report-status.json").write_text(json.dumps(status, indent=2))
     print(f"[build_site] 仪表盘已生成: {len(all_dates)} 个日期页面")
+
+
+def _load_all_results(daily_root: Path, all_dates: list) -> dict:
+    """扫描所有日期目录，构建全局 results 索引（按队名 + match_id）"""
+    index = {}
+    search_dates = set(all_dates)
+    # 也扫描预测日期前后2天（结算可能跨天）
+    for d in all_dates:
+        try:
+            dt = datetime.strptime(d, "%Y-%m-%d")
+            for offset in range(-2, 3):
+                from datetime import timedelta
+                adj = (dt + timedelta(days=offset)).strftime("%Y-%m-%d")
+                search_dates.add(adj)
+        except Exception:
+            pass
+
+    for d in sorted(search_dates):
+        results_file = daily_root / d / "results.json"
+        if not results_file.exists():
+            continue
+        try:
+            results = json.loads(results_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for r in results:
+            mid = r.get("match_id", "")
+            if mid:
+                index[mid] = r
+            hm = r.get("home_team", "")
+            aw = r.get("away_team", "")
+            if hm and aw:
+                key = f"{hm}_vs_{aw}"
+                # 不覆盖已有的精确 match_id 索引
+                if key not in index:
+                    index[key] = r
+            # 场次号索引
+            fixture = _extract_fixture(mid)
+            if fixture and fixture not in index:
+                index[fixture] = r
+    return index
+
+
+def _match_results_to_predictions(predictions: list, all_results: dict) -> list:
+    """用全局索引为预测匹配赛果，返回匹配的 results 列表"""
+    matched = []
+    for p in predictions:
+        mid = p.get("match_id", "")
+        r = all_results.get(mid)
+        if not r:
+            fixture = _extract_fixture(mid)
+            if fixture:
+                r = all_results.get(fixture)
+        if not r:
+            hm = p.get("home_team", "")
+            aw = p.get("away_team", "")
+            if hm and aw:
+                r = all_results.get(f"{hm}_vs_{aw}")
+        if r:
+            matched.append(r)
+    return matched
 
 
 def _load_ledger(ledger_path: Path, target_date: str) -> list:
@@ -107,13 +174,17 @@ def _extract_fixture(match_id: str) -> str:
     """从 match_id 提取场次号，如 '2026-07-20_周日201' → '201'"""
     if not match_id:
         return ""
-    # 取最后一个非字母数字部分（场次号）
     import re
     parts = re.split(r'[_\-]', match_id)
     for part in reversed(parts):
         m = re.search(r'(\d+)$', part)
         if m:
             return m.group(1)
+    return ""
+
+
+def _extract_team_key(match_id: str) -> str:
+    """从 match_id 提取队名键，如 '2026-07-21_周二201' → 从 predictions 中查找对应队名"""
     return ""
 
 
@@ -151,6 +222,11 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
             fixture = _extract_fixture(mid)
             if fixture:
                 results_map[fixture] = r
+            # 队名索引（最可靠，跨数据源通用）
+            hm = r.get("home_team", "")
+            aw = r.get("away_team", "")
+            if hm and aw:
+                results_map[f"{hm}_vs_{aw}"] = r
     elif review_ledger:
         # 从 review_ledger 构建 results_map（含比分推断）
         for rl in review_ledger:
@@ -1087,6 +1163,13 @@ def _match_card(p, value_matches, idx, results_map=None):
                 # fallback: 旧格式匹配
                 fixture2 = match_id.split("_", 1)[-1] if "_" in match_id else match_id
                 r = results_map.get(fixture2)
+            if not r:
+                # fallback: 队名匹配（最可靠）
+                home_team = p.get("home_team", "")
+                away_team = p.get("away_team", "")
+                if home_team and away_team:
+                    team_key = f"{home_team}_vs_{away_team}"
+                    r = results_map.get(team_key)
         if r and r.get("home_score") is not None:
             hs, as_ = r["home_score"], r["away_score"]
             if hs > as_:
@@ -1556,15 +1639,19 @@ def _results_section(results, predictions, review_ledger=None):
     if not results and not review_ledger:
         return ""
 
-    # 建立 match_id → prediction 双层索引（精确 + 模糊场次号）
+    # 建立 match_id → prediction 多层索引（精确 + 场次号 + 队名）
     pred_map = {p.get("match_id", ""): p for p in predictions}
-    # 模糊索引：用场次号（如 "201"）匹配，解决跨天星期几不一致的问题
     pred_fixture_map = {}
     for p in predictions:
         mid = p.get("match_id", "")
         fixture = _extract_fixture(mid)
         if fixture:
             pred_fixture_map[fixture] = p
+        # 队名索引（最可靠，跨数据源通用）
+        hm = p.get("home_team", "")
+        aw = p.get("away_team", "")
+        if hm and aw:
+            pred_map[f"{hm}_vs_{aw}"] = p
 
     # 如果没有 results.json，从 review_ledger 构建结果
     if not results and review_ledger:
@@ -1605,6 +1692,12 @@ def _results_section(results, predictions, review_ledger=None):
         if not pred:
             # 模糊匹配：用场次号
             pred = pred_fixture_map.get(_extract_fixture(mid))
+        if not pred:
+            # 队名匹配（最可靠）
+            hm = r.get("home_team", "")
+            aw = r.get("away_team", "")
+            if hm and aw:
+                pred = pred_map.get(f"{hm}_vs_{aw}")
         if not pred:
             continue
 
