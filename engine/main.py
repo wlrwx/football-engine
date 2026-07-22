@@ -90,6 +90,12 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         djyy_enrichment = {}
         print(f"  - DJYY增强跳过: {e}")
 
+    # 2.5b DJYY SSR 真实数据源 (赛前xG + Pinnacle赔率)
+    from engine.sources.djyy_ssr import DJYYSSRSource
+    djyy_ssr = DJYYSSRSource(ROOT / "data" / "djyy_matches.json")
+    djyy_ssr_enriched = 0
+    print(f"  DJYY SSR: {len(djyy_ssr.matches)} 场比赛数据可用")
+
     # 3. 加载球队评级
     print("\n[2/8] 加载球队评级...")
     elo_updater = EloUpdater(ROOT / "data" / "models" / "team_ratings.json")
@@ -408,8 +414,22 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # 半全场概率 (基于最终xG)
         _htft = htft_probabilities(pred.home_xg, pred.away_xg)
 
-        # 无真实赔率时, 用融合概率+竞彩返还率生成参考赔率 (供Kelly计算)
+        # 无真实赔率时, 优先用 DJYY SSR 真实赔率 (Pinnacle), 否则合成赔率
         _odds_synthetic = False
+        _djyy_ssr = djyy_ssr.enrich_prediction(fixture.home_team, fixture.away_team)
+        if _djyy_ssr:
+            djyy_ssr_enriched += 1
+            # 用 DJYY 真实赛前 xG 替代我们模型的 xG
+            if _djyy_ssr.get("home_xg_djyy") and _djyy_ssr.get("away_xg_djyy"):
+                pred.home_xg = _djyy_ssr["home_xg_djyy"]
+                pred.away_xg = _djyy_ssr["away_xg_djyy"]
+        if market_odds is None and _djyy_ssr and _djyy_ssr.get("home_odds_djyy"):
+            # DJYY 真实 Pinnacle 赔率 → 不再合成
+            market_odds = (
+                _djyy_ssr["home_odds_djyy"],
+                _djyy_ssr["draw_odds_djyy"],
+                _djyy_ssr["away_odds_djyy"],
+            )
         if market_odds is None and final_h > 0 and final_d > 0 and final_a > 0:
             _margin = 0.87
             market_odds = (round(_margin / final_h, 2), round(_margin / final_d, 2), round(_margin / final_a, 2))
