@@ -503,6 +503,7 @@ body {{
 .lm-cat-tier2 {{ background: rgba(245,158,11,0.12); color: var(--amber); }}
 .lm-cat-world {{ background: rgba(59,130,246,0.12); color: var(--blue); }}
 .lm-cat-other {{ background: rgba(148,168,192,0.1); color: var(--dim); }}
+.lm-cat-cup {{ background: rgba(168,85,247,0.15); color: var(--purple); }}
 #league-matrix.collapsed {{ display: none; }}
 
 /* ===== LEAGUE STATS BAR ===== */
@@ -1094,8 +1095,34 @@ def _league_matrix_section(league_matrix, predictions):
         rows += '<td class="lm-num">' + f'{lg.get("avg_yellow", 0):.1f}' + '</td>'
         rows += '</tr>'
 
+    # 补充 DJYY 矩阵中缺失的联赛（杯赛/国际赛事等）
+    matrix_names = {lg["name_zh"] for lg in sorted_leagues}
+    missing_comps = set()
+    for p in predictions:
+        comp = p.get("competition", "")
+        if comp and comp not in matrix_names and name_map.get(comp, comp) not in matrix_names:
+            missing_comps.add(comp)
+
+    if missing_comps:
+        for comp in sorted(missing_comps):
+            rows += '<tr class="lm-row active">'
+            rows += '<td><span class="lm-cat lm-cat-cup">杯赛</span></td>'
+            rows += '<td class="lm-name">' + comp + '</td>'
+            rows += '<td class="lm-num" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-num" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-num" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-pct" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-pct" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-pct" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-pct" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-pct" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-num" style="color:var(--dim)">—</td>'
+            rows += '<td class="lm-num" style="color:var(--dim)">—</td>'
+            rows += '</tr>'
+
     gen_time = league_matrix.get("generated_at", "")[:10]
     active_count = sum(1 for lg in sorted_leagues if lg["name_zh"] in predicted_leagues)
+    active_count += len(missing_comps)
 
     # 今日赛事提醒横幅
     alert_html = ""
@@ -1115,7 +1142,7 @@ def _league_matrix_section(league_matrix, predictions):
 
     return (
         '<div class="section-title" onclick="document.getElementById(\'league-matrix\').classList.toggle(\'collapsed\')" style="cursor:pointer">'
-        + '联赛矩阵 &middot; ' + str(len(leagues)) + ' 联赛 &middot; ' + gen_time
+        + '联赛矩阵 &middot; ' + str(len(leagues) + len(missing_comps)) + ' 联赛/杯赛 &middot; ' + gen_time
         + ' <span style="font-size:0.65rem;color:var(--dim)">&#9660; 点击折叠</span></div>'
         + alert_html
         + '<div id="league-matrix"><div class="lm-wrap"><table class="lm-table">'
