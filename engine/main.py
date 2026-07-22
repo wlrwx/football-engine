@@ -660,19 +660,42 @@ def run_settlement(target_date: date):
     print(f"  ✓ Elo 已更新 ({len(results)} 场)")
 
     # 保存结果到 results.json（供复盘/网页使用）
-    daily_dir = ROOT / "data" / "daily" / target_date.isoformat()
-    daily_dir.mkdir(parents=True, exist_ok=True)
-    results_data = []
+    # 按比赛实际日期分目录存储（API返回的可能是前天的比赛结果）
+    results_by_date: dict[str, list] = {}
     for r in results:
-        results_data.append({
-            "match_id": getattr(r, "match_id", f"{r.home_team}_vs_{r.away_team}"),
+        # 从 match_id 提取实际日期，如 "2026-07-22_19635945" → "2026-07-22"
+        r_date = ""
+        r_mid = getattr(r, "match_id", "")
+        if r_mid and "_" in r_mid and r_mid[:4].isdigit():
+            r_date = r_mid.split("_")[0]
+        if not r_date:
+            r_date = getattr(r, "match_date", target_date.isoformat())
+        if r_date not in results_by_date:
+            results_by_date[r_date] = []
+        results_by_date[r_date].append({
+            "match_id": r_mid or f"{r.home_team}_vs_{r.away_team}",
             "home_score": r.home_score,
             "away_score": r.away_score,
             "home_team": r.home_team,
             "away_team": r.away_team,
         })
-    (daily_dir / "results.json").write_text(json.dumps(results_data, ensure_ascii=False, indent=2))
-    print(f"  ✓ results.json 已保存 ({len(results_data)} 场)")
+    for r_date, r_list in results_by_date.items():
+        r_dir = ROOT / "data" / "daily" / r_date
+        r_dir.mkdir(parents=True, exist_ok=True)
+        r_file = r_dir / "results.json"
+        # 追加而非覆盖
+        existing = []
+        if r_file.exists():
+            try:
+                existing = json.loads(r_file.read_text())
+            except Exception:
+                pass
+        existing_ids = {e.get("match_id") for e in existing}
+        for item in r_list:
+            if item["match_id"] not in existing_ids:
+                existing.append(item)
+        r_file.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
+        print(f"  ✓ results.json 已保存到 {r_date} ({len(r_list)} 场)")
 
     # MatchDB: 记录比赛历史 + 积累球队xG
     print("\n[1.5/4] MatchDB 数据积累...")
