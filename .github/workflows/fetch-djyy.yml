@@ -1,0 +1,37 @@
+name: Fetch DJYY SSR Data
+
+on:
+  schedule:
+    # UTC 02:00 = 北京时间 10:00 (赛后)
+    - cron: '0 2 * * *'
+    # UTC 08:00 = 北京时间 16:00 (赛前更新)
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch DJYY SSR data
+        run: |
+          python scripts/fetch_djyy_ssr.py
+          echo "Matches extracted: $(python -c "import json; d=json.load(open('data/djyy_matches.json')); print(d['total'])")"
+
+      - name: Commit update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/djyy_matches.json
+          git diff --cached --quiet || git commit -m "data: DJYY SSR $(date +%Y-%m-%d)"
+          git push
