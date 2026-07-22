@@ -1,64 +1,88 @@
 {
   "date": "2026-07-21",
-  "n_matches": 3,
-  "hit_rate": 0.3333,
-  "hits": 1,
+  "n_matches": 7,
+  "hit_rate": 0.4286,
+  "hits": 3,
   "source_brier": {
-    "model": 0.6329,
+    "model": 0.5249,
     "market": null,
-    "djyy": 0.7743,
-    "final": 0.6208
+    "djyy": 0.772,
+    "final": 0.5277
   },
   "by_league": {
     "K1联赛": {
       "n": 3,
       "hit_rate": 0.3333,
       "wilson_lower": 0.0615,
-      "avg_brier": 0.6208
+      "avg_brier": 0.5462
+    },
+    "欧冠": {
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.4033
+    },
+    "巴甲": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8452
     }
   },
   "by_confidence_tier": {
     "low": {
-      "n": 1,
+      "n": 2,
       "hit_rate": 0.0,
       "wilson_lower": 0.0,
-      "avg_brier": 0.8173
+      "avg_brier": 0.7058
     },
     "mid": {
-      "n": 1,
-      "hit_rate": 0.0,
-      "wilson_lower": 0.0,
-      "avg_brier": 0.8724
+      "n": 3,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0615,
+      "avg_brier": 0.6707
     },
     "high": {
-      "n": 1,
+      "n": 2,
       "hit_rate": 1.0,
-      "wilson_lower": 0.2065,
-      "avg_brier": 0.1728
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.135
     }
   },
   "by_odds_band": {
     "2.0-3.0": {
-      "n": 1,
+      "n": 3,
       "hit_rate": 0.0,
       "wilson_lower": 0.0,
-      "avg_brier": 0.8173
+      "avg_brier": 0.7523
     },
     "1.5-2.0": {
-      "n": 1,
-      "hit_rate": 0.0,
-      "wilson_lower": 0.0,
-      "avg_brier": 0.8724
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.5835
     },
     "1.0-1.5": {
-      "n": 1,
+      "n": 2,
       "hit_rate": 1.0,
-      "wilson_lower": 0.2065,
-      "avg_brier": 0.1728
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.135
     }
   },
-  "biases": [],
+  "biases": [
+    {
+      "dimension": "outcome",
+      "key": "all",
+      "outcome": "draw",
+      "predicted_avg": 0.2313,
+      "actual_rate": 0.4286,
+      "gap": -0.1973,
+      "n": 7,
+      "severity": "warn",
+      "suggested_action": "reduce draw_bias"
+    }
+  ],
   "total_pnl": 0,
-  "generated_at": "2026-07-21T15:09:05.857654",
-  "sha256": "7ed6b23eba832571f4db3ee50f05ffa4"
+  "generated_at": "2026-07-22T05:14:45.904646",
+  "sha256": "07489f96c05afd48b35bd1004ee83474"
 }
