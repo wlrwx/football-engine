@@ -163,14 +163,27 @@ def run_prediction_pipeline() -> bool:
 
 
 def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
-    """Git推送（带重试 + 自动同步）"""
+    """Git推送（带重试 + 自动同步 + 强制跟踪标志清除）"""
     try:
-        # Add所有变更
+        # 清除所有 skip-worktree 和 assume-unchanged 标志
+        # 这是Git隐藏的"忽略本地变更"机制，必须清除才能提交
         subprocess.run(
-            ["git", "add", "data/", "web/", "engine/"],
+            ["git", "update-index", "--no-skip-worktree"] + 
+            subprocess.run(["git", "ls-files", "data/", "web/"], 
+                          capture_output=True, text=True).stdout.strip().split("\n"),
             cwd=PROJECT_ROOT,
             capture_output=True
         )
+        subprocess.run(
+            ["git", "update-index", "--no-assume-unchanged"] +
+            subprocess.run(["git", "ls-files", "data/", "web/"],
+                          capture_output=True, text=True).stdout.strip().split("\n"),
+            cwd=PROJECT_ROOT,
+            capture_output=True
+        )
+        
+        # Add所有变更（强制添加，绕过Git缓存问题）
+        subprocess.run(["git", "add", "-f", "data/", "web/", "engine/"], cwd=PROJECT_ROOT)
         
         # 检查是否有变更
         result = subprocess.run(
@@ -182,6 +195,8 @@ def git_push_with_retry(max_retries: int = 5, retry_delay: int = 30) -> bool:
         if not result.stdout.strip():
             log("没有文件变更，跳过提交")
             return True
+        
+        log(f"  变更文件: {result.stdout.count(chr(10)) + 1} 个")
         
         # Commit
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
