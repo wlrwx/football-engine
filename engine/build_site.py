@@ -1078,11 +1078,29 @@ def _league_matrix_section(league_matrix, predictions):
         rows += '</tr>'
 
     gen_time = league_matrix.get("generated_at", "")[:10]
+    active_count = sum(1 for lg in sorted_leagues if lg["name_zh"] in predicted_leagues)
+
+    # 今日赛事提醒横幅
+    alert_html = ""
+    if active_count > 0:
+        alert_html = (
+            '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin:0 0 2px;'
+            'background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(6,182,212,0.08));'
+            'border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius-sm);font-size:0.78rem">'
+            '<span style="display:inline-flex;align-items:center;gap:4px;font-weight:800;color:var(--green)">'
+            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);'
+            'animation:pulse 2s infinite"></span>'
+            '今日赛事</span>'
+            '<span style="color:var(--text-secondary)">' + str(active_count) + ' 个联赛有比赛</span>'
+            '<span style="font-size:0.62rem;color:var(--dim);margin-left:auto">数据源: DJYY 每日更新</span>'
+            '</div>'
+        )
 
     return (
         '<div class="section-title" onclick="document.getElementById(\'league-matrix\').classList.toggle(\'collapsed\')" style="cursor:pointer">'
-        + '联赛矩阵 &middot; ' + str(len(leagues)) + ' 联赛 &middot; 更新于 ' + gen_time
+        + '联赛矩阵 &middot; ' + str(len(leagues)) + ' 联赛 &middot; ' + gen_time
         + ' <span style="font-size:0.65rem;color:var(--dim)">&#9660; 点击折叠</span></div>'
+        + alert_html
         + '<div id="league-matrix"><div class="lm-wrap"><table class="lm-table">'
         + '<thead><tr><th>级别</th><th>联赛</th><th>场次</th><th>场均进球</th><th>场均xG</th>'
         + '<th>BTTS</th><th>主胜</th><th>平局</th><th>客胜</th><th>零封</th>'
@@ -1090,8 +1108,9 @@ def _league_matrix_section(league_matrix, predictions):
         + '<tbody>' + rows + '</tbody></table></div>'
         + '<div style="padding:8px 12px;font-size:0.62rem;color:var(--dim);display:flex;gap:12px;flex-wrap:wrap">'
         + '<span>数据来源: <a href="https://djyylive.com" style="color:var(--blue)">DJYY</a></span>'
-        + '<span>&#x25cf; 高亮行 = 当天有预测的联赛</span>'
-        + '<span>BTTS = 双方进球率</span></div></div>'
+        + '<span>&#x25cf; <span style="color:var(--green)">高亮行</span> = 当天有预测的联赛</span>'
+        + '<span>BTTS = 双方进球率</span>'
+        + '<span>⚡ 数据更新于 DJYY 每日流水线</span></div></div>'
     )
 
 
