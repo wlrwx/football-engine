@@ -956,6 +956,36 @@ def run_settlement(target_date: date):
         combo_miner.record(features, won=won)
     print(f"  ✓ 组合统计已更新")
 
+    # 将赛果写回 predictions.json（供网页显示）
+    print("\n[3.5/4] 更新预测赛果...")
+    updated = 0
+    for pred in predictions:
+        key = f"{pred['home_team']}_vs_{pred['away_team']}"
+        match_result = result_map.get(key)
+        if not match_result:
+            continue
+        pred["actual_result"] = f"{match_result.home_score}-{match_result.away_score}"
+        pred["actual_home_score"] = match_result.home_score
+        pred["actual_away_score"] = match_result.away_score
+        # 判断方向预测是否正确
+        best_sel = max(
+            [("home", pred["home_win_prob"]),
+             ("draw", pred["draw_prob"]),
+             ("away", pred["away_win_prob"])],
+            key=lambda x: x[1],
+        )
+        if match_result.home_score > match_result.away_score:
+            actual = "home"
+        elif match_result.home_score == match_result.away_score:
+            actual = "draw"
+        else:
+            actual = "away"
+        pred["direction"] = best_sel[0]
+        pred["direction_correct"] = best_sel[0] == actual
+        updated += 1
+    pred_file.write_text(json.dumps(predictions, ensure_ascii=False, indent=2))
+    print(f"  ✓ 已更新 {updated} 场预测赛果")
+
     # CPPI 更新
     print("\n[4/4] CPPI 资产更新...")
     cppi = CPPIStrategy(
