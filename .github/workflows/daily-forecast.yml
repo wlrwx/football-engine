@@ -59,7 +59,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ web/
           git diff --cached --quiet || git commit -m "daily: forecast $(date +%Y-%m-%d)"
-          git push
+          for i in 1 2 3; do git pull --rebase origin main && git push && break; sleep 5; done
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
