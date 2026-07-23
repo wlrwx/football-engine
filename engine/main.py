@@ -470,9 +470,11 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 djyy_data.get("top_scores") if djyy_data and djyy_data.get("top_scores")
                 else getattr(pred, "top_scores", None)
             ),
-            "total_goals": _normalize_total_goals(
-                djyy_data.get("totals") if djyy_data and djyy_data.get("totals")
-                else getattr(pred, "top_total_goals", None)
+            "total_goals": (
+                (lambda tg: tg if isinstance(tg, list) else ([[float(k), v] for k, v in tg.items()] if isinstance(tg, dict) else None))(
+                    djyy_data.get("totals") if djyy_data and djyy_data.get("totals")
+                    else getattr(pred, "top_total_goals", None)
+                )
             ),
             # 半全场概率
             "htft": _htft,
