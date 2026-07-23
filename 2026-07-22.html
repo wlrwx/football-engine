@@ -673,7 +673,7 @@ body {
         <div class="prob-seg a" style="width:74.8%">A 75%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 75%</span> <span class="pred-score">比分 1-1 / 0-1 / 0-0</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">0-4</span> <span class="ar-outcome away">客胜</span> <span class="ar-hit hit">✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot med"></span><b>46%</b></span>
         <span class="info-chip">xG <b>0.46 - 3.74</b></span>
@@ -1165,7 +1165,7 @@ body {
         <div class="prob-seg a" style="width:35.6%">A 36%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val away">客胜 36%</span> <span class="pred-score">比分 0-1 / 0-0 / 1-1</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">1-2</span> <span class="ar-outcome away">客胜</span> <span class="ar-hit hit">✓</span> <span class="ar-hit hit" title="比分命中">比✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>12%</b></span>
         <span class="info-chip">xG <b>1.05 - 1.59</b></span>
@@ -1785,7 +1785,7 @@ body {
         <div class="prob-seg a" style="width:30.0%">A 30%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 46%</span> <span class="pred-score">比分 1-0 / 2-0 / 1-1</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">3-1</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span> <span class="ar-hit hit" title="比分命中">比✓</span></div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span>
         <span class="info-chip">xG <b>1.18 - 1.53</b></span>
@@ -2580,8 +2580,8 @@ body {
   
   <div class="section-title">赛果复盘</div>
   <div class="results-summary">
-    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">43% (3/7)</div></div>
-    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.539</div></div>
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--green)">60% (6/10)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--green)">0.493</div></div>
     <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
   </div>
   <div class="results-table-wrap">
@@ -2651,6 +2651,33 @@ body {
           <td style="font-family:monospace;font-size:0.68rem;">0.346</td>
           <td style="color:var(--dim);font-weight:600;">0</td>
         </tr>
+        <tr class="hit">
+          <td>沙佩科 vs 弗拉门戈</td>
+          <td style="font-weight:800;text-align:center;">0-4</td>
+          <td>客胜</td>
+          <td>客胜 (75%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.097</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
+        <tr class="hit">
+          <td>圣保罗 vs 巴竞技</td>
+          <td style="font-weight:800;text-align:center;">1-2</td>
+          <td>客胜</td>
+          <td>客胜 (36%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.624</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
+        <tr class="hit">
+          <td>洛杉矶FC vs 盐湖城</td>
+          <td style="font-weight:800;text-align:center;">3-1</td>
+          <td>主胜</td>
+          <td>主胜 (46%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.434</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
     </table>
   </div>
 
@@ -2661,10 +2688,10 @@ body {
     <div class="sys-card">
       <h4>熔断器</h4>
       <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T0 · 周/日止损停注 &middot; x0.90</span></div>
-      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-2</span></div>
-      <div class="sys-row"><span class="k">胜率</span><span class="v">50.0% (6胜 / 6负)</span></div>
-      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--red)">&yen;-2298</span></div>
-      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-2298</span></div>
+      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-1</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">57.1% (12胜 / 9负)</span></div>
+      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--red)">&yen;-2315</span></div>
+      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-2315</span></div>
     </div>
     <div class="sys-card">
       <h4>决策完整性</h4>
