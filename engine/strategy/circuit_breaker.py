@@ -229,6 +229,12 @@ class CircuitBreaker:
         # 检查日/周止损并设置 halted 标志
         self._check_loss_limits(bankroll)
 
+        # 恢复机制：每日结算后，如果当日盈利且非连败，自动解除停注
+        if s.halted and s.daily_pnl > 0 and s.current_streak >= 0:
+            s.halted = False
+            s.halt_date = ""
+            s.tier = 0
+
         # 记录历史
         s.history.append({
             "date": today,
