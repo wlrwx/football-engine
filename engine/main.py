@@ -847,6 +847,9 @@ def run_settlement(target_date: date):
 
     # 逐场结算
     result_map = {f"{r.home_team}_vs_{r.away_team}": r for r in results}
+    # 队名标准化（处理"迈阿密国际"vs"迈国际"等变体）
+    _norm = lambda s: s.replace("国际", "").replace("罗姆", "").replace("体育", "").replace("竞技", "").strip()
+    _norm_map = {f"{_norm(r.home_team)}_vs_{_norm(r.away_team)}": r for r in results}
     total_pnl = 0.0
     wins = 0
     losses = 0
@@ -854,6 +857,10 @@ def run_settlement(target_date: date):
     for pred in predictions:
         key = f"{pred['home_team']}_vs_{pred['away_team']}"
         match_result = result_map.get(key)
+        if not match_result:
+            # 队名变体兜底
+            nk = f"{_norm(pred['home_team'])}_vs_{_norm(pred['away_team'])}"
+            match_result = _norm_map.get(nk)
         if not match_result:
             continue
 
@@ -902,6 +909,8 @@ def run_settlement(target_date: date):
     for pred in predictions:
         key = f"{pred['home_team']}_vs_{pred['away_team']}"
         match_result = result_map.get(key)
+        if not match_result and _norm_map:
+            match_result = _norm_map.get(f"{_norm(pred['home_team'])}_vs_{_norm(pred['away_team'])}")
         if not match_result:
             continue
         if match_result.home_score > match_result.away_score:
@@ -931,6 +940,8 @@ def run_settlement(target_date: date):
     for pred in predictions:
         key = f"{pred['home_team']}_vs_{pred['away_team']}"
         match_result = result_map.get(key)
+        if not match_result and _norm_map:
+            match_result = _norm_map.get(f"{_norm(pred['home_team'])}_vs_{_norm(pred['away_team'])}")
         if not match_result:
             continue
         if match_result.home_score > match_result.away_score:
@@ -962,6 +973,8 @@ def run_settlement(target_date: date):
     for pred in predictions:
         key = f"{pred['home_team']}_vs_{pred['away_team']}"
         match_result = result_map.get(key)
+        if not match_result and _norm_map:
+            match_result = _norm_map.get(f"{_norm(pred['home_team'])}_vs_{_norm(pred['away_team'])}")
         if not match_result:
             continue
         pred["actual_result"] = f"{match_result.home_score}-{match_result.away_score}"
@@ -982,6 +995,12 @@ def run_settlement(target_date: date):
             actual = "away"
         pred["direction"] = best_sel[0]
         pred["direction_correct"] = best_sel[0] == actual
+        # 比分预测是否正确
+        top_scores = pred.get("top_scores", [])
+        if top_scores and isinstance(top_scores[0], list):
+            ps = f"{top_scores[0][0]}-{top_scores[0][1]}"
+            pred["predicted_score"] = ps
+            pred["score_correct"] = ps == f"{match_result.home_score}-{match_result.away_score}"
         updated += 1
     pred_file.write_text(json.dumps(predictions, ensure_ascii=False, indent=2))
     print(f"  ✓ 已更新 {updated} 场预测赛果")
@@ -994,6 +1013,7 @@ def run_settlement(target_date: date):
     )
     new_bankroll = bankroll + total_pnl
     cppi.update(new_bankroll)
+    cppi.save()
     print(f"  ✓ 资产: {bankroll:.0f} → {new_bankroll:.0f}")
 
     # 复盘 + 自我革新
