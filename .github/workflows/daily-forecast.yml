@@ -2,8 +2,8 @@ name: Daily Forecast
 
 on:
   schedule:
-    # 每30分钟跑一次完整预测（抓赔率 + 预测 + Kelly + 建网站）
-    - cron: '*/30 * * * *'
+    # 每30分钟，偏移+5分钟（11:05触发，确保竞彩11:00开售数据已上线）
+    - cron: '5,35 * * * *'
   workflow_dispatch:
     inputs:
       date:
