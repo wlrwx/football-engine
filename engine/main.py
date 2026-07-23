@@ -470,7 +470,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 djyy_data.get("top_scores") if djyy_data and djyy_data.get("top_scores")
                 else getattr(pred, "top_scores", None)
             ),
-            "total_goals": (
+            "total_goals": _normalize_total_goals(
                 djyy_data.get("totals") if djyy_data and djyy_data.get("totals")
                 else getattr(pred, "top_total_goals", None)
             ),
