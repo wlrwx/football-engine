@@ -530,13 +530,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
           f"streak={breaker_status['current_streak']}, "
           f"multiplier={breaker_mult}")
 
-    if breaker_mult == 0:
-        print("  ⚠ 熔断停注中，生成观察计划（不实际投注）")
+    # 虚拟投注：不熔断，始终正常投注
 
     # 自适应置信阈值（连败收紧）
-    conf_threshold = breaker.get_confidence_threshold()
-    if conf_threshold > 0:
-        print(f"  置信阈值收紧: > {conf_threshold:.2f} (tier={breaker_status['tier']})")
+    conf_threshold = 0  # 虚拟投注不限制置信度
 
     # CPPI风险预算
     cppi = CPPIStrategy(
@@ -553,7 +550,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     plan.date = target_date.isoformat()
 
     # 三票制重分配
-    effective_mult = breaker_mult * min(1.0, risk_budget["cushion_ratio"] * 3)
+    effective_mult = 1.0  # 虚拟投注不降注
     allocator = ThreeTicketAllocator(
         bankroll=bankroll,
         breaker_multiplier=effective_mult,
