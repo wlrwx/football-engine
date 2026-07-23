@@ -471,7 +471,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 else getattr(pred, "top_scores", None)
             ),
             "total_goals": (
-                (lambda tg: tg if isinstance(tg, list) else ([[float(k), v] for k, v in tg.items()] if isinstance(tg, dict) else None))(
+                (lambda tg: tg if isinstance(tg, list) else (
+                    [[int(float(k)), v[1] if isinstance(v, list) and len(v)>1 else (v if isinstance(v,(int,float)) else 0)] 
+                     for k, v in tg.items()] if isinstance(tg, dict) else None
+                ))(
                     djyy_data.get("totals") if djyy_data and djyy_data.get("totals")
                     else getattr(pred, "top_total_goals", None)
                 )
