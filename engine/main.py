@@ -848,7 +848,7 @@ def run_settlement(target_date: date):
     # 逐场结算
     result_map = {f"{r.home_team}_vs_{r.away_team}": r for r in results}
     # 队名标准化（处理"迈阿密国际"vs"迈国际"等变体）
-    _norm = lambda s: s.replace("国际", "").replace("罗姆", "").replace("体育", "").replace("竞技", "").strip()
+    _norm = lambda s: s.replace("迈阿密", "迈").replace("国际", "").replace("罗姆", "").replace("体育", "").replace("竞技", "").strip()
     _norm_map = {f"{_norm(r.home_team)}_vs_{_norm(r.away_team)}": r for r in results}
     total_pnl = 0.0
     wins = 0
