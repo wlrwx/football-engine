@@ -1,20 +1,20 @@
 {
   "date": "2026-07-22",
-  "n_matches": 7,
-  "hit_rate": 0.4286,
-  "hits": 3,
+  "n_matches": 10,
+  "hit_rate": 0.6,
+  "hits": 6,
   "source_brier": {
-    "model": 0.6028,
-    "market": 0.4784,
-    "djyy": 0.4467,
-    "final": 0.5388
+    "model": 0.5373,
+    "market": 0.4672,
+    "djyy": 0.4131,
+    "final": 0.4927
   },
   "by_league": {
     "巴甲": {
-      "n": 2,
-      "hit_rate": 0.5,
-      "wilson_lower": 0.0945,
-      "avg_brier": 0.5879
+      "n": 4,
+      "hit_rate": 0.75,
+      "wilson_lower": 0.3006,
+      "avg_brier": 0.4742
     },
     "K1联赛": {
       "n": 1,
@@ -35,44 +35,44 @@
       "avg_brier": 0.617
     },
     "美职联": {
-      "n": 1,
+      "n": 2,
       "hit_rate": 1.0,
-      "wilson_lower": 0.2065,
-      "avg_brier": 0.346
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.3902
     }
   },
   "by_confidence_tier": {
     "high": {
-      "n": 2,
+      "n": 3,
       "hit_rate": 1.0,
-      "wilson_lower": 0.3424,
-      "avg_brier": 0.1722
+      "wilson_lower": 0.4385,
+      "avg_brier": 0.1471
     },
     "mid": {
+      "n": 4,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.15,
+      "avg_brier": 0.6022
+    },
+    "low": {
       "n": 3,
       "hit_rate": 0.3333,
       "wilson_lower": 0.0615,
-      "avg_brier": 0.6581
-    },
-    "low": {
-      "n": 2,
-      "hit_rate": 0.0,
-      "wilson_lower": 0.0,
-      "avg_brier": 0.7265
+      "avg_brier": 0.6925
     }
   },
   "by_odds_band": {
     "1.0-1.5": {
-      "n": 2,
+      "n": 3,
       "hit_rate": 1.0,
-      "wilson_lower": 0.3424,
-      "avg_brier": 0.1722
+      "wilson_lower": 0.4385,
+      "avg_brier": 0.1471
     },
     "1.5-2.0": {
-      "n": 3,
-      "hit_rate": 0.0,
-      "wilson_lower": 0.0,
-      "avg_brier": 0.7484
+      "n": 5,
+      "hit_rate": 0.4,
+      "wilson_lower": 0.1176,
+      "avg_brier": 0.6608
     },
     "2.0-3.0": {
       "n": 2,
@@ -81,8 +81,20 @@
       "avg_brier": 0.591
     }
   },
-  "biases": [],
+  "biases": [
+    {
+      "dimension": "outcome",
+      "key": "all",
+      "outcome": "draw",
+      "predicted_avg": 0.2207,
+      "actual_rate": 0.1,
+      "gap": 0.1207,
+      "n": 10,
+      "severity": "warn",
+      "suggested_action": "increase market_weight (trust market on draws)"
+    }
+  ],
   "total_pnl": 0,
-  "generated_at": "2026-07-23T03:22:07.106323",
-  "sha256": "3ca2b7c07e71d1cac7c2e93704c14f2c"
+  "generated_at": "2026-07-23T05:19:09.975124",
+  "sha256": "99a1b5dfa0d6a5194be5a69e978e953c"
 }
