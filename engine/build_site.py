@@ -1616,6 +1616,10 @@ def _tab_distribution(p, uid):
 
     # Total goals bars
     goals_html = ""
+    # 兼容 dict 格式（旧数据：{'1.5': [under_prob, over_prob]})
+    if isinstance(total_goals, dict):
+        total_goals = [[int(float(k)), v[1] if isinstance(v, (list, tuple)) and len(v) > 1 else (v if isinstance(v, (int, float)) else 0)]
+                       for k, v in total_goals.items()]
     if total_goals and isinstance(total_goals, list) and len(total_goals) > 0:
         max_prob = max((item.get("prob", 0) if isinstance(item, dict) else (item[1] if isinstance(item, (list, tuple)) and len(item) > 1 else 0) for item in total_goals), default=1) or 1
         bars = ""
