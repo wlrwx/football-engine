@@ -2,7 +2,7 @@ name: Daily Forecast
 
 on:
   schedule:
-    # 10:15, 10:45, 11:15... 每30分钟，错开 settlement (10:00)
+    # 每30分钟，每次跑都顺便结算昨天（幂等，已结算过会跳过）
     - cron: '15,45 * * * *'
   workflow_dispatch:
     inputs:
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   forecast:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +49,20 @@ jobs:
             DATE=$(TZ=Asia/Shanghai date +%Y-%m-%d)
           fi
           python -m engine.main --date "$DATE"
+
+      - name: Settlement (yesterday, if not done yet)
+        env:
+          SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+        run: |
+          YESTERDAY=$(TZ=Asia/Shanghai date -d 'yesterday' +%Y-%m-%d)
+          SETTLE_FILE="data/settlement/${YESTERDAY}.json"
+          if [ -f "$SETTLE_FILE" ]; then
+            echo "✓ 结算已完成: $YESTERDAY (跳过)"
+          else
+            echo "→ 开始结算昨天: $YESTERDAY"
+            python -m engine.main --settle --date "$YESTERDAY"
+          fi
+
 
       - name: Build site
         run: python engine/build_site.py
