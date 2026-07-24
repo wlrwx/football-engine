@@ -1,0 +1,82 @@
+{
+  "date": "2026-07-23",
+  "n_matches": 7,
+  "hit_rate": 0.2857,
+  "hits": 2,
+  "source_brier": {
+    "model": 0.9035,
+    "market": 0.8578,
+    "djyy": 0.7886,
+    "final": 0.8047
+  },
+  "by_league": {
+    "欧罗巴": {
+      "n": 5,
+      "hit_rate": 0.2,
+      "wilson_lower": 0.0362,
+      "avg_brier": 0.9072
+    },
+    "芬超": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.258
+    },
+    "瑞典超": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8391
+    }
+  },
+  "by_confidence_tier": {
+    "high": {
+      "n": 4,
+      "hit_rate": 0.25,
+      "wilson_lower": 0.0456,
+      "avg_brier": 0.8775
+    },
+    "mid": {
+      "n": 3,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0615,
+      "avg_brier": 0.7077
+    }
+  },
+  "by_odds_band": {
+    "1.5-2.0": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.7364
+    },
+    "1.0-1.5": {
+      "n": 3,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0615,
+      "avg_brier": 0.8514
+    },
+    "2.0-3.0": {
+      "n": 2,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.803
+    }
+  },
+  "biases": [
+    {
+      "dimension": "league",
+      "key": "欧罗巴",
+      "outcome": "home",
+      "predicted_avg": 0.4001,
+      "actual_rate": 0.6,
+      "gap": -0.1999,
+      "n": 5,
+      "severity": "warn",
+      "suggested_action": "increase home_adv_weight"
+    }
+  ],
+  "total_pnl": 0,
+  "generated_at": "2026-07-24T04:07:46.757049",
+  "sha256": "bb96cc1b576bc1ab6a361b513e798d66"
+}
