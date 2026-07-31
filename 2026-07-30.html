@@ -1186,7 +1186,7 @@ body {
         <div class="prob-seg a" style="width:25.3%">A 25%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 54%</span> <span class="pred-score">比分 1-1 / 2-1 / 1-0</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">2-2</span> <span class="ar-outcome draw">平局</span> <span class="ar-hit miss">✗</span> <span class="ar-hit hit" title="比分命中">比✓</span></div>
       
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>24%</b></span>
@@ -2212,14 +2212,23 @@ body {
   
   <div class="section-title">赛果复盘</div>
   <div class="results-summary">
-    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--green)">100% (1/1)</div></div>
-    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--green)">0.405</div></div>
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--green)">50% (1/2)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.692</div></div>
     <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
   </div>
   <div class="results-table-wrap">
     <table class="results-table">
       <tr><th>比赛</th><th>比分</th><th>实际</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
       
+        <tr class="miss">
+          <td>费伦茨 vs 特温特</td>
+          <td style="font-weight:800;text-align:center;">2-2</td>
+          <td>平局</td>
+          <td>主胜 (54%)</td>
+          <td style="text-align:center;"><span class="result-icon miss">✗</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.978</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
         <tr class="hit">
           <td>本菲卡 vs 圣加仑</td>
           <td style="font-weight:800;text-align:center;">5-0</td>
