@@ -1715,7 +1715,7 @@ body {
         <div class="prob-seg a" style="width:18.6%">A 19%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 61%</span> <span class="pred-score">比分 1-0 / 1-1 / 2-0</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">0-3</span> <span class="ar-outcome away">客胜</span> <span class="ar-hit miss">✗</span></div>
       
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>32%</b></span>
@@ -2226,6 +2226,27 @@ body {
 
   <!-- RESULTS REVIEW -->
   
+  <div class="section-title">赛果复盘</div>
+  <div class="results-summary">
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">0% (0/1)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">1.076</div></div>
+    <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
+  </div>
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <tr><th>比赛</th><th>比分</th><th>实际</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
+      
+        <tr class="miss">
+          <td>瓦勒伦加 vs 汉坎</td>
+          <td style="font-weight:800;text-align:center;">0-3</td>
+          <td>客胜</td>
+          <td>主胜 (61%)</td>
+          <td style="text-align:center;"><span class="result-icon miss">✗</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">1.076</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
+    </table>
+  </div>
 
   <!-- SYSTEM STATUS -->
   
@@ -2234,8 +2255,8 @@ body {
     <div class="sys-card">
       <h4>熔断器</h4>
       <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T1 · 周/日止损停注 &middot; x1.00</span></div>
-      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-1</span></div>
-      <div class="sys-row"><span class="k">胜率</span><span class="v">50.9% (172胜 / 166负)</span></div>
+      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-2</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">50.7% (172胜 / 167负)</span></div>
       <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--red)">&yen;-67356</span></div>
       <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-116762</span></div>
     </div>
