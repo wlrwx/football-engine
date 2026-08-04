@@ -633,7 +633,7 @@ body {
 
   <!-- 日期导航 -->
   <div class="date-nav">
-    <a href="2026-08-03.html" class="date-btn active">08-03</a><a href="2026-08-02.html" class="date-btn ">08-02</a><a href="2026-08-01.html" class="date-btn ">08-01</a><a href="2026-07-31.html" class="date-btn ">07-31</a><a href="2026-07-30.html" class="date-btn ">07-30</a><a href="2026-07-29.html" class="date-btn ">07-29</a><a href="2026-07-28.html" class="date-btn ">07-28</a><a href="2026-07-27.html" class="date-btn ">07-27</a><a href="2026-07-26.html" class="date-btn ">07-26</a><a href="2026-07-25.html" class="date-btn ">07-25</a><a href="2026-07-24.html" class="date-btn ">07-24</a><a href="2026-07-23.html" class="date-btn ">07-23</a><a href="2026-07-22.html" class="date-btn ">07-22</a><a href="2026-07-21.html" class="date-btn ">07-21</a><a href="2026-07-20.html" class="date-btn ">07-20</a><a href="2026-07-19.html" class="date-btn ">07-19</a>
+    <a href="2026-08-04.html" class="date-btn ">08-04</a><a href="2026-08-03.html" class="date-btn active">08-03</a><a href="2026-08-02.html" class="date-btn ">08-02</a><a href="2026-08-01.html" class="date-btn ">08-01</a><a href="2026-07-31.html" class="date-btn ">07-31</a><a href="2026-07-30.html" class="date-btn ">07-30</a><a href="2026-07-29.html" class="date-btn ">07-29</a><a href="2026-07-28.html" class="date-btn ">07-28</a><a href="2026-07-27.html" class="date-btn ">07-27</a><a href="2026-07-26.html" class="date-btn ">07-26</a><a href="2026-07-25.html" class="date-btn ">07-25</a><a href="2026-07-24.html" class="date-btn ">07-24</a><a href="2026-07-23.html" class="date-btn ">07-23</a><a href="2026-07-22.html" class="date-btn ">07-22</a><a href="2026-07-21.html" class="date-btn ">07-21</a><a href="2026-07-20.html" class="date-btn ">07-20</a><a href="2026-07-19.html" class="date-btn ">07-19</a>
   </div>
 
   <!-- KPI STATS -->
@@ -1195,7 +1195,7 @@ body {
         <div class="prob-seg a" style="width:15.0%">A 15%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 58%</span> <span class="pred-score">比分 1-0 / 2-0 / 3-0</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">2-0</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span> <span class="ar-hit hit" title="比分命中">比✓</span></div>
       <div class="draw-alert-info" style="background:rgba(147,51,234,0.1);border:1px solid var(--purple);border-radius:6px;padding:8px 12px;margin:8px 0;font-size:0.72rem"><b>⚠ 平局预警</b> — 冷门平局：一方被看好但平局风险偏高</div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>32%</b></span>
@@ -1366,8 +1366,8 @@ body {
   
   <div class="section-title">赛果复盘</div>
   <div class="results-summary">
-    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--green)">67% (4/6)</div></div>
-    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.567</div></div>
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--green)">71% (5/7)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.524</div></div>
     <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
   </div>
   <div class="results-table-wrap">
@@ -1428,6 +1428,15 @@ body {
           <td style="font-family:monospace;font-size:0.68rem;">0.519</td>
           <td style="color:var(--dim);font-weight:600;">0</td>
         </tr>
+        <tr class="hit">
+          <td>巴竞技 vs 维多利亚</td>
+          <td style="font-weight:800;text-align:center;">2-0</td>
+          <td>主胜</td>
+          <td>主胜 (58%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.267</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
     </table>
   </div>
 
@@ -1438,8 +1447,8 @@ body {
     <div class="sys-card">
       <h4>熔断器</h4>
       <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T0 · 周/日止损停注 &middot; x1.00</span></div>
-      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--green)">+1</span></div>
-      <div class="sys-row"><span class="k">胜率</span><span class="v">49.5% (202胜 / 206负)</span></div>
+      <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--green)">+2</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">49.6% (203胜 / 206负)</span></div>
       <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--red)">&yen;-12062</span></div>
       <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-51659</span></div>
     </div>
