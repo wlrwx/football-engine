@@ -1218,11 +1218,11 @@ body {
 
   <!-- LEAGUE LAYERS -->
   
-  <div class="section-title">联赛分层（送钱区禁投）</div>
+  <div class="section-title">联赛分层（送钱区禁投 · 判平强度自适应）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
-    <tr><th>联赛</th><th>场数</th><th>命中率</th><th>均赔</th><th>ROI</th><th>判断</th></tr>
-    <tr><td>K1联赛</td><td>18</td><td>61%</td><td>2.08</td><td style="color:var(--green);font-weight:700">+35.5%</td><td>✅ 价值区</td></tr><tr><td>挪超</td><td>17</td><td>59%</td><td>1.92</td><td style="color:var(--green);font-weight:700">+8.7%</td><td>✅ 价值区</td></tr><tr><td>芬超</td><td>14</td><td>43%</td><td>1.94</td><td style="color:var(--red);font-weight:700">-12.1%</td><td>🚫 送钱区</td></tr><tr><td>瑞典超</td><td>14</td><td>21%</td><td>2.17</td><td style="color:var(--red);font-weight:700">-50.7%</td><td>🚫 送钱区</td></tr><tr><td>欧冠</td><td>12</td><td>25%</td><td>2.36</td><td style="color:var(--red);font-weight:700">-47.6%</td><td>🚫 送钱区</td></tr><tr><td>美职联</td><td>11</td><td>45%</td><td>1.87</td><td style="color:var(--red);font-weight:700">-17.9%</td><td>🚫 送钱区</td></tr><tr><td>巴甲</td><td>10</td><td>40%</td><td>2.12</td><td style="color:var(--red);font-weight:700">-15.1%</td><td>🚫 送钱区</td></tr><tr><td>欧罗巴</td><td>10</td><td>30%</td><td>2.01</td><td style="color:var(--red);font-weight:700">-51.2%</td><td>🚫 送钱区</td></tr><tr><td>巴西杯</td><td>5</td><td>40%</td><td>1.88</td><td style="color:var(--red);font-weight:700">-28.8%</td><td>🚫 送钱区</td></tr>
+    <tr><th>联赛</th><th>场数</th><th>命中率</th><th>均赔</th><th>ROI</th><th>判断</th><th>判平(命中/次数·强度)</th></tr>
+    <tr><td>K1联赛</td><td>18</td><td>61%</td><td>2.08</td><td style="color:var(--green);font-weight:700">+35.5%</td><td>✅ 价值区</td><td style="color:var(--dim)">—</td></tr><tr><td>挪超</td><td>17</td><td>59%</td><td>1.92</td><td style="color:var(--green);font-weight:700">+8.7%</td><td>✅ 价值区</td><td style="color:var(--dim)">—</td></tr><tr><td>芬超</td><td>14</td><td>43%</td><td>1.94</td><td style="color:var(--red);font-weight:700">-12.1%</td><td>🚫 送钱区</td><td style="color:var(--dim)">—</td></tr><tr><td>瑞典超</td><td>14</td><td>21%</td><td>2.17</td><td style="color:var(--red);font-weight:700">-50.7%</td><td>🚫 送钱区</td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>欧冠</td><td>12</td><td>25%</td><td>2.36</td><td style="color:var(--red);font-weight:700">-47.6%</td><td>🚫 送钱区</td><td style="color:var(--dim)">—</td></tr><tr><td>美职联</td><td>11</td><td>45%</td><td>1.87</td><td style="color:var(--red);font-weight:700">-17.9%</td><td>🚫 送钱区</td><td style="color:var(--green)">6/11 (55%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr><tr><td>巴甲</td><td>10</td><td>40%</td><td>2.12</td><td style="color:var(--red);font-weight:700">-15.1%</td><td>🚫 送钱区</td><td style="color:var(--green)">6/10 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr><tr><td>欧罗巴</td><td>10</td><td>30%</td><td>2.01</td><td style="color:var(--red);font-weight:700">-51.2%</td><td>🚫 送钱区</td><td style="color:var(--dim)">—</td></tr><tr><td>巴西杯</td><td>5</td><td>40%</td><td>1.88</td><td style="color:var(--red);font-weight:700">-28.8%</td><td>🚫 送钱区</td><td style="color:var(--red)">0/1 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.40</span></td></tr>
   </table>
   </div>
 
@@ -1246,6 +1246,21 @@ body {
     <tr><td>主推 top3</td><td>37</td><td style="font-weight:700">33%</td><td>12</td><td>25%</td><td style="color:var(--dim)">原主推 3 个（8/5 起改 5 个）</td></tr>
     <tr><td>主推 top5</td><td>51</td><td style="font-weight:700;color:var(--green)">45%</td><td>16</td><td style="color:var(--green)">33%</td><td style="color:var(--dim)">当前主推 5 个</td></tr>
     <tr><td>候选 top8</td><td>67</td><td style="font-weight:700">59%</td><td>22</td><td>46%</td><td style="color:var(--dim)">DJYY 完整候选列表</td></tr>
+  </table>
+  </div>
+  <div class="section-title">比分候选来源对比（DJYY vs MC · 8/5 起记录，样本累积中）</div>
+  <div style="overflow-x:auto">
+  <table class="edge-table">
+    <tr><th>来源</th><th>命中/场次</th><th>命中率</th><th>说明</th></tr>
+    <tr><td>DJYY 分析源</td><td colspan="3" style="color:var(--dim)">自 8/5 双源融合上线后的场次开始记录，结算几场后自动填充</td></tr>
+    <tr><td>MC 模拟源</td><td colspan="3" style="color:var(--dim)">自 8/5 双源融合上线后的场次开始记录，结算几场后自动填充</td></tr>
+  </table>
+  </div>
+  <div class="section-title">盘口信号命中率（压缩比资金流向，样本累积验证中）</div>
+  <div style="overflow-x:auto">
+  <table class="edge-table">
+    <tr><th>信号</th><th>命中/场次</th><th>命中率</th><th>模型方向基线</th><th>判断</th></tr>
+    <tr><td>欧赔压缩方向</td><td>13/32</td><td style="font-weight:700;color:var(--amber)">41%</td><td>49/113 (43%)</td><td style="color:var(--amber)">与基线接近，继续累积样本</td></tr>
   </table>
   </div>
 
