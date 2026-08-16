@@ -816,7 +816,7 @@ body {
     <div class="stat"><div class="label">平均置信</div><div class="value blue">17%</div></div>
     <div class="stat"><div class="label">三票投入</div><div class="value amber">&yen;50</div></div>
     <div class="stat"><div class="label">预期回报</div><div class="value green">+26.2%</div></div>
-    <div class="stat"><div class="label">熔断器</div><div class="value red">T1 &middot; x1.0</div></div>
+    <div class="stat"><div class="label">熔断器</div><div class="value green">T0 &middot; x1.0</div></div>
   </div>
 
   <!-- ===== TAB NAV (2026-08-14 吸顶重构：联赛矩阵移入复盘页，今日决策页更聚焦) ===== -->
@@ -4827,7 +4827,7 @@ body {
         <div class="prob-seg a" style="width:22.1%">A 22%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 47%</span> <span class="pick-label" title="模型预测的最可能比分（非赛果）">预测比分</span> <span class="pred-score">0-0 / 0-1 / 1-0 / 1-1 / 0-2</span><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 69%</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">3-0</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span> <span class="ar-hit miss" title="比分未进候选列表">比分✗</span> <span class="pred-score" style="font-size:0.66rem;color:var(--dim)">预测 0-0 / 0-1 / 1-0 / 1-1 / 0-2 <span style="font-size:0.6rem;color:var(--purple)">[mc]</span></span></div>
       
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span>
@@ -5016,7 +5016,7 @@ body {
         <div class="prob-seg a" style="width:18.3%">A 18%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val draw">平局 39%</span> <span class="pick-label" title="模型预测的最可能比分（非赛果）">预测比分</span> <span class="pred-score">1-0 / 0-0 / 2-0 / 1-1 / 3-0</span><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val home" style="border-color:var(--green)">主胜 45%</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">4-0</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span> <span class="ar-hit miss" title="比分未进候选列表">比分✗</span> <span class="pred-score" style="font-size:0.66rem;color:var(--dim)">预测 1-0 / 0-0 / 2-0 / 1-1 / 3-0 <span style="font-size:0.6rem;color:var(--purple)">[mc]</span></span></div>
       <div class="draw-alert-info" style="background:rgba(147,51,234,0.1);border:1px solid var(--purple);border-radius:6px;padding:8px 12px;margin:8px 0;font-size:0.72rem"><b>⚠ 平局预警</b> — 联赛平局：高平联赛 + 市场平局被低估（R1 改判）</div>
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>24%</b></span>
@@ -5205,7 +5205,7 @@ body {
         <div class="prob-seg a" style="width:20.5%">A 21%</div>
       </div>
       <div class="pred-pick"><span class="pick-label">预测</span> <span class="pick-val home">主胜 47%</span> <span class="pick-label" title="模型预测的最可能比分（非赛果）">预测比分</span> <span class="pred-score">0-0 / 0-1 / 1-0 / 0-2 / 1-1</span><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 71%</span></div>
-      
+      <div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">1-0</span> <span class="ar-outcome home">主胜</span> <span class="ar-hit hit">✓</span> <span class="ar-hit hit" title="比分命中候选第3位">🎯3</span> <span class="pred-score" style="font-size:0.66rem;color:var(--dim)">预测 0-0 / 0-1 / 1-0 / 0-2 / 1-1 <span style="font-size:0.6rem;color:var(--purple)">[mc]</span></span></div>
       
       <div class="match-info-row">
         <span class="conf-meter"><span class="conf-dot low"></span><b>9%</b></span>
@@ -6237,11 +6237,11 @@ body {
     
   <div class="section-title">赛果复盘</div>
   <div class="results-summary">
-    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">33% (7/21)</div></div>
-    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.660</div></div>
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">38% (9/24)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.634</div></div>
     <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
   </div>
-  <div class="results-summary" style="margin-top:6px;"><div class="ts-chip"><div class="ts-label">LogLoss(final)</div><div class="ts-val" style="color:var(--amber)">1.091</div></div><div class="ts-chip"><div class="ts-label">进球框架</div><div class="ts-val" style="color:var(--amber)">38% (8/21)</div></div><div class="ts-chip"><div class="ts-label">概率分段</div><div class="ts-val" style="font-size:0.68rem;">40-50%:38% · 50-60%:0% · 60%+:100% · <40%:17%</div></div><div class="ts-chip"><div class="ts-label">新鲜度分层</div><div class="ts-val" style="font-size:0.68rem;">ok:38% · watch:20%</div></div></div>
+  <div class="results-summary" style="margin-top:6px;"><div class="ts-chip"><div class="ts-label">LogLoss(final)</div><div class="ts-val" style="color:var(--amber)">1.053</div></div><div class="ts-chip"><div class="ts-label">进球框架</div><div class="ts-val" style="color:var(--amber)">42% (10/24)</div></div><div class="ts-chip"><div class="ts-label">概率分段</div><div class="ts-val" style="font-size:0.68rem;">40-50%:44% · 50-60%:0% · 60%+:100% · <40%:17%</div></div><div class="ts-chip"><div class="ts-label">新鲜度分层</div><div class="ts-val" style="font-size:0.68rem;">ok:41% · watch:29%</div></div></div>
   <div class="results-table-wrap">
     <table class="results-table">
       <tr><th>比赛</th><th>比分</th><th>实际</th><th>让球</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
@@ -6456,6 +6456,36 @@ body {
           <td style="font-family:monospace;font-size:0.68rem;">0.448</td>
           <td style="color:var(--dim);font-weight:600;">0</td>
         </tr>
+        <tr class="hit">
+          <td>西班牙人 vs 莱万特</td>
+          <td style="font-weight:800;text-align:center;">3-0</td>
+          <td>主胜</td>
+          <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--green);font-size:0.72rem;">让球主胜</span></td>
+          <td>主胜 (47%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.427</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
+        <tr class="miss">
+          <td>阿罗卡 vs 摩雷伦斯</td>
+          <td style="font-weight:800;text-align:center;">4-0</td>
+          <td>主胜</td>
+          <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--green);font-size:0.72rem;">让球主胜</span></td>
+          <td>平局 (39%)</td>
+          <td style="text-align:center;"><span class="result-icon miss">✗</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.506</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
+        <tr class="hit">
+          <td>腓特烈斯塔 vs 克里斯蒂安松</td>
+          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td>主胜</td>
+          <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
+          <td>主胜 (47%)</td>
+          <td style="text-align:center;"><span class="result-icon hit">✓</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.428</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
     </table>
   </div>
 
@@ -6463,16 +6493,16 @@ body {
     
     <div id="parlay-settle">
       <div class="section-title">串关/波胆复盘 <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim)">当日真实出票结算</span></div>
-      <div class="ts-statline"><b>🎰 胜平负串</b> · 出票5/0结算 · 中0张(—) · 已出票¥25.72 / 已结算¥0.00 · 回报¥0.00 · ROI —</div>
+      <div class="ts-statline"><b>🎰 胜平负串</b> · 出票5/1结算 · 中0张(0%) · 已出票¥25.72 / 已结算¥4.89 · 回报¥0.00 · ROI <b style="color:var(--red)">-100%</b><br><span style="color:var(--dim);font-size:.68rem">2串1: 1张中0 ROI -100.0%</span></div>
       
       <details class="sp-detail" style="margin-top:6px"><summary>📋 逐票明细（5 张）</summary>
       <table class="edge-table" style="margin-top:6px">
         <tr><th>玩法</th><th>组合（腿 ✓/✗/·）</th><th style="text-align:right">投入 → 回报</th></tr>
-        <tr><td>2串1 ⏳</td><td>达伽马(draw) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">· ·</span></td><td style="text-align:right">¥6 → —</td></tr><tr><td>2串1 ⏳</td><td>西班牙人(home) + 达伽马(draw) <span style="color:var(--dim);font-size:.7rem">· ·</span></td><td style="text-align:right">¥6 → —</td></tr><tr><td>2串1 ⏳</td><td>西班牙人(home) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">· ·</span></td><td style="text-align:right">¥5 → —</td></tr><tr><td>3串1 ⏳</td><td>西班牙人(home) + 达伽马(draw) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">· · ·</span></td><td style="text-align:right">¥3 → —</td></tr><tr><td>3串4 ⏳</td><td>西班牙人(home) + 达伽马(draw) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">· · ·</span></td><td style="text-align:right">¥5 → —</td></tr>
+        <tr><td>2串1 ⏳</td><td>达伽马(draw) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">· ✗</span></td><td style="text-align:right">¥6 → —</td></tr><tr><td>2串1 ⏳</td><td>西班牙人(home) + 达伽马(draw) <span style="color:var(--dim);font-size:.7rem">✓ ·</span></td><td style="text-align:right">¥6 → —</td></tr><tr><td>2串1 ❌</td><td>西班牙人(home) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">✓ ✗</span></td><td style="text-align:right">¥5 → ¥0.00</td></tr><tr><td>3串1 ⏳</td><td>西班牙人(home) + 达伽马(draw) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">✓ · ✗</span></td><td style="text-align:right">¥3 → —</td></tr><tr><td>3串4 ⏳</td><td>西班牙人(home) + 达伽马(draw) + 阿罗卡(draw) <span style="color:var(--dim);font-size:.7rem">✓ · ✗</span></td><td style="text-align:right">¥5 → —</td></tr>
         
       </table>
       </details>
-      
+      <div class='ts-note'>胜平负串实证 ROI -100%，串关吃双重抽水。</div>
     </div>
 
     <!-- LEAGUE MATRIX（2026-08-14 从页首移入复盘页：参考数据不进"今日决策"） -->
@@ -6484,7 +6514,7 @@ body {
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>联赛</th><th>场数</th><th>命中率</th><th>均赔</th><th>ROI</th><th>判断</th><th>近5场</th><th>近10场</th><th>判平(命中/次数·强度)</th></tr>
-    <tr><td>挪超</td><td>29</td><td>52%</td><td>1.87</td><td style="color:var(--red);font-weight:700">-7.8%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -33%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -31%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>K1联赛</td><td>22</td><td>59%</td><td>2.06</td><td style="color:var(--green);font-weight:700">+28.8%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +16%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +15%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧冠</td><td>22</td><td>50%</td><td>2.06</td><td style="color:var(--red);font-weight:700">-12.6%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +17%</span></td><td style="color:var(--green)">近10场 8中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +29%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>芬超</td><td>22</td><td>32%</td><td>2.20</td><td style="color:var(--red);font-weight:700">-36.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 1中 (10%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -83%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>瑞典超</td><td>21</td><td>29%</td><td>2.03</td><td style="color:var(--red);font-weight:700">-44.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -36%</span></td><td style="color:var(--red)">近10场 3中 (30%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -52%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>欧罗巴</td><td>20</td><td>25%</td><td>1.94</td><td style="color:var(--red);font-weight:700">-63.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -76%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>荷甲</td><td>18</td><td>61%</td><td>1.65</td><td style="color:var(--red);font-weight:700">-1.2%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -2%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>巴甲</td><td>15</td><td>33%</td><td>2.55</td><td style="color:var(--red);font-weight:700">-23.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 1中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -40%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -53%</span></td><td style="color:var(--amber)">7/15 (47%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr><tr><td>葡超</td><td>14</td><td>43%</td><td>1.80</td><td style="color:var(--red);font-weight:700">-30.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -6%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -22%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>美职联</td><td>11</td><td>45%</td><td>1.87</td><td style="color:var(--red);font-weight:700">-17.9%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -34%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -30%</span></td><td style="color:var(--green)">6/11 (55%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr>
+    <tr><td>挪超</td><td>29</td><td>52%</td><td>1.87</td><td style="color:var(--red);font-weight:700">-7.8%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -33%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -31%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>K1联赛</td><td>22</td><td>59%</td><td>2.06</td><td style="color:var(--green);font-weight:700">+28.8%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +16%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +15%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧冠</td><td>22</td><td>50%</td><td>2.06</td><td style="color:var(--red);font-weight:700">-12.6%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +17%</span></td><td style="color:var(--green)">近10场 8中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +29%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>芬超</td><td>22</td><td>32%</td><td>2.20</td><td style="color:var(--red);font-weight:700">-36.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 1中 (10%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -83%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>瑞典超</td><td>21</td><td>29%</td><td>2.03</td><td style="color:var(--red);font-weight:700">-44.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -36%</span></td><td style="color:var(--red)">近10场 3中 (30%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -52%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>欧罗巴</td><td>20</td><td>25%</td><td>1.94</td><td style="color:var(--red);font-weight:700">-63.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -76%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>荷甲</td><td>18</td><td>61%</td><td>1.65</td><td style="color:var(--red);font-weight:700">-1.2%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -2%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>巴甲</td><td>15</td><td>33%</td><td>2.55</td><td style="color:var(--red);font-weight:700">-23.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 1中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -40%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -53%</span></td><td style="color:var(--amber)">7/15 (47%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr><tr><td>葡超</td><td>14</td><td>43%</td><td>1.80</td><td style="color:var(--red);font-weight:700">-30.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -6%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -22%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>美职联</td><td>11</td><td>45%</td><td>1.87</td><td style="color:var(--red);font-weight:700">-17.9%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -34%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -30%</span></td><td style="color:var(--green)">6/11 (55%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr>
   </table>
   <div style="padding:6px 2px;font-size:0.62rem;color:var(--dim)">三窗口对照：全部=累计兜底 · 近10场=中期趋势 · 近5场=短期灵敏度。回暖解禁 = 累计口径送钱区，但近5场命中≥60% <b>且</b> 近10场≥50% → 解除禁投观察；再拉胯自动打回送钱区。</div>
   </div>
@@ -6521,14 +6551,14 @@ body {
       </summary>
       <div class="deep-fold-body">
         
-  <div class="section-title">比分命中率（全量 272 场 · 近7天 115 场）</div>
+  <div class="section-title">比分命中率（全量 275 场 · 近7天 118 场）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>推荐档</th><th>全量命中</th><th>全量命中率</th><th>近7天命中</th><th>近7天命中率</th><th>说明</th></tr>
-    <tr><td>主推 top1</td><td>27</td><td style="font-weight:700">10%</td><td>10</td><td>9%</td><td style="color:var(--dim)">只押最可能比分（太难）</td></tr>
-    <tr><td>主推 top3</td><td>87</td><td style="font-weight:700">32%</td><td>28</td><td>24%</td><td style="color:var(--dim)">原主推 3 个（8/5 起改 5 个）</td></tr>
-    <tr><td>主推 top5</td><td>124</td><td style="font-weight:700;color:var(--green)">46%</td><td>46</td><td style="color:var(--green)">40%</td><td style="color:var(--dim)">当前主推 5 个</td></tr>
-    <tr><td>候选 top8</td><td>163</td><td style="font-weight:700">60%</td><td>64</td><td>56%</td><td style="color:var(--dim)">DJYY 完整候选列表</td></tr>
+    <tr><td>主推 top1</td><td>27</td><td style="font-weight:700">10%</td><td>10</td><td>8%</td><td style="color:var(--dim)">只押最可能比分（太难）</td></tr>
+    <tr><td>主推 top3</td><td>88</td><td style="font-weight:700">32%</td><td>29</td><td>25%</td><td style="color:var(--dim)">原主推 3 个（8/5 起改 5 个）</td></tr>
+    <tr><td>主推 top5</td><td>125</td><td style="font-weight:700;color:var(--green)">45%</td><td>47</td><td style="color:var(--green)">40%</td><td style="color:var(--dim)">当前主推 5 个</td></tr>
+    <tr><td>候选 top8</td><td>164</td><td style="font-weight:700">60%</td><td>65</td><td>55%</td><td style="color:var(--dim)">DJYY 完整候选列表</td></tr>
   </table>
   </div>
 
@@ -6546,14 +6576,14 @@ body {
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>来源</th><th>命中/场次</th><th>命中率</th><th>说明</th></tr>
-    <tr><td>DJYY 分析源</td><td>36/43</td><td style="font-weight:700">84%</td><td style="color:var(--dim)">分析文本提取的比分候选（8/5 起记录）</td></tr><tr><td>MC 模拟源</td><td>62/91</td><td style="font-weight:700">68%</td><td style="color:var(--dim)">泊松蒙特卡洛模拟（8/5 起记录）</td></tr>
+    <tr><td>DJYY 分析源</td><td>36/43</td><td style="font-weight:700">84%</td><td style="color:var(--dim)">分析文本提取的比分候选（8/5 起记录）</td></tr><tr><td>MC 模拟源</td><td>63/92</td><td style="font-weight:700">68%</td><td style="color:var(--dim)">泊松蒙特卡洛模拟（8/5 起记录）</td></tr>
   </table>
   </div>
   <div class="section-title">盘口信号命中率（压缩比资金流向，样本累积验证中）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>信号</th><th>命中/场次</th><th>命中率</th><th>模型方向基线</th><th>判断</th></tr>
-    <tr><td>欧赔压缩方向</td><td>62/188</td><td style="font-weight:700;color:var(--red)">33%</td><td>123/272 (45%)</td><td style="color:var(--red)">显著低于基线，信号待观察</td></tr>
+    <tr><td>欧赔压缩方向</td><td>64/191</td><td style="font-weight:700;color:var(--red)">34%</td><td>125/275 (45%)</td><td style="color:var(--red)">显著低于基线，信号待观察</td></tr>
   </table>
   </div>
       </div>
@@ -6597,15 +6627,15 @@ body {
 
   <div class="section-title">Dixon-Coles 分层收缩挑战者（vs 生产模型）</div>
   <div style="padding:6px 2px;font-size:0.68rem;color:var(--dim)">
-    滚动拟合（只用评估日之前历史，防泄漏）对比 Brier，n=157 场。
+    滚动拟合（只用评估日之前历史，防泄漏）对比 Brier，n=232 场。
     Verdict: <b style="color:var(--amber)">hold</b> —— 只做 challenger 跟踪，不上位。
   </div>
   <div style="overflow-x:auto"><table class="edge-table">
     <tr><th>模型</th><th>Brier</th></tr>
-    <tr><td>shrinkage_dc（挑战者）</td><td style="font-weight:700">0.7328</td></tr>
-    <tr><td>生产 final（现役）</td><td style="font-weight:700">0.6510</td></tr>
-    <tr><td>模型原始（未融合）</td><td style="font-weight:700">0.6894</td></tr>
-    <tr><td>市场基准（去水）</td><td style="font-weight:700">0.6273</td></tr>
+    <tr><td>shrinkage_dc（挑战者）</td><td style="font-weight:700">0.7313</td></tr>
+    <tr><td>生产 final（现役）</td><td style="font-weight:700">0.6452</td></tr>
+    <tr><td>模型原始（未融合）</td><td style="font-weight:700">0.6874</td></tr>
+    <tr><td>市场基准（去水）</td><td style="font-weight:700">0.6286</td></tr>
   </table></div>
       </div>
     </details>
@@ -6616,9 +6646,9 @@ body {
   <div class="sys-grid">
     <div class="sys-card">
       <h4>熔断器</h4>
-      <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T1 · Shadow · 周/日止损停注 &middot; x1.00</span></div>
+      <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T0 · Shadow · 周/日止损停注 &middot; x1.00</span></div>
       <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--green)">+1</span></div>
-      <div class="sys-row"><span class="k">胜率</span><span class="v">49.4% (286胜 / 293负)</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">49.5% (288胜 / 294负)</span></div>
       <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--green)">&yen;+0</span></div>
       <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--green)">&yen;+0</span></div>
     </div>
