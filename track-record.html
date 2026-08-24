@@ -54,10 +54,10 @@ tr:last-child td { border-bottom:none; }
   </div>
 
   <div class="kpis">
-    <div class="kpi"><div class="label">复盘场次</div><div class="value">378</div></div>
-    <div class="kpi"><div class="label">方向命中率</div><div class="value amber">49.7%</div></div>
+    <div class="kpi"><div class="label">复盘场次</div><div class="value">381</div></div>
+    <div class="kpi"><div class="label">方向命中率</div><div class="value amber">49.9%</div></div>
     <div class="kpi"><div class="label">近7天命中率</div><div class="value green">65%</div></div>
-    <div class="kpi"><div class="label">实际平局</div><div class="value amber">102</div></div>
+    <div class="kpi"><div class="label">实际平局</div><div class="value amber">103</div></div>
     <div class="kpi"><div class="label">平局预测命中</div><div class="value blue">1</div></div>
   </div>
 
@@ -65,15 +65,15 @@ tr:last-child td { border-bottom:none; }
   <div class="card"><table>
     <tr><th>口径</th><th>Brier</th></tr>
     <tr><td>融合 final（生产）</td><td style="font-weight:700">0.6277</td></tr>
-    <tr><td>市场基准（去水）</td><td style="font-weight:700">0.5989</td></tr>
-    <tr><td>模型原始</td><td style="font-weight:700">0.6602</td></tr>
+    <tr><td>市场基准（去水）</td><td style="font-weight:700">0.5973</td></tr>
+    <tr><td>模型原始</td><td style="font-weight:700">0.6599</td></tr>
     <tr><td>shrinkage_dc（挑战者）</td><td style="font-weight:700">0.7126</td></tr>
   </table></div>
 
   <div class="section-title">校准可靠性（ECE / MCE，越低越好）</div>
   <div class="card"><table>
     <tr><th>结果类</th><th>ECE</th><th>MCE</th><th>样本</th><th>良好校准箱占比</th></tr>
-    <tr><td>home</td><td>0.0590</td><td>0.1629</td><td>378</td><td>33%</td></tr><tr><td>draw</td><td>0.0310</td><td>0.1585</td><td>378</td><td>67%</td></tr><tr><td>away</td><td>0.0675</td><td>0.1813</td><td>378</td><td>40%</td></tr>
+    <tr><td>home</td><td>0.0592</td><td>0.1629</td><td>381</td><td>33%</td></tr><tr><td>draw</td><td>0.0305</td><td>0.1585</td><td>381</td><td>67%</td></tr><tr><td>away</td><td>0.0692</td><td>0.1873</td><td>381</td><td>40%</td></tr>
   </table></div>
 
   <div class="section-title">数据覆盖率（全量预测）</div>
@@ -85,7 +85,7 @@ tr:last-child td { border-bottom:none; }
   <div class="section-title">每日命中率（近14天）</div>
   <div class="card"><table>
     <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th></tr>
-    <tr><td>2026-08-11</td><td>10</td><td>6</td><td style="color:var(--green);font-weight:700">60%</td></tr><tr><td>2026-08-12</td><td>3</td><td>1</td><td style="color:var(--red);font-weight:700">33%</td></tr><tr><td>2026-08-13</td><td>10</td><td>3</td><td style="color:var(--red);font-weight:700">30%</td></tr><tr><td>2026-08-14</td><td>17</td><td>10</td><td style="color:var(--green);font-weight:700">59%</td></tr><tr><td>2026-08-15</td><td>27</td><td>16</td><td style="color:var(--green);font-weight:700">59%</td></tr><tr><td>2026-08-16</td><td>27</td><td>9</td><td style="color:var(--red);font-weight:700">33%</td></tr><tr><td>2026-08-17</td><td>6</td><td>2</td><td style="color:var(--red);font-weight:700">33%</td></tr><tr><td>2026-08-18</td><td>4</td><td>0</td><td style="color:var(--red);font-weight:700">0%</td></tr><tr><td>2026-08-19</td><td>8</td><td>5</td><td style="color:var(--green);font-weight:700">62%</td></tr><tr><td>2026-08-20</td><td>9</td><td>7</td><td style="color:var(--green);font-weight:700">78%</td></tr><tr><td>2026-08-21</td><td>11</td><td>8</td><td style="color:var(--green);font-weight:700">73%</td></tr><tr><td>2026-08-22</td><td>28</td><td>16</td><td style="color:var(--green);font-weight:700">57%</td></tr><tr><td>2026-08-23</td><td>27</td><td>20</td><td style="color:var(--green);font-weight:700">74%</td></tr><tr><td>2026-08-24</td><td>7</td><td>5</td><td style="color:var(--green);font-weight:700">71%</td></tr>
+    <tr><td>2026-08-11</td><td>10</td><td>6</td><td style="color:var(--green);font-weight:700">60%</td></tr><tr><td>2026-08-12</td><td>3</td><td>1</td><td style="color:var(--red);font-weight:700">33%</td></tr><tr><td>2026-08-13</td><td>10</td><td>3</td><td style="color:var(--red);font-weight:700">30%</td></tr><tr><td>2026-08-14</td><td>17</td><td>10</td><td style="color:var(--green);font-weight:700">59%</td></tr><tr><td>2026-08-15</td><td>27</td><td>16</td><td style="color:var(--green);font-weight:700">59%</td></tr><tr><td>2026-08-16</td><td>27</td><td>9</td><td style="color:var(--red);font-weight:700">33%</td></tr><tr><td>2026-08-17</td><td>6</td><td>2</td><td style="color:var(--red);font-weight:700">33%</td></tr><tr><td>2026-08-18</td><td>4</td><td>0</td><td style="color:var(--red);font-weight:700">0%</td></tr><tr><td>2026-08-19</td><td>8</td><td>5</td><td style="color:var(--green);font-weight:700">62%</td></tr><tr><td>2026-08-20</td><td>9</td><td>7</td><td style="color:var(--green);font-weight:700">78%</td></tr><tr><td>2026-08-21</td><td>11</td><td>8</td><td style="color:var(--green);font-weight:700">73%</td></tr><tr><td>2026-08-22</td><td>28</td><td>16</td><td style="color:var(--green);font-weight:700">57%</td></tr><tr><td>2026-08-23</td><td>27</td><td>20</td><td style="color:var(--green);font-weight:700">74%</td></tr><tr><td>2026-08-24</td><td>10</td><td>7</td><td style="color:var(--green);font-weight:700">70%</td></tr>
   </table></div>
 
   <details class="deep-fold" open>
@@ -96,26 +96,26 @@ tr:last-child td { border-bottom:none; }
     </summary>
     <div class="deep-fold-body"><table>
       <tr><th>联赛</th><th>场次</th><th>命中率</th><th>实际平局率</th></tr>
-      <tr><td>挪超</td><td>30</td><td style="color:var(--green);font-weight:700">53%</td><td>17%</td></tr><tr><td>欧冠</td><td>28</td><td style="color:var(--amber);font-weight:700">46%</td><td>29%</td></tr><tr><td>瑞典超</td><td>27</td><td style="color:var(--red);font-weight:700">33%</td><td>30%</td></tr><tr><td>欧罗巴</td><td>26</td><td style="color:var(--red);font-weight:700">38%</td><td>23%</td></tr><tr><td>芬超</td><td>25</td><td style="color:var(--red);font-weight:700">32%</td><td>20%</td></tr><tr><td>K1联赛</td><td>25</td><td style="color:var(--green);font-weight:700">64%</td><td>28%</td></tr><tr><td>荷甲</td><td>22</td><td style="color:var(--green);font-weight:700">68%</td><td>14%</td></tr><tr><td>葡超</td><td>21</td><td style="color:var(--amber);font-weight:700">48%</td><td>33%</td></tr><tr><td>巴甲</td><td>18</td><td style="color:var(--red);font-weight:700">28%</td><td>50%</td></tr><tr><td>西甲</td><td>15</td><td style="color:var(--green);font-weight:700">53%</td><td>40%</td></tr><tr><td>日职</td><td>14</td><td style="color:var(--green);font-weight:700">79%</td><td>14%</td></tr><tr><td>沙职</td><td>13</td><td style="color:var(--green);font-weight:700">77%</td><td>15%</td></tr><tr><td>美职联</td><td>11</td><td style="color:var(--amber);font-weight:700">45%</td><td>55%</td></tr><tr><td>意甲</td><td>10</td><td style="color:var(--green);font-weight:700">60%</td><td>10%</td></tr><tr><td>瑞超</td><td>9</td><td style="color:var(--green);font-weight:700">56%</td><td>11%</td></tr><tr><td>英冠</td><td>9</td><td style="color:var(--red);font-weight:700">33%</td><td>56%</td></tr><tr><td>法乙</td><td>8</td><td style="color:var(--green);font-weight:700">50%</td><td>25%</td></tr><tr><td>解放者杯</td><td>8</td><td style="color:var(--red);font-weight:700">25%</td><td>75%</td></tr><tr><td>英超</td><td>8</td><td style="color:var(--green);font-weight:700">50%</td><td>12%</td></tr><tr><td>巴西杯</td><td>7</td><td style="color:var(--red);font-weight:700">29%</td><td>29%</td></tr><tr><td>德乙</td><td>6</td><td style="color:var(--red);font-weight:700">33%</td><td>33%</td></tr><tr><td>日乙</td><td>6</td><td style="color:var(--green);font-weight:700">83%</td><td>17%</td></tr><tr><td>美职</td><td>6</td><td style="color:var(--red);font-weight:700">33%</td><td>33%</td></tr><tr><td>法甲</td><td>6</td><td style="color:var(--green);font-weight:700">67%</td><td>17%</td></tr><tr><td>荷乙</td><td>5</td><td style="color:var(--green);font-weight:700">60%</td><td>20%</td></tr>
+      <tr><td>挪超</td><td>30</td><td style="color:var(--green);font-weight:700">53%</td><td>17%</td></tr><tr><td>欧冠</td><td>28</td><td style="color:var(--amber);font-weight:700">46%</td><td>29%</td></tr><tr><td>瑞典超</td><td>27</td><td style="color:var(--red);font-weight:700">33%</td><td>30%</td></tr><tr><td>欧罗巴</td><td>26</td><td style="color:var(--red);font-weight:700">38%</td><td>23%</td></tr><tr><td>芬超</td><td>25</td><td style="color:var(--red);font-weight:700">32%</td><td>20%</td></tr><tr><td>K1联赛</td><td>25</td><td style="color:var(--green);font-weight:700">64%</td><td>28%</td></tr><tr><td>荷甲</td><td>22</td><td style="color:var(--green);font-weight:700">68%</td><td>14%</td></tr><tr><td>葡超</td><td>22</td><td style="color:var(--green);font-weight:700">50%</td><td>32%</td></tr><tr><td>巴甲</td><td>18</td><td style="color:var(--red);font-weight:700">28%</td><td>50%</td></tr><tr><td>西甲</td><td>16</td><td style="color:var(--green);font-weight:700">50%</td><td>44%</td></tr><tr><td>日职</td><td>14</td><td style="color:var(--green);font-weight:700">79%</td><td>14%</td></tr><tr><td>沙职</td><td>13</td><td style="color:var(--green);font-weight:700">77%</td><td>15%</td></tr><tr><td>美职联</td><td>11</td><td style="color:var(--amber);font-weight:700">45%</td><td>55%</td></tr><tr><td>意甲</td><td>10</td><td style="color:var(--green);font-weight:700">60%</td><td>10%</td></tr><tr><td>瑞超</td><td>9</td><td style="color:var(--green);font-weight:700">56%</td><td>11%</td></tr><tr><td>英冠</td><td>9</td><td style="color:var(--red);font-weight:700">33%</td><td>56%</td></tr><tr><td>英超</td><td>9</td><td style="color:var(--green);font-weight:700">56%</td><td>11%</td></tr><tr><td>法乙</td><td>8</td><td style="color:var(--green);font-weight:700">50%</td><td>25%</td></tr><tr><td>解放者杯</td><td>8</td><td style="color:var(--red);font-weight:700">25%</td><td>75%</td></tr><tr><td>巴西杯</td><td>7</td><td style="color:var(--red);font-weight:700">29%</td><td>29%</td></tr><tr><td>德乙</td><td>6</td><td style="color:var(--red);font-weight:700">33%</td><td>33%</td></tr><tr><td>日乙</td><td>6</td><td style="color:var(--green);font-weight:700">83%</td><td>17%</td></tr><tr><td>美职</td><td>6</td><td style="color:var(--red);font-weight:700">33%</td><td>33%</td></tr><tr><td>法甲</td><td>6</td><td style="color:var(--green);font-weight:700">67%</td><td>17%</td></tr><tr><td>荷乙</td><td>5</td><td style="color:var(--green);font-weight:700">60%</td><td>20%</td></tr>
     </table></div>
   </details>
 
   <div class="section-title">串关 / 波胆真实复盘（历史累计 · 非回测）</div>
-  <div style="padding:6px 2px 10px;font-size:0.68rem;color:var(--dim)">历史真实出票（非回测）：胜平负串 38张/已结算34 · ROI +36%；比分串 97张/已结算96 · ROI -100%。2026-08-13 起比分串改为仅官方赔率正 EV 出票。</div>
+  <div style="padding:6px 2px 10px;font-size:0.68rem;color:var(--dim)">历史真实出票（非回测）：胜平负串 38张/已结算38 · ROI +21%；比分串 97张/已结算96 · ROI -100%。2026-08-13 起比分串改为仅官方赔率正 EV 出票。</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
 
         <div class="card">
           <div class="section-title" style="margin-top:0">📋 胜平负串</div>
           <table>
             <tr><th>指标</th><th>值</th></tr>
-            <tr><td>出票 / 已结算</td><td>38 / 34</td></tr>
-            <tr><td>命中</td><td>10 张（命中率 29%）</td></tr>
+            <tr><td>出票 / 已结算</td><td>38 / 38</td></tr>
+            <tr><td>命中</td><td>10 张（命中率 26%）</td></tr>
             <tr><td>已出票投入</td><td>¥172.15</td></tr>
-            <tr><td>已结算投入 / 回报</td><td>¥153.28 / ¥208.68</td></tr>
-            <tr><td>ROI</td><td style="color:var(--green);font-weight:700">+36.1%</td></tr>
+            <tr><td>已结算投入 / 回报</td><td>¥172.15 / ¥208.68</td></tr>
+            <tr><td>ROI</td><td style="color:var(--green);font-weight:700">+21.2%</td></tr>
 
           </table>
-          <div class="note" style="margin-top:6px">2串1 24张中6 ROI +17% · 3串1 5张中1 ROI +142% · 3串4 5张中3 ROI +49%</div>
+          <div class="note" style="margin-top:6px">2串1 26张中6 ROI +6% · 3串1 6张中1 ROI +99% · 3串4 6张中3 ROI +28%</div>
         </div>
         <div class="card">
           <div class="section-title" style="margin-top:0">🎰 比分串（波胆）</div>
@@ -137,24 +137,24 @@ tr:last-child td { border-bottom:none; }
   <div class="section-title">🎯 EV 价值区报告（全量复盘）</div>
   <div class="card" style="padding:20px;margin-bottom:14px;">
     <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;">
-      <div class="stat"><div class="label">已结算场次</div><div class="value">377</div></div>
-      <div class="stat"><div class="label">方向命中率</div><div class="value">49.6%</div></div>
-      <div class="stat"><div class="label">整体 ROI（每场押1单位）</div><div class="value amber">-9.9%</div></div>
+      <div class="stat"><div class="label">已结算场次</div><div class="value">380</div></div>
+      <div class="stat"><div class="label">方向命中率</div><div class="value">49.7%</div></div>
+      <div class="stat"><div class="label">整体 ROI（每场押1单位）</div><div class="value amber">-9.7%</div></div>
     </div>
-    <ul style="padding-left:18px;margin-bottom:16px;"><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>整体 377 场命中率 49.6%，ROI -9.9%</li><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>送钱区(回避): L1 大热(<1.5), L2 热(1.5-1.8)</li></ul>
+    <ul style="padding-left:18px;margin-bottom:16px;"><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>整体 380 场命中率 49.7%，ROI -9.7%</li><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>送钱区(回避): L1 大热(<1.5), L2 热(1.5-1.8)</li></ul>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
       <div>
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:var(--text);">按赔率区间（押注结构诊断）</div>
         <table class="data-table" style="width:100%;font-size:0.82rem;">
           <tr><th>区间</th><th>场数</th><th>命中率</th><th>ROI</th><th>判读</th></tr>
-          <tr><td>L1 大热(<1.5)</td><td>94</td><td>64.9%</td><td class='red'>-15.1%</td><td class='red'>送钱区 ❌</td></tr><tr><td>L2 热(1.5-1.8)</td><td>83</td><td>50.6%</td><td class='red'>-17.8%</td><td class='red'>送钱区 ❌</td></tr><tr><td>L3 中(1.8-2.2)</td><td>97</td><td>46.4%</td><td class='amber'>-7.4%</td><td class='amber'>中性</td></tr><tr><td>L4 冷(2.2-3.0)</td><td>78</td><td>41.0%</td><td class='amber'>-2.4%</td><td class='amber'>中性</td></tr><tr><td>L5 深冷(≥3.0)</td><td>25</td><td>28.0%</td><td class='green'>+3.4%</td><td class='green'>观望</td></tr>
+          <tr><td>L1 大热(<1.5)</td><td>94</td><td>64.9%</td><td class='red'>-15.1%</td><td class='red'>送钱区 ❌</td></tr><tr><td>L2 热(1.5-1.8)</td><td>85</td><td>51.8%</td><td class='red'>-16.0%</td><td class='red'>送钱区 ❌</td></tr><tr><td>L3 中(1.8-2.2)</td><td>97</td><td>46.4%</td><td class='amber'>-7.4%</td><td class='amber'>中性</td></tr><tr><td>L4 冷(2.2-3.0)</td><td>79</td><td>40.5%</td><td class='amber'>-3.6%</td><td class='amber'>中性</td></tr><tr><td>L5 深冷(≥3.0)</td><td>25</td><td>28.0%</td><td class='green'>+3.4%</td><td class='green'>观望</td></tr>
         </table>
       </div>
       <div>
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:var(--text);">按联赛（≥3场）</div>
         <table class="data-table" style="width:100%;font-size:0.82rem;">
           <tr><th>联赛</th><th>场数</th><th>命中率</th><th>ROI</th></tr>
-          <tr><td>解放者杯</td><td>8</td><td>25.0%</td><td class='red'>-56.0%</td></tr><tr><td>巴西杯</td><td>7</td><td>28.6%</td><td class='red'>-49.1%</td></tr><tr><td>美职</td><td>6</td><td>33.3%</td><td class='red'>-40.7%</td></tr><tr><td>瑞典超</td><td>27</td><td>33.3%</td><td class='red'>-39.4%</td></tr><tr><td>欧罗巴</td><td>26</td><td>38.5%</td><td class='red'>-39.0%</td></tr><tr><td>巴甲</td><td>18</td><td>27.8%</td><td class='red'>-36.2%</td></tr><tr><td>芬超</td><td>25</td><td>32.0%</td><td class='red'>-34.4%</td></tr><tr><td>韩职</td><td>3</td><td>33.3%</td><td class='red'>-26.3%</td></tr><tr><td>德乙</td><td>6</td><td>33.3%</td><td class='red'>-25.8%</td></tr><tr><td>英冠</td><td>9</td><td>33.3%</td><td class='red'>-24.2%</td></tr><tr><td>美职联</td><td>11</td><td>45.5%</td><td class='red'>-17.9%</td></tr><tr><td>欧冠</td><td>28</td><td>46.4%</td><td class='red'>-17.8%</td></tr><tr><td>葡超</td><td>21</td><td>47.6%</td><td class='red'>-16.9%</td></tr><tr><td>瑞超</td><td>9</td><td>55.6%</td><td class='red'>-12.3%</td></tr><tr><td>英超</td><td>8</td><td>50.0%</td><td class='amber'>-8.8%</td></tr><tr><td>意甲</td><td>10</td><td>60.0%</td><td class='amber'>-6.8%</td></tr><tr><td>法乙</td><td>8</td><td>50.0%</td><td class='amber'>-6.5%</td></tr><tr><td>西甲</td><td>15</td><td>53.3%</td><td class='amber'>-6.3%</td></tr><tr><td>挪超</td><td>30</td><td>53.3%</td><td class='amber'>-5.4%</td></tr><tr><td>荷乙</td><td>5</td><td>60.0%</td><td class='green'>+1.4%</td></tr><tr><td>荷甲</td><td>22</td><td>68.2%</td><td class='green'>+4.9%</td></tr><tr><td>法甲</td><td>6</td><td>66.7%</td><td class='green'>+7.0%</td></tr><tr><td>英联赛杯</td><td>4</td><td>75.0%</td><td class='green'>+22.7%</td></tr><tr><td>沙职</td><td>13</td><td>76.9%</td><td class='green'>+34.8%</td></tr><tr><td>K1联赛</td><td>25</td><td>64.0%</td><td class='green'>+37.2%</td></tr><tr><td>日职</td><td>14</td><td>78.6%</td><td class='green'>+42.4%</td></tr><tr><td>日乙</td><td>6</td><td>83.3%</td><td class='green'>+83.2%</td></tr>
+          <tr><td>解放者杯</td><td>8</td><td>25.0%</td><td class='red'>-56.0%</td></tr><tr><td>巴西杯</td><td>7</td><td>28.6%</td><td class='red'>-49.1%</td></tr><tr><td>美职</td><td>6</td><td>33.3%</td><td class='red'>-40.7%</td></tr><tr><td>瑞典超</td><td>27</td><td>33.3%</td><td class='red'>-39.4%</td></tr><tr><td>欧罗巴</td><td>26</td><td>38.5%</td><td class='red'>-39.0%</td></tr><tr><td>巴甲</td><td>18</td><td>27.8%</td><td class='red'>-36.2%</td></tr><tr><td>芬超</td><td>25</td><td>32.0%</td><td class='red'>-34.4%</td></tr><tr><td>韩职</td><td>3</td><td>33.3%</td><td class='red'>-26.3%</td></tr><tr><td>德乙</td><td>6</td><td>33.3%</td><td class='red'>-25.8%</td></tr><tr><td>英冠</td><td>9</td><td>33.3%</td><td class='red'>-24.2%</td></tr><tr><td>美职联</td><td>11</td><td>45.5%</td><td class='red'>-17.9%</td></tr><tr><td>欧冠</td><td>28</td><td>46.4%</td><td class='red'>-17.8%</td></tr><tr><td>葡超</td><td>22</td><td>50.0%</td><td class='red'>-13.7%</td></tr><tr><td>瑞超</td><td>9</td><td>55.6%</td><td class='red'>-12.3%</td></tr><tr><td>西甲</td><td>16</td><td>50.0%</td><td class='red'>-12.1%</td></tr><tr><td>意甲</td><td>10</td><td>60.0%</td><td class='amber'>-6.8%</td></tr><tr><td>法乙</td><td>8</td><td>50.0%</td><td class='amber'>-6.5%</td></tr><tr><td>挪超</td><td>30</td><td>53.3%</td><td class='amber'>-5.4%</td></tr><tr><td>英超</td><td>9</td><td>55.6%</td><td class='amber'>-0.1%</td></tr><tr><td>荷乙</td><td>5</td><td>60.0%</td><td class='green'>+1.4%</td></tr><tr><td>荷甲</td><td>22</td><td>68.2%</td><td class='green'>+4.9%</td></tr><tr><td>法甲</td><td>6</td><td>66.7%</td><td class='green'>+7.0%</td></tr><tr><td>英联赛杯</td><td>4</td><td>75.0%</td><td class='green'>+22.7%</td></tr><tr><td>沙职</td><td>13</td><td>76.9%</td><td class='green'>+34.8%</td></tr><tr><td>K1联赛</td><td>25</td><td>64.0%</td><td class='green'>+37.2%</td></tr><tr><td>日职</td><td>14</td><td>78.6%</td><td class='green'>+42.4%</td></tr><tr><td>日乙</td><td>6</td><td>83.3%</td><td class='green'>+83.2%</td></tr>
         </table>
       </div>
     </div>
@@ -167,7 +167,7 @@ tr:last-child td { border-bottom:none; }
     &rarr; 市场主导融合（模型10% + 市场60% + DJYY30%，条件融合：DJYY置信&lt;0.5不参与、与市场分歧减半）
     &rarr; Isotonic + Temperature 校准 &rarr; 平局盲点修复（高平联赛改判 + 联赛平局率锚定）。
     <div class="note">全程 GitHub Actions 自动运行（每日 11:15/17:15 预测、08:00 结算），零人工干预。
-    历史胜平负概率与结算结果全部可核查（账本 review_ledger.jsonl，378+ 场）。</div>
+    历史胜平负概率与结算结果全部可核查（账本 review_ledger.jsonl，381+ 场）。</div>
   </div>
 
   <div class="footer">
