@@ -1,13 +1,102 @@
 {
   "stable": [],
   "value": [],
-  "lottery": [],
-  "total_stake": 0,
-  "expected_roi": 0.0,
+  "lottery": [
+    {
+      "match": "2026-08-27_周四001",
+      "sel": "home",
+      "odds": 1.95,
+      "stake": 50.0,
+      "prob": 0.533,
+      "downgrade_reason": "prob_5060"
+    }
+  ],
+  "total_stake": 50.0,
+  "expected_roi": 0.0401,
   "bankroll": 3971.7891,
   "breaker_multiplier": 1.0,
-  "parlay": [],
-  "score_parlay": [],
+  "parlay": [
+    {
+      "type": "2串1",
+      "legs": [
+        {
+          "match": "2026-08-27_周四001",
+          "home": "比尔森",
+          "away": "贝红星",
+          "league": "欧罗巴",
+          "sel": "home",
+          "odds": 1.95,
+          "prob": 0.533,
+          "cal_prob": 0.568,
+          "market_prob": 0.454,
+          "source": "fusion",
+          "hit_prob": 0.568
+        },
+        {
+          "match": "2026-08-27_周四005",
+          "home": "费伦茨",
+          "away": "特拉布宗",
+          "league": "欧罗巴",
+          "sel": "away",
+          "odds": 2.18,
+          "prob": 0.421,
+          "cal_prob": 0.553,
+          "market_prob": 0.406,
+          "source": "fusion",
+          "hit_prob": 0.553
+        }
+      ],
+      "total_odds": 4.25,
+      "model_ev": -0.09,
+      "cal_ev": 4.81,
+      "cal_roi": 0.3367,
+      "market_ev": -0.43,
+      "market_roi": -0.216,
+      "hit_prob_cal": 0.314,
+      "recommended": true,
+      "stake": 14.3,
+      "n_bets": 1,
+      "potential": 60.79,
+      "worst_win": 0.0,
+      "note": "两场全中才赢",
+      "source": "calibrated"
+    }
+  ],
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-08-27_周四001",
+          "home": "比尔森",
+          "away": "贝红星",
+          "league": "欧罗巴",
+          "score": "1-0",
+          "prob": 0.182,
+          "cal_prob": 0.11,
+          "odds": 11.0
+        },
+        {
+          "match": "2026-08-27_周四008",
+          "home": "巴萨",
+          "away": "毕尔巴鄂",
+          "league": "西甲",
+          "score": "1-0",
+          "prob": 0.208,
+          "cal_prob": 0.11,
+          "odds": 10.0
+        }
+      ],
+      "total_odds": 110.0,
+      "hit_prob": 0.0121,
+      "stake": 2.0,
+      "potential": 220.0,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 1.2% × 赔率 110 倍 = EV +33%）"
+    }
+  ],
   "parlay_calibration": {
     "overall": 0.5037,
     "n": 401,
