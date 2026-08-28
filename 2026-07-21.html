@@ -2204,11 +2204,11 @@ body {
   <div style="padding:6px 2px;font-size:0.62rem;color:var(--dim)">三窗口对照：全部=累计兜底 · 近10场=中期趋势 · 近5场=短期灵敏度。回暖解禁 = 累计口径送钱区，但近5场命中≥60% <b>且</b> 近10场≥50% → 解除禁投观察；再拉胯自动打回送钱区。</div>
   </div>
     
-  <div class="section-title">高置信反向样本库（7 场 · 预测≥60% + 市场同向却翻车）</div>
+  <div class="section-title">高置信反向样本库（8 场 · 预测≥60% + 市场同向却翻车）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>日期</th><th>联赛</th><th>对阵</th><th>预测</th><th>实际</th></tr>
-    <tr><td>2026-08-10</td><td>瑞超</td><td>天狼星 vs 布鲁马波</td><td>预测主胜 <b>61%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-08-01</td><td>巴西杯</td><td></td><td>预测主胜 <b>60%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-31</td><td>美职联</td><td>纽约城 vs 多伦多</td><td>预测主胜 <b>60%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-31</td><td>挪超</td><td>瓦勒伦加 vs 汉坎</td><td>预测主胜 <b>61%</b></td><td style="color:var(--red)">实际客胜</td></tr><tr><td>2026-07-26</td><td>巴甲</td><td>弗拉门戈 vs 圣保罗</td><td>预测主胜 <b>74%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-25</td><td>巴甲</td><td>桑托斯 vs 沙佩科</td><td>预测主胜 <b>71%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-23</td><td>欧罗巴</td><td>圣加仑 vs 本菲卡</td><td>预测客胜 <b>70%</b></td><td style="color:var(--red)">实际主胜</td></tr>
+    <tr><td>2026-08-28</td><td>荷甲</td><td>格罗宁根 vs 福图纳</td><td>预测主胜 <b>61%</b></td><td style="color:var(--red)">实际客胜</td></tr><tr><td>2026-08-10</td><td>瑞超</td><td>天狼星 vs 布鲁马波</td><td>预测主胜 <b>61%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-08-01</td><td>巴西杯</td><td></td><td>预测主胜 <b>60%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-31</td><td>美职联</td><td>纽约城 vs 多伦多</td><td>预测主胜 <b>60%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-31</td><td>挪超</td><td>瓦勒伦加 vs 汉坎</td><td>预测主胜 <b>61%</b></td><td style="color:var(--red)">实际客胜</td></tr><tr><td>2026-07-26</td><td>巴甲</td><td>弗拉门戈 vs 圣保罗</td><td>预测主胜 <b>74%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-25</td><td>巴甲</td><td>桑托斯 vs 沙佩科</td><td>预测主胜 <b>71%</b></td><td style="color:var(--red)">实际平局</td></tr><tr><td>2026-07-23</td><td>欧罗巴</td><td>圣加仑 vs 本菲卡</td><td>预测客胜 <b>70%</b></td><td style="color:var(--red)">实际主胜</td></tr>
   </table>
   <div style="padding:6px 2px;font-size:0.62rem;color:var(--dim)">独立归档复核（借鉴 MBS AIK 案例），
   不归因于模型-市场分歧；与 50-60% 段降档互补：60%+ 段虽整体命中最好，但反向样本单独跟踪。</div>
@@ -2236,14 +2236,14 @@ body {
       </summary>
       <div class="deep-fold-body">
         
-  <div class="section-title">比分命中率（全量 412 场 · 近7天 412 场）</div>
+  <div class="section-title">比分命中率（全量 426 场 · 近7天 426 场）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>推荐档</th><th>全量命中</th><th>全量命中率</th><th>近7天命中</th><th>近7天命中率</th><th>说明</th></tr>
     <tr><td>主推 top1</td><td>41</td><td style="font-weight:700">10%</td><td>41</td><td>10%</td><td style="color:var(--dim)">只押最可能比分（太难）</td></tr>
-    <tr><td>主推 top3</td><td>124</td><td style="font-weight:700">30%</td><td>124</td><td>30%</td><td style="color:var(--dim)">原主推 3 个（8/5 起改 5 个）</td></tr>
-    <tr><td>主推 top5</td><td>188</td><td style="font-weight:700;color:var(--green)">46%</td><td>188</td><td style="color:var(--green)">46%</td><td style="color:var(--dim)">当前主推 5 个</td></tr>
-    <tr><td>候选 top8</td><td>244</td><td style="font-weight:700">59%</td><td>244</td><td>59%</td><td style="color:var(--dim)">DJYY 完整候选列表</td></tr>
+    <tr><td>主推 top3</td><td>126</td><td style="font-weight:700">30%</td><td>126</td><td>30%</td><td style="color:var(--dim)">原主推 3 个（8/5 起改 5 个）</td></tr>
+    <tr><td>主推 top5</td><td>191</td><td style="font-weight:700;color:var(--green)">45%</td><td>191</td><td style="color:var(--green)">45%</td><td style="color:var(--dim)">当前主推 5 个</td></tr>
+    <tr><td>候选 top8</td><td>250</td><td style="font-weight:700">59%</td><td>250</td><td>59%</td><td style="color:var(--dim)">DJYY 完整候选列表</td></tr>
   </table>
   </div>
 
@@ -2261,14 +2261,14 @@ body {
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>来源</th><th>命中/场次</th><th>命中率</th><th>说明</th></tr>
-    <tr><td>DJYY 分析源</td><td>36/43</td><td style="font-weight:700">84%</td><td style="color:var(--dim)">分析文本提取的比分候选（8/5 起记录）</td></tr><tr><td>MC 模拟源</td><td>126/172</td><td style="font-weight:700">73%</td><td style="color:var(--dim)">泊松蒙特卡洛模拟（8/5 起记录）</td></tr>
+    <tr><td>DJYY 分析源</td><td>36/43</td><td style="font-weight:700">84%</td><td style="color:var(--dim)">分析文本提取的比分候选（8/5 起记录）</td></tr><tr><td>MC 模拟源</td><td>129/178</td><td style="font-weight:700">72%</td><td style="color:var(--dim)">泊松蒙特卡洛模拟（8/5 起记录）</td></tr>
   </table>
   </div>
   <div class="section-title">盘口信号命中率（压缩比资金流向，样本累积验证中）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>信号</th><th>命中/场次</th><th>命中率</th><th>模型方向基线</th><th>判断</th></tr>
-    <tr><td>欧赔压缩方向</td><td>120/328</td><td style="font-weight:700;color:var(--amber)">37%</td><td>210/412 (51%)</td><td style="color:var(--amber)">与基线接近，继续累积样本</td></tr>
+    <tr><td>欧赔压缩方向</td><td>127/342</td><td style="font-weight:700;color:var(--amber)">37%</td><td>217/426 (51%)</td><td style="color:var(--amber)">与基线接近，继续累积样本</td></tr>
   </table>
   </div>
       </div>
@@ -2326,9 +2326,9 @@ body {
       <h4>熔断器</h4>
       <div class="sys-row"><span class="k">状态</span><span class="tier-indicator safe">T0 · Shadow &middot; x0.00</span></div>
       <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-1</span></div>
-      <div class="sys-row"><span class="k">胜率</span><span class="v">51.0% (414胜 / 397负)</span></div>
-      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--green)">&yen;+51</span></div>
-      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-141</span></div>
+      <div class="sys-row"><span class="k">胜率</span><span class="v">51.0% (421胜 / 404负)</span></div>
+      <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--red)">&yen;-50</span></div>
+      <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-191</span></div>
     </div>
     <div class="sys-card">
       <h4>决策完整性</h4>
