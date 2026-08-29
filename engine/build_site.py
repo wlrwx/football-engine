@@ -17,6 +17,51 @@ if str(ROOT) not in sys.path:
 from engine.beijing_time import beijing_now, beijing_today
 
 
+def _pipeline_desc():
+    """流水线一句话描述——header/footer/系统面板共用同一数据源（fusion_weights 实时值），
+    杜绝"页首页脚各说各话"（旧版 header 写 LGBM/Isotonic、footer 写死 模型10%+市场60%）。"""
+    w = "模型? / 市场? / DJYY?"
+    try:
+        _fw = json.loads((ROOT / "data" / "state" / "fusion_weights.json").read_text(encoding="utf-8"))
+        _ch = _fw.get("champion", {})
+        if _ch:
+            w = f"模型{_ch.get('model', 0)*100:.0f}% / 市场{_ch.get('market', 0)*100:.0f}% / DJYY{_ch.get('djyy', 0)*100:.0f}%"
+    except Exception:
+        pass
+    return f"DC+MC &rarr; Shin去水 &rarr; 四源融合({w}) &rarr; 后处理链(每步可开关)"
+
+
+def _health_badge():
+    """诚实徽章：由 selfcheck_report 的 critical 告警驱动；无文件显示"未监控"，
+    不再永远显示"系统正常"（旧版读一个没人写的 health-status.json）。"""
+    try:
+        _sc = json.loads((ROOT / "data" / "state" / "selfcheck_report.json").read_text(encoding="utf-8"))
+        _alerts = _sc.get("alerts", [])
+        _severe = [a for a in _alerts if any(k in a for k in ("全缺", "crs_odds", "ttg_odds", "hafu_odds"))]
+        if _severe:
+            return f'<span class="badge warn" title="{"; ".join(_severe[:2])}">数据告警 ×{len(_severe)}</span>'
+        if _alerts:
+            return f'<span class="badge ok" title="{"; ".join(_alerts[:2])}">正常（{len(_alerts)}条提示）</span>'
+        return '<span class="badge ok">正常</span>'
+    except Exception:
+        return '<span class="badge" style="background:var(--surface3);color:var(--dim)">未监控</span>'
+
+
+def _evo_state():
+    """加载四个进化状态文件（upgrade_tracker / edge_calibration / calibration_status / lgbm_status）"""
+    out = {}
+    for key, rel in (("tracker", "data/state/upgrade_tracker.json"),
+                     ("edge", "data/state/edge_calibration.json"),
+                     ("calib", "data/state/calibration_status.json"),
+                     ("lgbm", "data/state/lgbm_status.json")):
+        try:
+            _p = ROOT / rel
+            out[key] = json.loads(_p.read_text(encoding="utf-8")) if _p.exists() else None
+        except Exception:
+            out[key] = None
+    return out
+
+
 def build_site():
     """生成静态 HTML 报告（多日期）"""
     web_dir = ROOT / "web"
@@ -449,6 +494,29 @@ tr:last-child td {{ border-bottom:none; }}
 .deep-fold-hint {{ margin-left:auto; font-size:.66rem; color:var(--blue); opacity:.75; font-weight:600; }}
 .deep-fold[open] .deep-fold-hint {{ display:none; }}
 .deep-fold-body {{ padding:4px 16px 14px; border-top:1px dashed var(--border); }}
+
+/* ===== battle board + evolution dashboard (2026-08-30 重塑) ===== */
+.battle-board {{ background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(16,185,129,.08)); border: 1px solid var(--border-light); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }}
+.bb-head {{ font-size: .78rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }}
+.bb-main {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+.bb-big {{ flex: 1; min-width: 72px; background: var(--surface2); border-radius: 8px; padding: 8px 10px; }}
+.bb-label {{ font-size: .6rem; color: var(--dim); }}
+.bb-val {{ font-size: .95rem; font-weight: 700; }}
+.bb-tickets {{ display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }}
+.bb-ticket {{ font-size: .68rem; background: var(--surface2); border-radius: 6px; padding: 4px 8px; display: flex; gap: 6px; align-items: center; }}
+.bb-tag {{ font-weight: 700; }}
+.bb-tag.stable {{ color: var(--green); }}
+.bb-tag.value {{ color: var(--amber); }}
+.bb-tag.lottery {{ color: var(--purple); }}
+.bb-n {{ color: var(--dim); }}
+.bb-empty {{ font-size: .8rem; padding: 6px 0; }}
+.evo-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }}
+.evo-card {{ background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }}
+.evo-title {{ font-size: .64rem; color: var(--dim); margin-bottom: 4px; }}
+.evo-verdict {{ font-size: .95rem; font-weight: 700; }}
+.evo-detail {{ font-size: .64rem; color: var(--dim); margin-top: 4px; line-height: 1.5; }}
+.evo-chip {{ display: inline-block; background: var(--surface3); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; font-size: .64rem; }}
+.evo-chip i {{ color: var(--dim); font-style: normal; font-size: .6rem; }}
 </style></head><body>
 <div class="page">
   <div class="header">
@@ -499,12 +567,14 @@ tr:last-child td {{ border-bottom:none; }}
 
   {_ev_html}
 
+  {_evo_dashboard()}
+
   <div class="section-title">方法论</div>
   <div class="card" style="font-size:0.8rem;color:var(--text-secondary)">
-    Dixon-Coles + Monte Carlo 双模型 &rarr; 四源赔率（体彩/新浪/500万/DJYY）Shin 去水
-    &rarr; 市场主导融合（模型10% + 市场60% + DJYY30%，条件融合：DJYY置信&lt;0.5不参与、与市场分歧减半）
-    &rarr; Isotonic + Temperature 校准 &rarr; 平局盲点修复（高平联赛改判 + 联赛平局率锚定）。
-    <div class="note">全程 GitHub Actions 自动运行（每日 11:15/17:15 预测、08:00 结算），零人工干预。
+    {_pipeline_desc()}（DJYY 置信&lt;0.5 不参与、与市场分歧减半）。
+    融合链每一步均为 config 开关，由消融回放（scripts/ablation_replay.py）对已结算账本
+    配对验证后裁决去留；校准层自进化带显著性护栏（docs/UPGRADE2_20260829.md）。
+    <div class="note">全程 GitHub Actions 自动运行（每 30 分钟预测+回溯结算），零人工干预。
     历史胜平负概率与结算结果全部可核查（账本 review_ledger.jsonl，{n}+ 场）。</div>
   </div>
 
@@ -754,9 +824,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     {_rows_html}
   </table>
   </div>
-  <div class="note" style="margin-top:6px">⚠ 206 场置信度分层实测：<b>置信度不预示盈亏</b>——
-  高置信段(≥20%) 全押 ROI -29.3% 反而最差（高置信 ≈ 低赔热门 ≈ 抽水最大）；
-  赚钱靠的是 <b>正EV 门槛</b>（融合+正EV 全历史 +14.3%），不是"信得越足越敢押"。</div>'''
+  <div class="note" style="margin-top:6px">⚠ 置信度不预示盈亏：高置信 ≈ 低赔热门 ≈ 抽水最大。收益依赖<b>正 EV 门槛</b>与校准质量，实时状态见「🧬 进化仪表盘」。</div>'''
     except Exception as e:
         print(f"⚠ 准确率趋势区块跳过: {e}")
 
@@ -800,16 +868,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
   </table>
   </div>
 
-  <div class="section-title">预测 vs 实际比分分布（2026-08-05 科学化：不再无脑押 1-0/1-1/2-0）</div>
-  <div style="overflow-x:auto">
-  <table class="edge-table">
-    <tr><th>统计</th><th>修复前（8/5 前）</th><th>修复后（8/5 起）</th><th>实际</th><th>说明</th></tr>
-    <tr><td>top1 为 1-0/1-1/0-0/0-1 低比分</td><td style="color:var(--red);font-weight:700">86%</td><td style="color:var(--green)">随 xG 差调整</td><td style="color:var(--dim)">39%</td><td style="color:var(--dim)">碾压局不再押 1-1</td></tr>
-    <tr><td>top1 为 ≥3 球比分</td><td style="color:var(--red)">7%</td><td style="color:var(--green);font-weight:700">31%</td><td style="color:var(--dim)">50%</td><td style="color:var(--dim)">xG差≥0.8 高比分×1.3 重排</td></tr>
-    <tr><td>主推 top5 命中率</td><td>52.2%</td><td style="color:var(--green);font-weight:700">54.9%</td><td style="color:var(--dim)">—</td><td style="color:var(--dim)">walk-forward 113 场，命中不降反升</td></tr>
-    <tr><td>top1 命中率</td><td>9.7%</td><td style="color:var(--green);font-weight:700">13.3%</td><td style="color:var(--dim)">—</td><td style="color:var(--dim)">重排后单场最可能比分更准</td></tr>
-  </table>
-  </div>'''
+  '''
 
             # 双源比分命中对比（2026-08-05 结构升级：DJYY vs MC，谁准数据说话）
             _dj_items = [r for r in _ledger_recs if r.get('score_djyy_rank', -1) >= 0]
@@ -1008,7 +1067,20 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
             num = int(m.group(2))
             return (day, num)
         return (99, 0)
-    sorted_preds = sorted(predictions, key=_match_sort_key)
+    # 2026-08-30 重塑：按开赛时间排序（无开赛时间的按编号排后），次要键保持竞彩编号
+    from datetime import datetime as _dtm
+    def _kickoff_key(p):
+        k = str(p.get("kickoff") or "")
+        try:
+            return _dtm.strptime(k[:16], "%Y-%m-%d %H:%M")
+        except Exception:
+            return None
+    sorted_preds = [
+        _p for _p, _k in sorted(
+            ((p, _kickoff_key(p)) for p in predictions),
+            key=lambda pk: (pk[1] is None, pk[1] or _dtm.min, _match_sort_key(pk[0])),
+        )
+    ]
 
     # 联赛筛选导航（仅用于过滤，不改排序）
     from collections import Counter
@@ -1016,6 +1088,8 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     if len(league_counts) > 1:
         cards += '<div class="league-nav">'
         cards += '<button class="league-btn active" data-league="all">全部</button>'
+        if value_bets:
+            cards += f'<button class="league-btn" data-league="value">⭐价值注<span class="cnt">{len(value_bets)}</span></button>'
         for lg, cnt in league_counts.most_common():
             cards += f'<button class="league-btn" data-league="{_slug(lg)}">{lg}<span class="cnt">{cnt}</span></button>'
         cards += '</div>'
@@ -1024,7 +1098,8 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     global_idx = 0
     for p in sorted_preds:
         lg = p.get("competition", "其他")
-        cards += f'<div class="league-section" data-league="{_slug(lg)}">'
+        _is_v = '1' if _is_value(p, value_matches) else '0'
+        cards += f'<div class="league-section" data-league="{_slug(lg)}" data-value="{_is_v}">'
         cards += _match_card(p, value_matches, global_idx, results_map)
         cards += '</div>'
         global_idx += 1 
@@ -1046,10 +1121,12 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     # 赛果复盘（优先用 results.json，fallback review_ledger）
     results_html = _results_section(results, results_preds or predictions, review_ledger, today)
 
-    # 系统面板
+    # 系统面板 + 进化状态
     system_html = _system_panel(breaker, bundle, tier, breaker_mult, tier_reason)
+    _evo = _evo_state()
+    parlay_list = ticket.get("parlay", []) if isinstance(ticket, dict) else []
 
-    health_badge = '<span class="badge ok">系统正常</span>' if health.get("healthy") else '<span class="badge warn">降级</span>'
+    health_badge = _health_badge()
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1188,22 +1265,7 @@ body {{
 .page-tab-panel.active {{ display: block; }}
 
 /* ===== SCORE PARLAY COMPACT (2026-08-10) ===== */
-.sp-collapse {{
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--card); padding: 0; margin: 10px 0;
-}}
-.sp-collapse > summary {{
-  list-style: none; cursor: pointer; user-select: none;
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 14px;
-}}
-.sp-collapse > summary::-webkit-details-marker {{ display: none; }}
-.sp-collapse > summary::before {{
-  content: '▸'; color: var(--blue); font-size: .8rem;
-  transition: transform .2s;
-}}
-.sp-collapse[open] > summary::before {{ transform: rotate(90deg); }}
-.sp-collapse > summary:hover {{ background: rgba(59,130,246,0.05); }}
+
 .sp-summary-title {{ font-weight: 800; font-size: .86rem; letter-spacing: .3px; }}
 .sp-summary-meta {{ font-size: .76rem; color: var(--dim); }}
 .sp-summary-hint {{
@@ -1849,7 +1911,7 @@ body {{
   <div class="header">
     <div class="header-left">
       <h1>竞彩分析引擎</h1>
-      <div class="sub">{today} &middot; DC+MC &rarr; Shin去水 &rarr; 逆向赔率 &rarr; 四源融合 &rarr; LGBM &rarr; Isotonic校准 &rarr; Wilson信任</div>
+      <div class="sub">{today} &middot; {_pipeline_desc()}</div>
     </div>
     <div class="header-right">
       <a href="track-record.html" class="nav-link">📈 Track Record</a>
@@ -1880,8 +1942,11 @@ body {{
 
   <!-- TAB: 今日决策 -->
   <div class="page-tab-panel active" id="tab-decision">
+    <!-- BATTLE BOARD（2026-08-30 重塑：决策优先，首屏回答"今天打不打、打多少"） -->
+    {_battle_board(ticket, predictions, parlay_list)}
+
     <!-- MATCH PREDICTIONS -->
-    <div class="section-title">比赛预测<span class="st-note">点击卡片展开模型/赔率/分布详情</span></div>
+    <div class="section-title">比赛预测<span class="st-note">按开赛时间排序 · 点卡片展开模型/赔率/分布 · 详情含融合归因链</span></div>
     {cards if cards else '<p style="color:var(--dim);padding:48px;text-align:center;font-size:0.85rem;">等待每日流水线运行...</p>'}
 
     <!-- BETTING PLAN -->
@@ -1901,6 +1966,12 @@ body {{
 
     <!-- PARLAY SETTLE（2026-08-13 布局重构：串/比分串复盘紧跟赛果复盘下方；用户确认比赛行不加串列，逐票明细即可） -->
     {parlay_settle_html}
+
+    <!-- SYSTEM STATUS（2026-08-30 重塑：从页尾上移，资金/决策链是复盘的一部分） -->
+    {system_html}
+
+    <!-- EVOLUTION DASHBOARD（2026-08-30 新增：自进化四状态） -->
+    {_evo_dashboard(_evo)}
 
     <!-- LEAGUE MATRIX（2026-08-14 从页首移入复盘页：参考数据不进"今日决策"） -->
     {league_matrix_html}
@@ -1946,13 +2017,11 @@ body {{
       </div>
     </details>
 
-    <!-- SYSTEM STATUS -->
-    {system_html}
     </div>
 
     <!-- FOOTER -->
     <div class="footer">
-    <div class="chain">DC(60%) + MC-50K(40%) &rarr; Shin去水 &rarr; 逆向赔率 &rarr; 同赔历史 &rarr; 融合(模型10% + 市场60% + DJYY30%) &rarr; LGBM(10%) &rarr; Isotonic校准 &rarr; Wilson信任</div>
+    <div class="chain">{_pipeline_desc()}</div>
     <p>数据源: 体彩 / 新浪 / 500万 / DJYY &middot; 零服务器 GitHub Actions &middot; <a href="https://github.com/wlrwx/football-engine">源代码</a></p>
     <p class="disclaimer">仅供研究学习，不构成任何投注建议。模型输出为概率估计，不保证准确性。</p>
   </div>
@@ -2005,7 +2074,8 @@ document.querySelectorAll('.league-btn').forEach(function(btn) {{
     this.classList.add('active');
     // Show/hide sections
     document.querySelectorAll('.league-section').forEach(function(sec) {{
-      if (league === 'all' || sec.getAttribute('data-league') === league) {{
+      if (league === 'all' || sec.getAttribute('data-league') === league
+        || (league === 'value' && sec.getAttribute('data-value') === '1')) {{
         sec.classList.remove('hidden');
       }} else {{
         sec.classList.add('hidden');
@@ -2086,7 +2156,44 @@ def _divergence_chip(p):
     if div > 0.08:
         return md_html + f'<span class="info-chip" style="color:var(--amber)">分歧 <b>{div:.0%}</b></span>'
     return md_html
-    return f'<span class="info-chip" style="color:var(--dim)">与市场一致 <b>{div:.0%}</b></span>'
+
+
+def _context_chip(p):
+    """比赛情境 chips（2026-08-30）：动机/裁判/伤停——有数据才显示，无数据零噪音。"""
+    ctx = p.get("context") or {}
+    parts = []
+    st = ctx.get("stakes")
+    if st:
+        if isinstance(st, dict):
+            a = str(st.get("home") or st.get("主") or "")[:6]
+            b = str(st.get("away") or st.get("客") or "")[:6]
+            if a or b:
+                parts.append(f"动机 {a}|{b}")
+        else:
+            parts.append("动机 " + str(st)[:12])
+    if ctx.get("referee"):
+        parts.append("裁判 " + str(ctx["referee"])[:8])
+    inj = ctx.get("injuries") or {}
+    if inj.get("home_attackers") or inj.get("away_attackers"):
+        parts.append(f"伤停 {inj.get('home_attackers', 0)}+{inj.get('away_attackers', 0)}")
+    if not parts:
+        return ""
+    return f'<span class="info-chip" style="color:var(--dim)">{" · ".join(parts)}</span>'
+
+
+def _fusion_trace_row(p):
+    """融合归因链（2026-08-30）：本步 fusion_trace 落盘的可视化——哪几步动了概率。"""
+    tr = p.get("fusion_trace") or []
+    if not tr:
+        return ""
+    steps = " &rarr; ".join(str(t.get("step", "")) for t in tr)
+    last = tr[-1].get("after") if tr else None
+    _tail = ""
+    if isinstance(last, (list, tuple)) and len(last) == 3:
+        _tail = f'<span style="margin-left:8px">末态 H{last[0]:.3f} D{last[1]:.3f} A{last[2]:.3f}</span>'
+    return (f'<div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;'
+            f'background:var(--surface2);border-radius:6px">'
+            f'<b style="color:var(--text-secondary)">融合归因链</b> {steps}{_tail}</div>')
 
 
 def _pred_pick(p):
@@ -2329,46 +2436,6 @@ def _league_matrix_section(league_matrix, predictions):
     )
 
 
-def _league_header_enriched(lg_name, count, league_matrix):
-    """生成带联赛统计的增强版联赛头部"""
-    if not league_matrix or not league_matrix.get("leagues"):
-        return '<div class="league-header">' + lg_name + ' <span class="league-count">' + str(count) + ' 场</span></div>'
-
-    lg_data = None
-    name_map = {"K1联赛": "韩K联", "巴甲": "巴西甲", "K联赛": "韩K联"}
-    search_name = name_map.get(lg_name, lg_name)
-    for lg in league_matrix["leagues"]:
-        if lg["name_zh"] == search_name or lg["name_zh"] == lg_name or lg.get("short_zh", "") == lg_name:
-            lg_data = lg
-            break
-
-    if not lg_data:
-        return '<div class="league-header">' + lg_name + ' <span class="league-count">' + str(count) + ' 场</span></div>'
-
-    goals = lg_data.get("avg_goals", 0)
-    btts = lg_data.get("btts_pct", 0)
-    home = lg_data.get("home_win_pct", 0)
-    draw = lg_data.get("draw_pct", 0)
-    away = lg_data.get("away_win_pct", 0)
-    xg = lg_data.get("avg_xg", 0)
-    matches = lg_data.get("matches", 0)
-
-    return (
-        '<div class="league-header">'
-        + '<span>' + lg_name + '</span>'
-        + '<span class="league-count">' + str(count) + ' 场 &middot; 赛季 ' + str(matches) + '场</span>'
-        + '<div class="lg-stats-bar">'
-        + '<span class="lg-stat" title="场均进球">&#x26BD; ' + f'{goals:.1f}' + '</span>'
-        + '<span class="lg-stat" title="场均xG">xG ' + f'{xg:.2f}' + '</span>'
-        + '<span class="lg-stat" title="双方进球率">BTTS ' + f'{btts:.0f}%' + '</span>'
-        + '<span class="lg-stat h" title="主胜率">主 ' + f'{home:.0f}%' + '</span>'
-        + '<span class="lg-stat d" title="平局率">平 ' + f'{draw:.0f}%' + '</span>'
-        + '<span class="lg-stat a" title="客胜率">客 ' + f'{away:.0f}%' + '</span>'
-        + '</div></div>'
-    )
-
-
-
 def _match_card(p, value_matches, idx, results_map=None):
     """Render a single match card with expandable detail tabs."""
     hp = p.get("home_win_prob", 0) * 100
@@ -2491,6 +2558,7 @@ def _match_card(p, value_matches, idx, results_map=None):
         {_odds_movement_chip(p)}
         {_odds_series_chip(p)}
         {_divergence_chip(p)}
+        {_context_chip(p)}
       </div>
     </div>
     <div class="match-detail">
@@ -2499,7 +2567,7 @@ def _match_card(p, value_matches, idx, results_map=None):
         <button class="tab-btn" data-tab="{uid}-odds">赔率</button>
         <button class="tab-btn" data-tab="{uid}-dist">分布</button>
       </div>
-      <div class="tab-content active" id="{uid}-model">{model_tab}</div>
+      <div class="tab-content active" id="{uid}-model">{_fusion_trace_row(p)}{model_tab}</div>
       <div class="tab-content" id="{uid}-odds">{odds_tab}</div>
       <div class="tab-content" id="{uid}-dist">{dist_tab}</div>
     </div>
@@ -3024,8 +3092,6 @@ def _parlay_section(ticket, predictions):
       <tr><th style="padding:2px 8px;text-align:left">模型概率段</th><th style="padding:2px 8px">实际命中率</th></tr>
       {rows}
       <tr><td style="padding:2px 8px">整体</td><td style="padding:2px 8px;text-align:center">{overall*100:.0f}%</td></tr>
-      <tr><td style="padding:2px 8px">市场公平 ≥0.65</td><td style="padding:2px 8px;text-align:center">61.5%</td></tr>
-      <tr><td style="padding:2px 8px">市场公平 0.55-0.65</td><td style="padding:2px 8px;text-align:center">47.1%</td></tr>
     </table>
     <div style="margin-top:4px">串关 = 各腿命中率连乘 × 赔率连乘，天然吃双重抽水。模型概率系统性高估
     （0.70+ 段实际仅 50% 命中）；市场腿实际命中率也低于赔率隐含 → 绝大多数串票期望为负，
@@ -3148,32 +3214,6 @@ def _parlay_settle_section(settle: dict | None, target_date: str = "") -> str:
 
     def _fmt_roi(v):
         return "—" if v is None else f"{v:+.1%}"
-
-    def _stat_card(title, s, extra=None):
-        if not s or not s.get("n_tickets"):
-            return ""
-        hr = f"{s['hit_rate']:.1%}" if s.get("hit_rate") is not None else "—"
-        rows = f"""
-        <tr><td>出票/已结算</td><td>{s['n_tickets']} / {s['n_settled']}</td></tr>
-        <tr><td>命中</td><td>{s['n_won']} 张（命中率 {hr}）</td></tr>
-        <tr><td>已出票投入</td><td>¥{s.get('stake_committed', s['stake']):.2f}</td></tr>
-        <tr><td>已结算投入</td><td>¥{s['stake']:.2f}</td></tr>
-        <tr><td>回报</td><td>¥{s['return']:.2f}</td></tr>
-        <tr><td>ROI</td><td><b class="{'ts-pos' if (s.get('roi') or 0) > 0 else 'ts-neg'}">{_fmt_roi(s.get('roi'))}</b></td></tr>"""
-        if extra:
-            rows += extra
-        by_type = ""
-        if s.get("by_type"):
-            by_type = "".join(
-                f"<div class='ts-row'><span>{k}</span><span>{v['n']}张·中{v['won']}·ROI {_fmt_roi(v.get('roi'))}</span></div>"
-                for k, v in s["by_type"].items()
-            )
-        return f"""
-        <div class="ts-card">
-          <h3>🎰 {title}</h3>
-          <table class="ts-table">{rows}</table>
-          {by_type}
-        </div>"""
 
     def _ticket_rows(kind):
         tickets = (day.get(kind) or {}).get("tickets") or []
@@ -3556,6 +3596,24 @@ def _system_panel(breaker, bundle, tier, mult, tier_reason=""):
     except Exception:
         pass
 
+    # 模型配置实时值（2026-08-30：旧版此处全部写死，与生产漂移）
+    _dc_w, _mc_w, _sims, _lgbm_blend, _cal_desc = 0.6, 0.4, 50000, "关闭", "关闭"
+    try:
+        _pc = json.loads((ROOT / "config" / "prediction.json").read_text(encoding="utf-8"))
+        _dc_w = _pc.get("ensemble", {}).get("dixon_coles_weight", 0.6)
+        _mc_w = _pc.get("ensemble", {}).get("monte_carlo_weight", 0.4)
+        _sims = _pc.get("prediction", {}).get("simulations", 50000)
+        _pf = _pc.get("fusion", {}).get("post_fusion", {})
+        _lw = _pc.get("fusion", {}).get("lgbm_weight", 0)
+        if _pf.get("lgbm_blend"):
+            _lgbm_blend = f"启用 ({_lw*100:.0f}%)"
+        if _pf.get("isotonic"):
+            _cal_desc = "Isotonic"
+        elif _pf.get("temperature"):
+            _cal_desc = "Temperature"
+    except Exception:
+        pass
+
     tier_cls = "safe" if tier <= 1 else "caution" if tier <= 2 else "danger"
     tier_label = f"T{tier}" + (" · " + tier_reason if tier_reason else "")
 
@@ -3589,14 +3647,122 @@ def _system_panel(breaker, bundle, tier, mult, tier_reason=""):
     </div>
     <div class="sys-card">
       <h4>模型配置</h4>
-      <div class="sys-row"><span class="k">集成</span><span class="v">DC 60% + MC 40%</span></div>
+      <div class="sys-row"><span class="k">集成</span><span class="v">DC {_dc_w*100:.0f} + MC {_mc_w*100:.0f}</span></div>
       <div class="sys-row"><span class="k">融合</span><span class="v">{fusion_display}</span></div>
-      <div class="sys-row"><span class="k">元学习器</span><span class="v">LGBM (10%)</span></div>
-      <div class="sys-row"><span class="k">校准</span><span class="v">Isotonic</span></div>
-      <div class="sys-row"><span class="k">MC模拟</span><span class="v">50,000次</span></div>
+      <div class="sys-row"><span class="k">LGBM掺混</span><span class="v">{_lgbm_blend}</span></div>
+      <div class="sys-row"><span class="k">校准</span><span class="v">{_cal_desc}</span></div>
+      <div class="sys-row"><span class="k">MC模拟</span><span class="v">{_sims:,}次</span></div>
       <div class="sys-row"><span class="k">信任区间</span><span class="v">Wilson</span></div>
     </div>
+    </div>
   </div>"""
+
+
+def _battle_board(ticket, predictions, parlay):
+    """🎯 今日作战板（2026-08-30 重塑）：决策优先——首屏直接回答"今天打不打、打多少"。"""
+    stable = ticket.get("stable", []) if ticket else []
+    value = ticket.get("value", []) if ticket else []
+    lottery = ticket.get("lottery", []) if ticket else []
+    total_stake = ticket.get("total_stake", 0) if ticket else 0
+    exp_roi = ticket.get("expected_roi", 0) if ticket else 0
+    bankroll = ticket.get("bankroll", 0) if ticket else 0
+    n_bets = len(stable) + len(value) + len(lottery)
+    n_parlay = len(parlay) if isinstance(parlay, list) else 0
+
+    if n_bets == 0 and n_parlay == 0:
+        # 无投注：给出闸门拦截原因分布（数据说话，而不是一句"今日无推荐"）
+        reasons = []
+        if predictions:
+            reasons.append(("联赛禁投", sum(1 for p in predictions if p.get("league_forbidden"))))
+            reasons.append(("方向置信不足", sum(1 for p in predictions if p.get("direction_low_confidence"))))
+            reasons.append(("合成赔率", sum(1 for p in predictions if p.get("odds_synthetic"))))
+            reasons.append(("无正EV", sum(1 for p in predictions if not p.get("kelly_edge"))))
+        _rs = " · ".join(f"{k} {v}" for k, v in reasons if v) or "赔率/概率未达门槛"
+        return f"""
+  <div class="battle-board">
+    <div class="bb-head">🎯 今日作战板</div>
+    <div class="bb-empty">今日无价值注 <span style="color:var(--dim);font-size:.72rem">（{len(predictions)} 场已扫描 · 拦截: {_rs}）</span></div>
+    <div style="font-size:.66rem;color:var(--dim);margin-top:2px">空仓也是决策——负 EV 不出手（edge 封顶 max_edge 生效中）</div>
+  </div>"""
+
+    def _mini(name, items, cls):
+        return f'<div class="bb-ticket"><span class="bb-tag {cls}">{name}</span><span class="bb-n">{len(items)} 注</span></div>'
+
+    _parlay_part = f' + {n_parlay} 串' if n_parlay else ''
+    return f"""
+  <div class="battle-board">
+    <div class="bb-head">🎯 今日作战板</div>
+    <div class="bb-main">
+      <div class="bb-big"><div class="bb-label">总投入</div><div class="bb-val" style="color:var(--amber)">&yen;{total_stake:.0f}</div></div>
+      <div class="bb-big"><div class="bb-label">预期回报</div><div class="bb-val" style="color:{'var(--green)' if exp_roi > 0 else 'var(--red)'}">{exp_roi*100:+.1f}%</div></div>
+      <div class="bb-big"><div class="bb-label">出手</div><div class="bb-val">{n_bets} 注{_parlay_part}</div></div>
+      <div class="bb-big"><div class="bb-label">资金池</div><div class="bb-val">&yen;{bankroll:.0f}</div></div>
+    </div>
+    <div class="bb-tickets">
+      {_mini("稳胆60%", stable, "stable")}{_mini("搏冷30%", value, "value")}{_mini("彩票10%", lottery, "lottery")}
+    </div>
+  </div>"""
+
+
+def _evo_dashboard(evo=None):
+    """🧬 进化仪表盘（2026-08-30）：系统自进化的四个状态面统一上页面。"""
+    evo = evo or _evo_state()
+    cards = []
+
+    tr = evo.get("tracker")
+    if tr:
+        verdict = tr.get("verdict", "WARMING_UP")
+        v2 = tr.get("v2_clean") or {}
+        base = tr.get("baseline_pre_upgrade") or {}
+        v_map = {"IMPROVED": ("进化生效", "var(--green)"), "REGRESSED": ("效果退化", "var(--red)"),
+                 "NEUTRAL": ("效果中性", "var(--amber)"), "WARMING_UP": ("样本预热中", "var(--dim)"),
+                 "WAITING_DATA": ("等待数据", "var(--dim)")}
+        label, color = v_map.get(verdict, (verdict, "var(--dim)"))
+        _detail = ""
+        if v2 and v2.get("n"):
+            _detail = f"洁净组 n={v2['n']} · Brier {v2.get('brier', 0):.4f} / 命中 {v2.get('hit_rate', 0)*100:.1f}%"
+            if base and base.get("brier"):
+                _detail += f" · 基线 {base['brier']:.4f}"
+        cards.append('<div class="evo-card"><div class="evo-title">升级效果</div>'
+                     f'<div class="evo-verdict" style="color:{color}">{label}</div>'
+                     f'<div class="evo-detail">{_detail or "chain=v2 样本随结算累积"}</div></div>')
+
+    eg = evo.get("edge")
+    if eg and eg.get("edge_buckets"):
+        _rows = "".join(
+            f'<span class="evo-chip">{b["bucket"]}: '
+            f'<b style="color:{"var(--green)" if b.get("roi_proxy", 0) > 0 else "var(--red)"}">{b.get("roi_proxy", 0)*100:+.0f}%</b>'
+            f'<i>(n={b["n"]})</i></span>'
+            for b in eg["edge_buckets"] if b.get("n"))
+        cards.append('<div class="evo-card"><div class="evo-title">EV 校准体检（价值幻觉监控）</div>'
+                     f'<div class="evo-detail">实际ROI代理 vs 声称edge: {_rows}</div></div>')
+
+    cb = evo.get("calib")
+    if cb:
+        _c_color = "var(--green)" if cb.get("enabled") else "var(--dim)"
+        _c_label = "已启用" if cb.get("enabled") else "待样本"
+        cards.append('<div class="evo-card"><div class="evo-title">校准层自进化</div>'
+                     f'<div class="evo-verdict" style="color:{_c_color}">{_c_label}</div>'
+                     f'<div class="evo-detail">洁净样本 {cb.get("clean_n", 0)} · {str(cb.get("reason", ""))[:60]}</div></div>')
+
+    lb = evo.get("lgbm")
+    if lb:
+        _l_color = "var(--green)" if lb.get("ready") else "var(--dim)"
+        if lb.get("ready"):
+            _l_label = "可评估启用"
+        elif lb.get("trained"):
+            _l_label = "已训练·未达标"
+        else:
+            _l_label = "待样本"
+        cards.append('<div class="evo-card"><div class="evo-title">LGBM 影子</div>'
+                     f'<div class="evo-verdict" style="color:{_l_color}">{_l_label}</div>'
+                     f'<div class="evo-detail">可用 {lb.get("usable_rows", 0)} / 500 · {str(lb.get("reason", ""))[:60]}</div></div>')
+
+    if not cards:
+        return ""
+    return f'''
+  <div class="section-title">🧬 进化仪表盘<span class="st-note">系统自进化四状态 · 每次结算自动更新 · 判定口径见 docs/UPGRADE2_20260829.md</span></div>
+  <div class="evo-grid">{''.join(cards)}</div>'''
 
 
 def _is_value(p, value_matches=None):
