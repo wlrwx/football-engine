@@ -455,10 +455,15 @@ def _render_track_record(state_dir: Path, web_dir: Path) -> str:
 <title>Track Record · 竞彩分析引擎公开战绩</title>
 <style>
 :root {{
-  --bg:#0a0e13; --surface:#111820; --card:var(--surface); --surface2:#1a2332; --border:#263344;
-  --text:#e8edf4; --text-secondary:#94a8c0; --dim:#6b8299;
-  --blue:#3b82f6; --red:#ef4444; --green:#22c55e; --amber:#f59e0b; --cyan:#06b6d4;
-  --radius:12px; --radius-sm:8px;
+  /* 2026-08-30 亮色重塑（方向A 简洁亮色 SaaS）：令牌集中定义 */
+  --bg:#f6f8fb; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e8eef5;
+  --border:#e2e8f0; --border-light:#cbd5e1;
+  --text:#0f172a; --text-secondary:#475569; --dim:#94a3b8;
+  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --amber:#d97706; --cyan:#0891b2;
+  --purple:#7c3aed;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.05);
+  --shadow-lift:0 4px 16px rgba(15,23,42,.08);
 }}
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; line-height:1.6; }}
@@ -477,7 +482,7 @@ body {{ background:var(--bg); color:var(--text); font-family:-apple-system,Blink
 .card {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; }}
 table {{ width:100%; border-collapse:collapse; font-size:0.82rem; }}
 th {{ text-align:left; color:var(--dim); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); }}
-td {{ padding:8px 10px; border-bottom:1px solid #1e2a3a; }}
+td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
 tr:last-child td {{ border-bottom:none; }}
 .note {{ color:var(--dim); font-size:0.72rem; margin-top:8px; }}
 .footer {{ margin-top:44px; padding-top:16px; border-top:1px solid var(--border); color:var(--dim); font-size:0.72rem; }}
@@ -517,6 +522,36 @@ tr:last-child td {{ border-bottom:none; }}
 .evo-detail {{ font-size: .64rem; color: var(--dim); margin-top: 4px; line-height: 1.5; }}
 .evo-chip {{ display: inline-block; background: var(--surface3); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; font-size: .64rem; }}
 .evo-chip i {{ color: var(--dim); font-style: normal; font-size: .6rem; }}
+
+/* ===== 2026-08-30 亮色重塑·组件覆写层（后置规则覆盖同名早期规则） ===== */
+body {{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }}
+.card, .kpi, .ticket-card, .sys-card, .evo-card, .match {{ box-shadow:var(--shadow); border-color:var(--border); }}
+.card:hover, .match:hover {{ box-shadow:var(--shadow-lift); }}
+.kpi .value {{ font-size:1.45rem; letter-spacing:-0.02em; }}
+.section-title {{ font-size:1rem; font-weight:800; letter-spacing:-0.01em; }}
+.page {{ max-width:1080px; margin:0 auto; padding:18px 14px 48px; }}
+@media (min-width:600px) {{ .page {{ padding:28px 20px 60px; }} }}
+th {{ color:var(--text-secondary); background:var(--surface2); }}
+th:first-child {{ border-radius:8px 0 0 8px; }}
+th:last-child {{ border-radius:0 8px 8px 0; }}
+td {{ border-bottom:1px solid var(--border); }}
+.league-btn {{ background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); }}
+.league-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
+.league-btn.active {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
+.page-tab-btn {{ background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); border-radius:20px; }}
+.page-tab-btn.active {{ background:var(--text); border-color:var(--text); color:#fff; }}
+.battle-board {{ background:linear-gradient(135deg, rgba(37,99,235,.06), rgba(22,163,74,.05)); border:1px solid var(--border); box-shadow:var(--shadow); }}
+.bb-big {{ background:var(--surface); box-shadow:var(--shadow); }}
+.bb-ticket {{ background:var(--surface); box-shadow:var(--shadow); }}
+.bb-val {{ letter-spacing:-0.02em; }}
+.evo-card {{ box-shadow:var(--shadow); }}
+.evo-chip {{ background:var(--surface2); }}
+.tag-warn {{ background:#fffbeb; border-color:#fde68a; color:#b45309; }}
+.badge.ok {{ background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }}
+.badge.warn {{ background:#fffbeb; color:#b45309; border:1px solid #fde68a; }}
+.footer {{ color:var(--dim); }}
+.note {{ color:var(--text-secondary); }}
+a {{ color:var(--blue); }}
 </style></head><body>
 <div class="page">
   <div class="header">
@@ -1136,31 +1171,15 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
 <title>竞彩分析引擎 - {today}</title>
 <style>
 :root {{
-  --bg: #0a0e13;
-  --surface: #111820;
-  --card: var(--surface);
-  --surface2: #1a2332;
-  --surface3: #212d3d;
-  --border: #263344;
-  --border-light: #2f4258;
-  --text: #e8edf4;
-  --text-secondary: #94a8c0;
-  --dim: #6b8299;
-  --blue: #3b82f6;
-  --blue-dim: #1e40af;
-  --red: #ef4444;
-  --red-dim: #7f1d1d;
-  --green: #22c55e;
-  --green-dim: #14532d;
-  --amber: #f59e0b;
-  --amber-dim: #78350f;
-  --purple: #a855f7;
-  --purple-dim: #581c87;
-  --cyan: #06b6d4;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 2026-08-30 亮色重塑（方向A 简洁亮色 SaaS）：令牌集中定义 */
+  --bg:#f6f8fb; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e8eef5;
+  --border:#e2e8f0; --border-light:#cbd5e1;
+  --text:#0f172a; --text-secondary:#475569; --dim:#94a3b8;
+  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --amber:#d97706; --cyan:#0891b2;
+  --purple:#7c3aed;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.05);
+  --shadow-lift:0 4px 16px rgba(15,23,42,.08);
 }}
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 html {{ scroll-behavior: smooth; }}
@@ -1182,7 +1201,7 @@ body {{
 }}
 .header-left h1 {{
   font-size: 1.6rem; font-weight: 800; letter-spacing: -0.8px;
-  background: linear-gradient(135deg, #e8edf4 0%, #94a8c0 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
 }}
@@ -1449,7 +1468,7 @@ body {{
   min-width: 38px; transition: width 0.5s ease;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }}
-.prob-seg.h {{ background: linear-gradient(135deg, #2563eb, #3b82f6); }}
+.prob-seg.h {{ background: linear-gradient(135deg, #2563eb, #2563eb); }}
 .prob-seg.d {{ background: linear-gradient(135deg, #4b5563, #6b7280); }}
 .prob-seg.a {{ background: linear-gradient(135deg, #dc2626, #ef4444); }}
 
@@ -1903,6 +1922,36 @@ body {{
   .stat {{ padding: 12px 14px; }}
   .stat .value {{ font-size: 1.3rem; }}
 }}
+
+/* ===== 2026-08-30 亮色重塑·组件覆写层（后置规则覆盖同名早期规则） ===== */
+body {{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }}
+.card, .kpi, .ticket-card, .sys-card, .evo-card, .match {{ box-shadow:var(--shadow); border-color:var(--border); }}
+.card:hover, .match:hover {{ box-shadow:var(--shadow-lift); }}
+.kpi .value {{ font-size:1.45rem; letter-spacing:-0.02em; }}
+.section-title {{ font-size:1rem; font-weight:800; letter-spacing:-0.01em; }}
+.page {{ max-width:1080px; margin:0 auto; padding:18px 14px 48px; }}
+@media (min-width:600px) {{ .page {{ padding:28px 20px 60px; }} }}
+th {{ color:var(--text-secondary); background:var(--surface2); }}
+th:first-child {{ border-radius:8px 0 0 8px; }}
+th:last-child {{ border-radius:0 8px 8px 0; }}
+td {{ border-bottom:1px solid var(--border); }}
+.league-btn {{ background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); }}
+.league-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
+.league-btn.active {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
+.page-tab-btn {{ background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); border-radius:20px; }}
+.page-tab-btn.active {{ background:var(--text); border-color:var(--text); color:#fff; }}
+.battle-board {{ background:linear-gradient(135deg, rgba(37,99,235,.06), rgba(22,163,74,.05)); border:1px solid var(--border); box-shadow:var(--shadow); }}
+.bb-big {{ background:var(--surface); box-shadow:var(--shadow); }}
+.bb-ticket {{ background:var(--surface); box-shadow:var(--shadow); }}
+.bb-val {{ letter-spacing:-0.02em; }}
+.evo-card {{ box-shadow:var(--shadow); }}
+.evo-chip {{ background:var(--surface2); }}
+.tag-warn {{ background:#fffbeb; border-color:#fde68a; color:#b45309; }}
+.badge.ok {{ background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }}
+.badge.warn {{ background:#fffbeb; color:#b45309; border:1px solid #fde68a; }}
+.footer {{ color:var(--dim); }}
+.note {{ color:var(--text-secondary); }}
+a {{ color:var(--blue); }}
 </style>
 </head>
 <body>
@@ -2308,7 +2357,7 @@ def _verdict_cell(r):
     if v == "送钱区":
         return '<td style="color:var(--red);font-weight:700">🚫 送钱区·禁投</td>'
     if v == "回暖解禁":
-        return ('<td style="color:#ffaa3c;font-weight:700" title="累计口径送钱区，但近5场命中≥60% 且近10场≥50%，已自动解除禁投（双窗口判定，2026-08-13）">'
+        return ('<td style="color:#b45309;font-weight:700" title="累计口径送钱区，但近5场命中≥60% 且近10场≥50%，已自动解除禁投（双窗口判定，2026-08-13）">'
                 '✅ 回暖解禁·观察</td>')
     if v == "谨慎":
         return '<td style="color:var(--amber)">⚠️ 谨慎</td>'
@@ -2529,10 +2578,10 @@ def _match_card(p, value_matches, idx, results_map=None):
           {'<span class="value-badge">价值精选</span>' if is_val else ''}
           {'<span class="draw-alert-badge" style="background:var(--purple);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠平局预警</span>' if p.get('draw_alert') else ''}
           {'<span style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="送钱区联赛（累计ROI<-5%），此场不出注">🚫禁投联赛</span>' if p.get('league_forbidden') else ''}
-          {'<span style="background:rgba(255,170,60,0.15);color:#ffaa3c;border:1px solid rgba(255,170,60,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="该联赛累计送钱但最近5场命中≥60%，已自动解禁">✅回暖解禁</span>' if p.get('league_recovered') else ''}
+          {'<span style="background:rgba(255,170,60,0.15);color:#b45309;border:1px solid rgba(255,170,60,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="该联赛累计送钱但最近5场命中≥60%，已自动解禁">✅回暖解禁</span>' if p.get('league_recovered') else ''}
           {'<span class="hcr-warn-badge" title="该联赛高置信反向样本≥2场，60%+段已降档" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠高置信反向风险</span>' if p.get('prob_band_60_risk') else ''}
-          {'<span class="hcr-warn-badge" title="50-60%概率段=平局盲点区，已降档" style="background:rgba(255,170,60,0.15);color:#ffaa3c;border:1px solid rgba(255,170,60,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠平局盲点段</span>' if p.get('prob_band_5060') else ''}
-          {'<span class="fresh-warn" style="background:rgba(255,170,60,0.12);color:#ffaa3c;padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="数据新鲜度风险">⚠新鲜度</span>' if (p.get('freshness') or {}).get('risk') in ('watch','alert') else ''}
+          {'<span class="hcr-warn-badge" title="50-60%概率段=平局盲点区，已降档" style="background:rgba(255,170,60,0.15);color:#b45309;border:1px solid rgba(255,170,60,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠平局盲点段</span>' if p.get('prob_band_5060') else ''}
+          {'<span class="fresh-warn" style="background:rgba(255,170,60,0.12);color:#b45309;padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="数据新鲜度风险">⚠新鲜度</span>' if (p.get('freshness') or {}).get('risk') in ('watch','alert') else ''}
           <span class="match-id">{match_id.split('_', 1)[-1] if '_' in match_id else match_id}</span>
           {f'<span class="match-id" style="color:var(--amber)">{p.get("kickoff","")}</span>' if p.get('kickoff') else ''}
           <span class="expand-icon">详情 &#9660;</span>
