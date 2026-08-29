@@ -18,3 +18,6 @@ logs/
 # 10k+ 行/天，写进 git 历史会导致仓库无限膨胀。不可变决策记录
 # （predictions/results/review/ticket_plan/decision_bundle/plan_lock）仍保留在 git。）
 data/daily/*/odds_sina.json
+# football-data.co.uk 原始 CSV（scripts/import_football_data.py 可随时重抓；
+# 汇总 JSON data/state/football_data_baselines.json 仍提交）
+data/historical/football_data/
