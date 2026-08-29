@@ -174,3 +174,21 @@ def team_key(home: str, away: str, loose: bool = False) -> str:
     """生成 (主队, 客队) 匹配键。"""
     fn = loose_normalize if loose else normalize_team
     return f"{fn(home)}_vs_{fn(away)}"
+
+
+# 赛程名 → data/historical/matches.csv（lottery-football 冷启动库）译名映射。
+# 仅收录人工确认的同队异译；模糊匹配候选含高危误配（如 新英格兰 Revolution
+# ≠ 英格兰国家队），未经确认一律不入表。用法：canon(name) = get(name) or normalize_team(name)
+CSV_NAME_ALIAS: dict[str, str] = {
+    "利雅得新月": "利雅新月",
+    "吉尔维森特": "吉维森特",
+    "巴黎圣日耳曼": "巴黎圣日尔曼",
+    "特拉布宗体育": "特拉布宗",
+    "萨尔茨堡红牛": "萨尔茨堡",
+    "阿马多拉之星": "阿马多拉",
+}
+
+
+def canon_csv_team(name: str) -> str:
+    """赛程名 → matches.csv 队名空间（先查专表，再走通用归一化）。"""
+    return CSV_NAME_ALIAS.get(name) or normalize_team(name)

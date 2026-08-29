@@ -120,6 +120,33 @@ def main() -> int:
 
         _db_path = state_dir / "match_history.db"
         _matches: list[MatchResult] = []
+        # 2026-08-29 数据扩容：并入 historical/matches.csv（lottery-football 冷启动库，
+        # 译名经 canon_csv_team 归一到 csv 队名空间）。账本深诊：仅 DB 348 场训练时
+        # challenger 滚动 Brier 0.69（差于均匀预测 0.667），扩容后 0.596、且优于生产
+        # model_raw 0.608（scripts/dc_challenger_replay.py，n=144 严格样本外，t=-2.48）。
+        from engine.team_aliases import canon_csv_team as _canon_team
+
+        _csv_path = ROOT / "data" / "historical" / "matches.csv"
+        if _csv_path.exists():
+            import csv as _csv
+
+            with open(_csv_path, encoding="utf-8") as _f:
+                for _r in _csv.DictReader(_f):
+                    try:
+                        _matches.append(
+                            MatchResult(
+                                match_id=f"csv_{_r['date']}_{_r['home_team']}_{_r['away_team']}",
+                                match_date=str(_r["date"]),
+                                home_team=_canon_team(_r["home_team"]),
+                                away_team=_canon_team(_r["away_team"]),
+                                home_score=int(_r["home_score"]),
+                                away_score=int(_r["away_score"]),
+                                competition=_r.get("competition", ""),
+                            )
+                        )
+                    except (ValueError, KeyError, TypeError):
+                        continue
+            print(f"  ✓ shrinkage_dc: 并入历史库 {sum(1 for m in _matches if m.match_id.startswith('csv_'))} 场")
         if _db_path.exists():
             _conn = sqlite3.connect(_db_path)
             _rows = _conn.execute(
@@ -131,7 +158,7 @@ def main() -> int:
                 _matches.append(
                     MatchResult(
                         match_id=str(_m[0]), match_date=str(_m[1]),
-                        home_team=str(_m[2]), away_team=str(_m[3]),
+                        home_team=_canon_team(str(_m[2])), away_team=_canon_team(str(_m[3])),
                         home_score=int(_m[4]), away_score=int(_m[5]),
                         competition="",
                     )
@@ -155,13 +182,33 @@ def main() -> int:
                     except json.JSONDecodeError:
                         continue
 
-        # 滚动拟合：每个评估日只用其之前的历史（防未来泄漏）
-        _cfg = ShrinkageDCConfig(min_matches=20)
-        _dates = sorted({r.get("date", "") for r in _ledger_recs if r.get("date")})
+        # 滚动拟合：每个评估 ISO 周只用其之前的历史（防未来泄漏）。
+        # 2026-08-29 改按周重拟合（原按日）：csv 2.4 万场逐日拟合会拖垮每周 CI，
+        # 而周内新增信息 ≈ DB 数十场，重拟合增益可忽略。decay=0.001 为参照实现
+        # 扫描最优（scripts/dc_crossval_penaltyblog.py，半衰期≈1.9 年）。
+        _cfg = ShrinkageDCConfig(min_matches=20, decay=0.001)
+
+        def _iso_week(d: str) -> str:
+            from datetime import date as _date
+
+            _y, _mth, _dd = (int(x) for x in d.split("-"))
+            _iw = _date(_y, _mth, _dd).isocalendar()
+            return f"{_iw[0]}-W{_iw[1]:02d}"
+
+        _week_first: dict[str, str] = {}
+        for _r in _ledger_recs:
+            _d = str(_r.get("date", ""))
+            if not _d:
+                continue
+            _wk = _iso_week(_d)
+            if _wk not in _week_first or _d < _week_first[_wk]:
+                _week_first[_wk] = _d
+
         _shrink_probs: list[tuple[list, int]] = []
         _sample_keys: list[str] = []
         _skipped_dates = 0
-        for _d in _dates:
+        for _wk in sorted(_week_first):
+            _d = _week_first[_wk]
             _hist = [m for m in _matches if str(m.match_date) < _d]
             if len(_hist) < _cfg.min_matches:
                 _skipped_dates += 1
@@ -172,12 +219,16 @@ def main() -> int:
                 _skipped_dates += 1
                 continue
             for _r in _ledger_recs:
-                if _r.get("date") != _d:
+                _rd = str(_r.get("date", ""))
+                if not _rd or _iso_week(_rd) != _wk:
                     continue
                 _pr = _pred_map.get(_r.get("match_id", ""))
                 if not _pr:
                     continue
-                _p = _m.predict_probs(_pr.get("home_team", ""), _pr.get("away_team", ""))
+                _p = _m.predict_probs(
+                    _canon_team(_pr.get("home_team", "")),
+                    _canon_team(_pr.get("away_team", "")),
+                )
                 _shrink_probs.append((list(_p), int(_r.get("actual_idx", 0))))
                 _sample_keys.append(_r.get("match_id", ""))
 

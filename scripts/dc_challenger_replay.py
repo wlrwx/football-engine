@@ -31,27 +31,13 @@ from engine.prediction.shrinkage_dc import (  # noqa: E402
 )
 from engine.review.post_match import rps_score  # noqa: E402
 from engine.sources.base import MatchResult  # noqa: E402
-from engine.team_aliases import normalize_team  # noqa: E402
+from engine.team_aliases import canon_csv_team as canon  # noqa: E402
 
 VAL_FRAC = 0.4
 CSV_PATH = ROOT / "data" / "historical" / "matches.csv"
 DB_PATH = ROOT / "data" / "state" / "match_history.db"
 TRAIN_FROM = "2021-07-01"          # decay=0.001 时 5 年权重仍余 16%
 CSV_TO = "2026-07-18"              # 账本期（07-20 起）严格留作样本外
-
-# 保守人工确认的赛程名→csv 名映射（其余模糊候选含危险误配，全部拒收）
-SAFE_ALIAS = {
-    "利雅得新月": "利雅新月",
-    "吉尔维森特": "吉维森特",
-    "巴黎圣日耳曼": "巴黎圣日尔曼",
-    "特拉布宗体育": "特拉布宗",
-    "萨尔茨堡红牛": "萨尔茨堡",
-    "阿马多拉之星": "阿马多拉",
-}
-
-
-def canon(name: str) -> str:
-    return SAFE_ALIAS.get(name) or normalize_team(name)
 
 
 def load_db_matches() -> list[MatchResult]:
