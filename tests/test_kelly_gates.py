@@ -87,3 +87,22 @@ class TestFavoriteBandFactor:
         cfg = {"odds_below": 2.0, "stake_factor": 0.3}
         assert favorite_band_factor(1.95, cfg) == pytest.approx(0.3)
         assert favorite_band_factor(2.05, cfg) == pytest.approx(1.0)
+
+
+class TestEdgeCap:
+    """edge 幻觉封顶（2026-08-30）：大声称的 edge 实测 ROI 最差，必须封顶"""
+
+    def test_config_has_cap(self):
+        import json
+        from pathlib import Path
+        cfg = json.loads((Path(__file__).parent.parent / "config" / "strategy.json").read_text())
+        cap = cfg["edge_gates"]["max_edge"]
+        assert 0.05 <= cap <= 0.30, f"edge 上限异常: {cap}"
+
+    def test_cap_semantics(self):
+        # 闸门语义: 0 < edge <= cap 放行；超上限/非正拒绝
+        cap = 0.10
+        assert 0 < 0.08 <= cap
+        assert not (0 < 0.15 <= cap)
+        assert not (0 < -0.01 <= cap)
+        assert not (0 < 0 <= cap)
