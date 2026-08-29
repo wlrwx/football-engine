@@ -199,6 +199,26 @@ def main() -> int:
         mr += rps_score(p, a)
     if mn:
         print(f"{'生产 model_raw(参照)':<26}{mb/mn:>9.4f}{mr/mn:>8.4f}{mh/mn:>8.1%}   (同子集 n={mn})")
+
+    # B vs 生产 model_raw 配对显著性（champion/challenger 升级闸的关键证据）
+    b_full = arms.get("B_新包(csv+decay.001)")
+    if b_full and mn:
+        pairs = [(i, r) for i, r in enumerate(subset)
+                 if (rec := ledger.get(r["match_id"])) and rec.get("model_raw")]
+        b_idx = [i for i, _ in pairs]
+        b_vals = [b_full[0][i] for i in b_idx]
+        mr_vals = []
+        for _, r in pairs:
+            rec = ledger[r["match_id"]]
+            p = rec["model_raw"]
+            if isinstance(p, dict):
+                p = [p.get("home", 0), p.get("draw", 0), p.get("away", 0)]
+            mr_vals.append(brier(p, r["actual_idx"]))
+        _, t_bf = paired_t(b_vals, mr_vals)
+        half = len(pairs) // 2
+        _, t_bv = paired_t(b_vals[half:], mr_vals[half:])
+        print(f"\nB vs 生产 model_raw 配对 t：全 {t_bf:+.2f} / 后半 {t_bv:+.2f}"
+              f"（Brier 差为负 = B 更优；双段 |t|>=1.96 = 过闸）")
     return 0
 
 

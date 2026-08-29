@@ -18,7 +18,6 @@ data/models/team_ratings_backfill.json 供人工审核，--apply 才覆盖生产
 from __future__ import annotations
 
 import csv
-import json
 import shutil
 import sqlite3
 import sys
