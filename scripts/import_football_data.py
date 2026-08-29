@@ -46,15 +46,62 @@ LEAGUE_MAP = {
     "瑞典超": "SWE", "瑞超": "SWE",
     "芬超": "FIN",
     "巴甲": "BRA",
-    "美职联": "MLS",
+    "美职联": "USA",
     "日职": "JPN", "日乙": "J2",
     "俄超": "RUS",
 }
 
 SEASON_CODES = ["1718", "1819", "1920", "2021", "2122", "2223", "2324", "2425", "2526", "2627"]
 
+# /new/ 端点（单 CSV 全赛季，日历年赛程：北欧/美洲/亚洲/俄罗斯等）
+NEW_BASE = "https://www.football-data.co.uk/new/{code}.csv"
+NEW_FORMAT = {"NOR", "SWE", "FIN", "BRA", "USA", "JPN", "J2", "RUS",
+              "ARG", "AUT", "DNK", "MEX", "SWZ", "POL", "ROU", "IRL", "CHN"}
+RECENT_CUTOFF = "2023-07-01"  # recent3 统一按日期切
+
 # 分隔符编码：football-data 部分赛季 CSV 是 latin-1 / GBK 混杂
 ENCODINGS = ("utf-8-sig", "latin-1")
+
+
+def _download(url: str, out: Path, text_check: str) -> list[dict] | None:
+    """带重试的下载+缓存，返回 CSV 行。"""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                raw = resp.read()
+            break
+        except Exception as e:
+            if attempt == 2:
+                print(f"  ⚠ {out.stem} 下载失败: {e}")
+                return None
+            time.sleep(2)
+    text = None
+    for enc in ENCODINGS:
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None or text_check not in text:
+        return None
+    out.write_text(text, encoding="utf-8")
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def fetch_new_csv(code: str, force: bool) -> list[dict] | None:
+    """/new/ 单文件全赛季格式（HG/AG/Res 列）→ 归一为 FTHG/FTAG/FTR。"""
+    out = RAW_DIR / f"{code}_new.csv"
+    if out.exists() and not force:
+        rows = list(csv.DictReader(io.StringIO(out.read_text(encoding="utf-8-sig", errors="replace"))))
+        if rows:
+            return [_norm_new(r) for r in rows]
+    rows = _download(NEW_BASE.format(code=code), out, "HG")
+    return [_norm_new(r) for r in rows] if rows else None
+
+
+def _norm_new(r: dict) -> dict:
+    return {"Date": r.get("Date"), "FTHG": r.get("HG"), "FTAG": r.get("AG"),
+            "FTR": r.get("Res"), "Season": r.get("Season")}
 
 
 def fetch_csv(code: str, season: str, force: bool) -> list[dict] | None:
@@ -65,28 +112,7 @@ def fetch_csv(code: str, season: str, force: bool) -> list[dict] | None:
         rows = list(csv.DictReader(io.StringIO(text)))
         if rows:
             return rows
-    url = BASE.format(season=season, code=code)
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
-                raw = resp.read()
-            break
-        except Exception as e:
-            if attempt == 2:
-                print(f"  ⚠ {code} {season} 下载失败: {e}")
-                return None
-            time.sleep(2)
-    text = None
-    for enc in ENCODINGS:
-        try:
-            text = raw.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
-    if text is None or "Date" not in text:
-        return None
-    out.write_text(text, encoding="utf-8")
-    return list(csv.DictReader(io.StringIO(text)))
+    return _download(BASE.format(season=season, code=code), out, "Date")
 
 
 def parse_date(s: str) -> str | None:
@@ -143,6 +169,13 @@ def main() -> int:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     league_rows: dict[str, list[dict]] = defaultdict(list)
     for code in sorted(set(LEAGUE_MAP.values())):
+        if code in NEW_FORMAT:
+            rows = fetch_new_csv(code, args.force) or []
+            rows = [r for r in rows if str(r.get("Season") or "").isdigit()
+                    and int(r["Season"]) >= 2017]
+            league_rows[code].extend(rows)
+            print(f"  {code}: {len(rows)} 场")
+            continue
         for season in seasons:
             rows = fetch_csv(code, season, args.force)
             if rows:
@@ -151,7 +184,6 @@ def main() -> int:
         print(f"  {code}: {n} 场")
 
     # 联赛级汇总 + 近三赛季平局率（14475=2024-25 起算近三码）
-    recent = seasons[-3:]
     baselines: dict[str, dict] = {}
     for cn, code in LEAGUE_MAP.items():
         rows = league_rows.get(code, [])
@@ -159,7 +191,7 @@ def main() -> int:
             continue
         s = summarize(rows)
         s_recent = summarize([r for r in rows
-                              if (parse_date(r.get("Date") or "") or "") >= f"20{recent[0][:2]}-{recent[0][2:]}"])
+                              if (parse_date(r.get("Date") or "") or "") >= RECENT_CUTOFF])
         s["recent3"] = {k: s_recent[k] for k in ("n", "draw_rate") if k in s_recent}
         baselines[cn] = s
 

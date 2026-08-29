@@ -31,7 +31,7 @@ def switches_of(on_names):
 
 def pick_stats(recs, feats, cfg, sw, market_argmax):
     """选向层统计：反向场数、平局选择、投影命中"""
-    changed = draw_picks = draw_hits = 0
+    draw_picks = draw_hits = 0
     against = against_hits = 0
     hits = 0
     n = 0

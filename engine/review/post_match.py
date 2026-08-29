@@ -101,6 +101,11 @@ class MatchReview:
     # 融合链版本（2026-08-29）：v2 = 概率层重构后的洁净样本。
     # 校准层拟合/启用决策只认 v2，老账本（污染链产物）不再参与学习。
     chain: str = ""
+    # RPS（2026-08-29 引入）：胜平负是有序结果（主<平<客），RPS 比 Brier 更贴口径。
+    # 老账本无此字段 → None；历史评估由重放工具即时计算（scripts/rps_report.py）。
+    rps_final: float | None = None
+    rps_market: float | None = None
+    rps_model: float | None = None
 
 
 @dataclass
@@ -139,6 +144,28 @@ def _log_loss(probs: list, actual_idx: int) -> float:
     if not probs:
         return None
     return round(log_loss_score(probs, actual_idx), 4)
+
+
+def rps_score(probs: list, actual_idx: int) -> float:
+    """RPS（Ranked Probability Score，1X2 有序口径：主<平<客）。
+
+    与三分类 Brier 的区别：把 主胜<平局<客胜 当作有序刻度，累计分布对比，
+    「主胜预测成客胜」比「主胜预测成平局」罚得更重。0=完美，越小越好。
+    """
+    if not probs or len(probs) < 3:
+        return 1.0
+    p_h = probs[0]
+    p_hd = probs[0] + probs[1]
+    o_h = 1.0 if actual_idx == 0 else 0.0
+    o_hd = 1.0 if actual_idx in (0, 1) else 0.0
+    return ((p_h - o_h) ** 2 + (p_hd - o_hd) ** 2) / 2
+
+
+def _rps(probs: list, actual_idx: int) -> float:
+    """账本字段计算入口（兼容 None）"""
+    if not probs:
+        return None
+    return round(rps_score(probs, actual_idx), 4)
 
 
 def _prob_band(conf: float) -> str:
@@ -461,6 +488,9 @@ class PostMatchReviewer:
                 market_signal_hit=pred.get("market_signal_hit"),
                 # 分层评价（2026-08-06 借鉴 MBS 方法论）
                 log_loss_final=_log_loss(final_prob, actual_idx) if final_prob else None,
+                rps_final=_rps(final_prob, actual_idx),
+                rps_market=_rps(market_fair, actual_idx),
+                rps_model=_rps(model_raw, actual_idx),
                 goal_framework_hit=_goal_framework_hit(pred, hs + as_),
                 prob_band=_prob_band(max(final_prob) if final_prob else 0),
                 freshness_risk=(pred.get("freshness") or {}).get("risk", ""),
@@ -562,6 +592,11 @@ class PostMatchReviewer:
 
         layered = {
             "log_loss_final": round(sum(_ll) / len(_ll), 4) if _ll else None,
+            # RPS（2026-08-29）：新账本记录 rps_* 字段，老账本即时算
+            "rps_final": round(sum(rps for r in reviews if (rps := getattr(r, "rps_final", None)) is not None)
+                               / max(1, len([1 for r in reviews if getattr(r, "rps_final", None) is not None])), 4),
+            "rps_market": round(sum(rps for r in reviews if (rps := getattr(r, "rps_market", None)) is not None)
+                                / max(1, len([1 for r in reviews if getattr(r, "rps_market", None) is not None])), 4),
             "goal_framework": {
                 "n": len(_gf),
                 "hits": sum(1 for r in _gf if r.goal_framework_hit),

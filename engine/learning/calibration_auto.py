@@ -85,7 +85,7 @@ def decide_calibration(clean_records: list[dict], current_enabled: bool,
         status["reason"] = f"切分后样本不足 (train {len(train)} / val {len(val)})，维持现状"
         return status
 
-    from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
+    from engine.prediction.isotonic_cal import IsotonicCalibrator
     scratch = Path(tempfile.gettempdir()) / f"cal_auto_{id(cfg)}.pkl"
     if scratch.exists():
         scratch.unlink()

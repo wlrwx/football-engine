@@ -299,7 +299,6 @@ class TestSwitches:
             temperature_fn=_temp_fn,
             freshness_fn=_fresh_apply,
         )
-        all_on = fuse_probabilities(FusionInput(**base_kwargs))
         for step in DEFAULT_POST_FUSION:
             off = dict(DEFAULT_POST_FUSION)
             off[step] = False
