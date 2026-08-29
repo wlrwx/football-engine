@@ -857,6 +857,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 投注层闸门配置（2026-08-29）：水位信号一致性 + 热门区注量因子
     _staking_cfg = strat_cfg.get("market_signal_staking", {})
     _band_cfg = strat_cfg.get("favorite_band", {})
+    _edge_cap = float(strat_cfg.get("edge_gates", {}).get("max_edge", 0.30))
     for p in predictions:
         # 市场分歧检测（2026-08-05）：独立于候选/置信度过滤，任何场次都记录
         # 非模型方向但有显著正 EV 的赔率（模型 vs 市场严重分歧信号）。
@@ -977,7 +978,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 # 曾因此对 8 笔共 ¥67,353 押在模拟赔率上（基本全亏）。
                 # 只记录 edge 供复盘，绝不进 candidates。
                 continue
-            elif edge > 0:  # 真实赔率: 正期望
+            elif 0 < edge <= _edge_cap:  # 真实赔率: 正期望且未超声称上限
+                # 2026-08-30: edge_calibration 实测声称 edge>0.10 的 56 场
+                # ROI 代理 -19%（大 edge=小概率×高赔率=概率误差杠杆最大）
+                # → 声称越大胆越不可信，封顶止损（config edge_gates.max_edge）
                 kelly_f = edge / (odds - 1) * 0.25  # quarter-Kelly
                 # 2026-08-29 投注层闸门（概率层不再被水位信号污染）：
                 #   1) 水位信号与投注方向冲突 → 注量打折（命中 0.693 vs 未命中 0.423 的强信号）
@@ -2132,6 +2136,26 @@ def run_settlement(target_date: date):
         print(f"    ✓ 校准器已用 {len(clean_records)} 场洁净样本重拟合")
     else:
         print(f"    洁净样本不足 ({len(clean_records)} < 30)，保留旧拟合文件")
+
+    # LGBM 影子训练（2026-08-30）：洁净样本 ≥500 自动训练 + holdout 影子验证。
+    # 绝不自动进生产——ready=true 仅表示"数据支持启用"，需人工评估后翻
+    # config fusion.post_fusion.lgbm_blend（模型流历史信誉差，门槛从严）。
+    print("\n  [LGBM 影子] 洁净样本盘点 + 训练决策...")
+    try:
+        from engine.learning.lgbm_shadow import shadow_train
+        _lgbm_cfg = LGBMConfig(**{k: v for k, v in pred_cfg.get("lgbm", {}).items()
+                                  if k in LGBMConfig.__dataclass_fields__})
+        _lgbm_status = shadow_train(
+            clean_records, ROOT / "data" / "daily",
+            ROOT / "data" / "models" / "lgbm_model.txt",
+            lgbm_cfg=_lgbm_cfg, config=pred_cfg.get("lgbm_shadow", {}),
+        )
+        (ROOT / "data" / "state" / "lgbm_status.json").write_text(
+            json.dumps(_lgbm_status, ensure_ascii=False, indent=2))
+        print(f"    洁净可用 {_lgbm_status['usable_rows']} | trained={_lgbm_status['trained']} "
+              f"ready={_lgbm_status['ready']} | {_lgbm_status['reason']}")
+    except Exception as _lgbm_err:
+        print(f"    ⚠ LGBM 影子训练跳过: {_lgbm_err}")
 
     # Rho MLE 拟合
     print("\n  [校准更新] Rho MLE...")
