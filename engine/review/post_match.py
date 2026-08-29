@@ -98,6 +98,9 @@ class MatchReview:
     # 预测时点（2026-08-16 起记录，供时点分桶评估）
     as_of: str = ""                          # 预测生成时间（ISO，北京时间）
     kickoff: str = ""                        # 开赛时间（ISO，北京时间）
+    # 融合链版本（2026-08-29）：v2 = 概率层重构后的洁净样本。
+    # 校准层拟合/启用决策只认 v2，老账本（污染链产物）不再参与学习。
+    chain: str = ""
 
 
 @dataclass
@@ -277,9 +280,10 @@ class ReviewLedger:
 class PostMatchReviewer:
     """赛后复盘: 逐场计算各源Brier, 聚合分维度命中率"""
 
-    def __init__(self, data_dir: Path, config: dict | None = None):
+    def __init__(self, data_dir: Path, config: dict | None = None, chain_version: str = "v2"):
         self.data_dir = data_dir
         self.cfg = config or {}
+        self.chain_version = chain_version  # 新结算样本的融合链版本标记
         self.ledger = ReviewLedger(data_dir / "state" / "review_ledger.jsonl")
 
     def review_day(self, date_str: str) -> dict:
@@ -427,6 +431,7 @@ class PostMatchReviewer:
             review = MatchReview(
                 match_id=pred.get("match_id") or mid,  # 统一用预测完整 match_id（账本幂等键稳定）
                 date=date_str,
+                chain=self.chain_version,
                 league=pred.get("competition", ""),
                 actual_idx=actual_idx,
                 model_raw=model_raw,

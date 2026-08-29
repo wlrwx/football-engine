@@ -291,6 +291,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     fusion_cfg["djyy_weight"] = _champion.djyy
     print(f"  融合权重(优化器): model={_champion.model:.3f} market={_champion.market:.3f} djyy={_champion.djyy:.3f}")
 
+    # 校准层自动启用状态（结算侧写 data/state/calibration_status.json）：
+    # 洁净样本通过验证段显著性检验后自动放行 isotonic，无需人工改 config
+    _cal_auto_enabled = False
+    try:
+        _cal_status = json.loads((ROOT / "data" / "state" / "calibration_status.json").read_text())
+        _cal_auto_enabled = bool(_cal_status.get("enabled", False))
+    except Exception:
+        _cal_auto_enabled = False
+    if _cal_auto_enabled:
+        print("  校准层: isotonic 已由洁净样本验证自动启用")
+
     predictions = []
     for fixture in fixtures:
         home_rating = elo_updater.get_rating(fixture.home_team)
@@ -505,6 +516,12 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         _league_db = league_mgr.get_draw_baseline(fixture.competition) if league_mgr else 0.25
         _draw_str = league_mgr.get_draw_strength(fixture.competition) if league_mgr else 0.0
 
+        # 校准层自动启用（2026-08-29）：数据状态文件 > config 静态开关。
+        # 洁净样本通过显著性验证后由结算侧自动翻转 enabled，预测侧据此放行 isotonic。
+        _pf_switches = dict(fusion_cfg.get("post_fusion", {}))
+        if _cal_auto_enabled:
+            _pf_switches["isotonic"] = True
+
         _fusion_out = fuse_probabilities(FusionInput(
             model_probs=(pred.home_win_prob, pred.draw_prob, pred.away_win_prob),
             market_probs=tuple(calibrated_probs) if calibrated_probs else None,
@@ -521,7 +538,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             isotonic_fn=calibrator.calibrate if calibrator.is_fitted else None,
             temperature_fn=temp_scaler.calibrate if temp_scaler.is_fitted else None,
             freshness_fn=_fresh_fn,
-            post_fusion=fusion_cfg.get("post_fusion", {}),
+            post_fusion=_pf_switches,
         ))
         final_h, final_d, final_a = _fusion_out.probs
         fusion_trace = _fusion_out.trace
@@ -2066,8 +2083,10 @@ def run_settlement(target_date: date):
     if decision.guard_rails_applied:
         print(f"  守卫: {decision.guard_rails_applied}")
 
-    # Temperature Scaling 重新拟合
-    print("\n  [校准更新] Temperature Scaling...")
+    # 校准层自动进化（2026-08-29）：只认 chain=="v2"（概率层重构后）的洁净样本。
+    # 老账本（污染链产物）不再参与校准拟合与启用决策——这是 8/29 消融回放
+    # 证明校准层造成 +0.004 Brier 伤害的根因（拟合数据被污染，非校准本身）。
+    print("\n  [校准进化] 洁净样本盘点 + 启用决策...")
     ledger_path = ROOT / "data" / "state" / "review_ledger.jsonl"
     all_records = []
     if ledger_path.exists():
@@ -2077,27 +2096,42 @@ def run_settlement(target_date: date):
                     all_records.append(json.loads(line))
                 except Exception:
                     continue
-    if len(all_records) >= 30:
-        ts_probs = np.array([r.get("final_prob", [0.33, 0.34, 0.33]) for r in all_records])
-        ts_actuals = np.array([r.get("actual_idx", 0) for r in all_records])
+    clean_records = sorted(
+        [r for r in all_records if r.get("chain") == "v2"
+         and r.get("final_prob") and r.get("actual_idx") is not None],
+        key=lambda r: (r.get("date", ""), r.get("match_id", "")),
+    )
+    _cal_status_path = ROOT / "data" / "state" / "calibration_status.json"
+    _prev_status = {}
+    if _cal_status_path.exists():
+        try:
+            _prev_status = json.loads(_cal_status_path.read_text())
+        except Exception:
+            _prev_status = {}
+    from engine.learning.calibration_auto import decide_calibration
+    _cal_status = decide_calibration(
+        clean_records, bool(_prev_status.get("enabled", False)),
+        pred_cfg.get("calibration_auto", {}),
+    )
+    _cal_status_path.write_text(json.dumps(_cal_status, ensure_ascii=False, indent=2))
+    print(f"    洁净样本 {len(clean_records)} | isotonic 自动启用: {_cal_status['enabled']}"
+          f" | {_cal_status.get('reason', '')}")
+
+    # Temperature / Isotonic 重拟合：仅用洁净样本（不足则保留旧拟合文件不动）
+    if len(clean_records) >= 30:
+        ts_probs = np.array([r.get("final_prob", [0.33, 0.34, 0.33]) for r in clean_records])
+        ts_actuals = np.array([r.get("actual_idx", 0) for r in clean_records])
         temp_scaler = TemperatureScaler(ROOT / "data" / "models" / "temperature.json")
         temp_scaler.fit(ts_probs, ts_actuals)
-    else:
-        print(f"    样本不足 ({len(all_records)} < 30)")
 
-    # Isotonic 校准拟合（2026-08-12 补：此前模块存在但从未被拟合，
-    # 导致 final 概率无最终校准层，融合后 Brier 0.6494 差于纯市场 0.6339）
-    print("\n  [校准更新] Isotonic...")
-    if len(all_records) >= 30:
-        cal_probs = np.array([r.get("final_prob", [0.33, 0.34, 0.33]) for r in all_records])
-        cal_actuals = np.array([r.get("actual_idx", 0) for r in all_records])
         from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
         _cal_cfg = CalibrationConfig(**{k: v for k, v in pred_cfg.get("calibration", {}).items()
                                         if k in CalibrationConfig.__dataclass_fields__})
         _calibrator = IsotonicCalibrator(ROOT / "data" / "models" / "isotonic_cal.pkl", config=_cal_cfg)
-        _calibrator.fit(cal_probs, cal_actuals)
+        _calibrator.fit(ts_probs, ts_actuals)
+        print(f"    ✓ 校准器已用 {len(clean_records)} 场洁净样本重拟合")
     else:
-        print(f"    样本不足 ({len(all_records)} < 30)")
+        print(f"    洁净样本不足 ({len(clean_records)} < 30)，保留旧拟合文件")
 
     # Rho MLE 拟合
     print("\n  [校准更新] Rho MLE...")
