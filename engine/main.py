@@ -145,7 +145,20 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 2.5 DJYY增强: 获取第三方模型概率 + Pinnacle赔率 + xG
     print("\n[1.5/8] DJYY增强数据...")
     try:
-        djyy_enrichment = source_mgr.enrich_from_djyy(fixtures, target_date)
+        # 情境数据缓存（2026-08-30, store-only）：阵容等每日每场只抓一次
+        _ctx_cache_path = ROOT / "data" / "daily" / target_date.isoformat() / "context_cache.json"
+        _ctx_cache = {}
+        if _ctx_cache_path.exists():
+            try:
+                _ctx_cache = json.loads(_ctx_cache_path.read_text(encoding="utf-8"))
+            except Exception:
+                _ctx_cache = {}
+        djyy_enrichment = source_mgr.enrich_from_djyy(fixtures, target_date, context_cache=_ctx_cache)
+        try:
+            _ctx_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            _ctx_cache_path.write_text(json.dumps(_ctx_cache, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
         if djyy_enrichment:
             print(f"  ✓ DJYY增强: {len(djyy_enrichment)}/{len(fixtures)} 场匹配")
         else:
@@ -743,6 +756,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 [round(same_odds_result.home_bias, 3), round(same_odds_result.draw_bias, 3), round(same_odds_result.away_bias, 3)]
                 if same_odds_result else None
             ),
+            # 比赛情境（2026-08-30, store-only）：动机/裁判/天气/教练/阵容/伤停/休息。
+            # 不参与预测，纯落盘——累积样本后用账本验证平局信号，数据说话再决定入模。
+            "context": {
+                **(djyy_data.get("context") or {}),
+                "rest_days": djyy_data.get("rest_days"),
+                "injuries": djyy_data.get("injuries"),
+            } or None,
             # 组合加分
             "combo_boost": combo_boost,
             # DJYY增强

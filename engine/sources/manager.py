@@ -19,6 +19,40 @@ from .team_match import match_pair
 DJYY_ENRICH_TIME_BUDGET = 60.0  # 秒
 
 
+
+def _extract_context(comparison: dict | None, info: dict | None,
+                     lineups: dict | None) -> dict:
+    """从 DJYY 已有/新增接口提取比赛情境特征（store-only，供日后验证）。
+
+    - stakes: 动机/情境（comparison 已有，零成本）—— 平局的经典预测因子
+    - referee/weather/coach: info 附带字段
+    - lineup: 双方阵型 + 首发攻击手数（防缩阵型是平局信号）
+    """
+    ctx: dict = {}
+    if comparison:
+        stakes = comparison.get("stakes")
+        if stakes:
+            ctx["stakes"] = stakes
+    if info:
+        for k_in, k_out in (("referee", "referee"), ("weather", "weather"),
+                            ("coach", "coach")):
+            v = info.get(k_in)
+            if v:
+                ctx[k_out] = v
+    if lineups and lineups.get("available"):
+        for side in ("home", "away"):
+            lu = lineups.get(side) or {}
+            starting = lu.get("starting") or []
+            ctx[f"{side}_formation"] = lu.get("formation") or lu.get("formation_zh")
+            ctx[f"{side}_starters"] = len(starting)
+            ctx[f"{side}_starting_attackers"] = sum(
+                1 for p in starting
+                if str(p.get("position", "")).upper().startswith(("F", "FW", "ST"))
+                or "前锋" in str(p.get("position_zh", ""))
+            )
+    return {k: v for k, v in ctx.items() if v not in (None, "", 0) or k.endswith(("starters", "attackers"))}
+
+
 class SourceManager:
     """管理多个数据源，按优先级 fallback
 
@@ -340,7 +374,8 @@ class SourceManager:
                 status[source.name] = False
         return status
 
-    def enrich_from_djyy(self, fixtures: list[Fixture], target_date: date) -> dict[str, dict]:
+    def enrich_from_djyy(self, fixtures: list[Fixture], target_date: date,
+                         context_cache: dict | None = None) -> dict[str, dict]:
         """DJYY增强: 为每场比赛获取模型概率+多庄家赔率+xG
 
         无论主数据源是谁，都尝试从DJYY获取额外信号。
@@ -463,6 +498,27 @@ class SourceManager:
                     except Exception:
                         pass
 
+                # 首发阵容（2026-08-30 新增, store-only）：阵型+首发攻击手数。
+                # 每场每日只抓一次（context_cache 以 djyy_id 为键, 由 main 持久化）,
+                # 失败也记 tried_at 防止每 30 分钟重试打爆接口。
+                _lineups = None
+                if time.monotonic() <= deadline:
+                    _cc = context_cache if context_cache is not None else {}
+                    _cached = _cc.get(str(djyy_id)) or {}
+                    if "lineups" in _cached or "lineups_tried_at" in _cached:
+                        _lineups = _cached.get("lineups")
+                    else:
+                        try:
+                            _lu = self._djyy.fetch_match_lineups(djyy_id)
+                            _lineups = _lu if _lu and _lu.get("available") else None
+                        except Exception:
+                            _lineups = None
+                        from datetime import datetime as _dt
+                        _cc[str(djyy_id)] = {
+                            "lineups": _lineups,
+                            "lineups_tried_at": _dt.now().isoformat(timespec="seconds"),
+                        }
+
                 enrichment[fixture.match_id] = {
                     "djyy_id": djyy_id,
                     "model_probs": {
@@ -477,6 +533,7 @@ class SourceManager:
                     "form_xg": form_xg,
                     "rest_days": rest_days,
                     "injuries": injuries,
+                    "context": _extract_context(comparison, info, _lineups),
                 }
             except Exception:
                 continue
