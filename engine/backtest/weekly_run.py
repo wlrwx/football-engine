@@ -57,12 +57,14 @@ def main() -> int:
         # 之前误写成 .json → 读到 0 键 → 融合优化基于空账本做假决策。
         ledger = ReviewLedger(state_dir / "review_ledger.jsonl")
         # 条件融合参数（2026-08-11）：与生产 main.py 语义一致
+        # 2026-08-29 统一：guardrails 完整读 config["optimizer"]，消除 CI 周/日权重震荡
         _opt_cfg = {"djyy_min_confidence": 0.50, "djyy_disagree_penalty": 0.5}
         try:
             _pred_cfg = json.loads((ROOT / "config" / "prediction.json").read_text(encoding="utf-8"))
             _fus = _pred_cfg.get("fusion", {})
             _opt_cfg["djyy_min_confidence"] = _fus.get("djyy_min_confidence", 0.50)
             _opt_cfg["djyy_disagree_penalty"] = _fus.get("djyy_disagree_penalty", 0.5)
+            _opt_cfg.update(_pred_cfg.get("optimizer", {}))
         except Exception:
             pass
         opt = FusionOptimizer(state_dir / "fusion_weights.json", ledger, _opt_cfg)

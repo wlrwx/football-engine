@@ -280,3 +280,76 @@ class KellyStrategy:
                     break
 
         return parlays
+
+
+# ---------------------------------------------------------------------------
+# 投注层闸门（2026-08-29 新增，纯函数便于单测）
+# 设计依据 scripts/ablation_replay.py：水位信号在概率层做 ±0.02 修正实测有害
+# （关掉 +0.0013~0.0015），但它作为信号本身极强（命中时 0.693 vs 未命中 0.423）
+# → 迁到投注层做注量闸门，不再污染概率。
+# ---------------------------------------------------------------------------
+
+DEFAULT_SIGNAL_CFG = {
+    "enabled": True,
+    "agree_stake_factor": 1.0,
+    "conflict_stake_factor": 0.5,
+}
+DEFAULT_BAND_CFG = {
+    "enabled": True,
+    "odds_below": 1.8,
+    "stake_factor": 0.5,
+}
+
+
+def market_signal_gate(direction: str, sina: dict | None, cfg: dict | None = None) -> tuple[float, str]:
+    """水位信号 × 投注方向 一致性闸门。
+
+    口径与 fetch_sina_odds.py 一致：compression = 初盘/即时盘，
+    >1.05 = 该方赔率下降 = 资金涌入看好；<0.95 = 资金撤出看衰。
+
+    Returns:
+        (stake_factor, verdict)：verdict ∈ {"agree", "conflict", "unknown"}
+        agree → 1.0（或配置加成）；conflict → conflict_stake_factor；unknown → 1.0
+    """
+    c = {**DEFAULT_SIGNAL_CFG, **(cfg or {})}
+    if not c.get("enabled", True):
+        return 1.0, "unknown"
+    if not sina:
+        return 1.0, "unknown"
+    comp = (sina.get("compression") or {}) if isinstance(sina, dict) else {}
+    if not comp:
+        return 1.0, "unknown"
+    if direction == "draw":
+        # 平局方向无直接水位口径，不强判
+        return 1.0, "unknown"
+    own = float(comp.get(direction, 1.0) or 1.0)
+    other = "away" if direction == "home" else "home"
+    other_v = float(comp.get(other, 1.0) or 1.0)
+    own_bull = own > 1.05
+    own_bear = own < 0.95
+    other_bull = other_v > 1.05
+    if own_bull:
+        # 己方被资金涌入 → 与市场同向
+        return float(c.get("agree_stake_factor", 1.0)), "agree"
+    if own_bear:
+        # 己方赔率上升 = 资金撤出，逆资金下注
+        return float(c.get("conflict_stake_factor", 0.5)), "conflict"
+    if other_bull:
+        # 己方无信号但资金涌向对手方
+        return float(c.get("conflict_stake_factor", 0.5)), "conflict"
+    return 1.0, "unknown"
+
+
+def favorite_band_factor(odds: float, cfg: dict | None = None) -> float:
+    """热门区注量因子：赔率过低的"稳胆"长期 ROI 为负（账本 L1 -10.3% / L2 -18.3%），
+    注量打折止血。odds >= odds_below → 1.0。"""
+    c = {**DEFAULT_BAND_CFG, **(cfg or {})}
+    if not c.get("enabled", True):
+        return 1.0
+    try:
+        o = float(odds)
+    except (TypeError, ValueError):
+        return 1.0
+    if 1.0 < o < float(c.get("odds_below", 1.8)):
+        return float(c.get("stake_factor", 0.5))
+    return 1.0

@@ -1,0 +1,135 @@
+{
+  "generated_at": "",
+  "meta": {
+    "records": 426,
+    "train": 255,
+    "val": 171,
+    "feature_join_rate": 0.974,
+    "weights": {
+      "model_weight": 0.1,
+      "market_weight": 0.75,
+      "djyy_weight": 0.15
+    }
+  },
+  "reference": {
+    "stored_final_brier": 0.6172206898122067,
+    "stored_final_hit": 0.5164319248826291,
+    "market_brier": 0.5833607748076923,
+    "market_hit": 0.5467032967032966,
+    "market_n": 364,
+    "replay_on_brier": 0.58759036024901,
+    "replay_on_hit": 0.528169014084507,
+    "pure_fusion_brier": 0.5902332620580227,
+    "pure_fusion_hit": 0.5305164319248826
+  },
+  "ablation": {
+    "same_odds_bias": {
+      "full": {
+        "delta_brier": 0.0,
+        "t": 0.0,
+        "n": 426,
+        "verdict": "中性"
+      },
+      "val": {
+        "delta_brier": 0.0,
+        "t": 0.0,
+        "n": 171
+      }
+    },
+    "combo_boost": {
+      "full": {
+        "delta_brier": -0.0008930601066524708,
+        "t": -0.9736701410781067,
+        "n": 426,
+        "verdict": "留"
+      },
+      "val": {
+        "delta_brier": -0.00234079485073274,
+        "t": -1.575874510032811,
+        "n": 171
+      }
+    },
+    "market_draw_pull": {
+      "full": {
+        "delta_brier": 0.0,
+        "t": 0.0,
+        "n": 426,
+        "verdict": "中性"
+      },
+      "val": {
+        "delta_brier": 0.0,
+        "t": 0.0,
+        "n": 171
+      }
+    },
+    "league_draw_baseline": {
+      "full": {
+        "delta_brier": 0.0,
+        "t": 0.0,
+        "n": 426,
+        "verdict": "中性"
+      },
+      "val": {
+        "delta_brier": 0.0,
+        "t": 0.0,
+        "n": 171
+      }
+    },
+    "sina_odds_movement": {
+      "full": {
+        "delta_brier": 0.001340431202688362,
+        "t": 1.6049840933371797,
+        "n": 426,
+        "verdict": "关"
+      },
+      "val": {
+        "delta_brier": 0.0014771450728044463,
+        "t": 1.0171716395900714,
+        "n": 171
+      }
+    },
+    "league_draw_anchor": {
+      "full": {
+        "delta_brier": -0.0032601578822567786,
+        "t": -1.9272597725502847,
+        "n": 426,
+        "verdict": "留"
+      },
+      "val": {
+        "delta_brier": 0.001241952947418544,
+        "t": 0.8574757297122038,
+        "n": 171
+      }
+    }
+  },
+  "candidates": {
+    "A_纯融合+校准残差留白": {
+      "val_delta_brier": 0.00043216705365965334,
+      "t": 0.19073027654001512,
+      "n": 171
+    },
+    "B_只关平局工程三项": {
+      "val_delta_brier": 0.001241952947418544,
+      "t": 0.8574757297122038,
+      "n": 171
+    },
+    "C_B再关水位概率修正": {
+      "val_delta_brier": 0.0026990245189497113,
+      "t": 1.3394180312060286,
+      "n": 171
+    }
+  },
+  "weight_search": {
+    "best_weights": {
+      "model": 0.0,
+      "market": 0.6,
+      "djyy": 0.15
+    },
+    "train_brier": 0.6312406928360902,
+    "val_paired_vs_current": {
+      "delta": 0.003354492435357319,
+      "t": 1.640445117500196,
+      "n": 171
+    }
+  }
+}

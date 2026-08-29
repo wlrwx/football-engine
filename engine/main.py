@@ -38,7 +38,7 @@ from engine.prediction.fusion import (
     DRAW_ANCHOR_W,
 )
 from engine.prediction.reverse_odds import ReverseOddsEngine, ReverseOddsInput
-from engine.strategy.kelly import KellyStrategy
+from engine.strategy.kelly import KellyStrategy, favorite_band_factor, market_signal_gate
 from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
 from engine.strategy.cppi import CPPIStrategy
@@ -837,6 +837,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     )
     candidates = []
     filtered_count = 0
+    # 投注层闸门配置（2026-08-29）：水位信号一致性 + 热门区注量因子
+    _staking_cfg = strat_cfg.get("market_signal_staking", {})
+    _band_cfg = strat_cfg.get("favorite_band", {})
     for p in predictions:
         # 市场分歧检测（2026-08-05）：独立于候选/置信度过滤，任何场次都记录
         # 非模型方向但有显著正 EV 的赔率（模型 vs 市场严重分歧信号）。
@@ -959,6 +962,12 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 continue
             elif edge > 0:  # 真实赔率: 正期望
                 kelly_f = edge / (odds - 1) * 0.25  # quarter-Kelly
+                # 2026-08-29 投注层闸门（概率层不再被水位信号污染）：
+                #   1) 水位信号与投注方向冲突 → 注量打折（命中 0.693 vs 未命中 0.423 的强信号）
+                #   2) 热门区(odds<1.8) 注量打折止血（账本 L1 -10.3% / L2 -18.3% ROI）
+                _sig_factor, _sig_verdict = market_signal_gate(sel, p.get("sina_odds"), _staking_cfg)
+                _band_factor = favorite_band_factor(odds, _band_cfg)
+                kelly_f *= _sig_factor * _band_factor
                 candidates.append({
                     "match_id": p["match_id"],
                     "selection": sel,
@@ -968,6 +977,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                     "prob_band_5060": p.get("prob_band_5060", False),
                     "prob_band_60_risk": p.get("prob_band_60_risk", False),
                     "prob_max": _final_prob,
+                    "signal_verdict": _sig_verdict,
+                    "signal_stake_factor": _sig_factor,
+                    "band_stake_factor": _band_factor,
                 })
 
         # 让球候选：同一场只留 EV 更高的方向（胜平负 vs 让球取最优）
