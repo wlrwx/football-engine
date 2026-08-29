@@ -964,23 +964,27 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 kelly_f = edge / (odds - 1) * 0.25  # quarter-Kelly
                 # 2026-08-29 投注层闸门（概率层不再被水位信号污染）：
                 #   1) 水位信号与投注方向冲突 → 注量打折（命中 0.693 vs 未命中 0.423 的强信号）
-                #   2) 热门区(odds<1.8) 注量打折止血（账本 L1 -10.3% / L2 -18.3% ROI）
+                #   2) 热门区(odds<1.8) 注量闸，2026-08-29 晚起 ×0 全免
+                #      （闸门实验：n=111 命中 69.4% 低于盈亏平衡，账本 pnl -323.1）
                 _sig_factor, _sig_verdict = market_signal_gate(sel, p.get("sina_odds"), _staking_cfg)
                 _band_factor = favorite_band_factor(odds, _band_cfg)
                 kelly_f *= _sig_factor * _band_factor
-                candidates.append({
-                    "match_id": p["match_id"],
-                    "selection": sel,
-                    "odds": odds,
-                    "prob": prob,
-                    "kelly_fraction": kelly_f,
-                    "prob_band_5060": p.get("prob_band_5060", False),
-                    "prob_band_60_risk": p.get("prob_band_60_risk", False),
-                    "prob_max": _final_prob,
-                    "signal_verdict": _sig_verdict,
-                    "signal_stake_factor": _sig_factor,
-                    "band_stake_factor": _band_factor,
-                })
+                # 闸门全免 → 不出候选，零注票不进分配器；
+                # 不能 continue：同轮循环还有让球/多玩法 EV/kelly_edge 写回
+                if kelly_f > 0:
+                    candidates.append({
+                        "match_id": p["match_id"],
+                        "selection": sel,
+                        "odds": odds,
+                        "prob": prob,
+                        "kelly_fraction": kelly_f,
+                        "prob_band_5060": p.get("prob_band_5060", False),
+                        "prob_band_60_risk": p.get("prob_band_60_risk", False),
+                        "prob_max": _final_prob,
+                        "signal_verdict": _sig_verdict,
+                        "signal_stake_factor": _sig_factor,
+                        "band_stake_factor": _band_factor,
+                    })
 
         # 让球候选：同一场只留 EV 更高的方向（胜平负 vs 让球取最优）
         if _hcap_cand:

@@ -297,7 +297,7 @@ DEFAULT_SIGNAL_CFG = {
 DEFAULT_BAND_CFG = {
     "enabled": True,
     "odds_below": 1.8,
-    "stake_factor": 0.5,
+    "stake_factor": 0.0,
 }
 
 
@@ -341,8 +341,10 @@ def market_signal_gate(direction: str, sina: dict | None, cfg: dict | None = Non
 
 
 def favorite_band_factor(odds: float, cfg: dict | None = None) -> float:
-    """热门区注量因子：赔率过低的"稳胆"长期 ROI 为负（账本 L1 -10.3% / L2 -18.3%），
-    注量打折止血。odds >= odds_below → 1.0。"""
+    """热门区注量因子：赔率过低的"稳胆"长期 ROI 为负
+    （账本 L1 -10.3% / L2 -18.3%；2026-08-29 闸门实验 n=111，命中 69.4%
+    低于 <1.8 档盈亏平衡，pnl 合计 -323.1 单位）→ 注量全免（×0），
+    零注候选不出票。odds >= odds_below → 1.0。"""
     c = {**DEFAULT_BAND_CFG, **(cfg or {})}
     if not c.get("enabled", True):
         return 1.0
@@ -351,5 +353,5 @@ def favorite_band_factor(odds: float, cfg: dict | None = None) -> float:
     except (TypeError, ValueError):
         return 1.0
     if 1.0 < o < float(c.get("odds_below", 1.8)):
-        return float(c.get("stake_factor", 0.5))
+        return float(c.get("stake_factor", 0.0))
     return 1.0

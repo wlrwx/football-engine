@@ -63,9 +63,11 @@ class TestMarketSignalGate:
 
 
 class TestFavoriteBandFactor:
-    def test_hot_favorite_halved(self):
-        assert favorite_band_factor(1.45) == pytest.approx(0.5)
-        assert favorite_band_factor(1.79) == pytest.approx(0.5)
+    def test_hot_favorite_excluded(self):
+        # 2026-08-29 闸门实验：热门区 n=111 命中 69.4% 低于盈亏平衡，
+        # 账本 pnl -323.1 单位 → 注量 0.5 折升级为全免（×0）
+        assert favorite_band_factor(1.45) == pytest.approx(0.0)
+        assert favorite_band_factor(1.79) == pytest.approx(0.0)
 
     def test_normal_odds_untouched(self):
         assert favorite_band_factor(1.80) == pytest.approx(1.0)
