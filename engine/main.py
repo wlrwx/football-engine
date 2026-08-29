@@ -30,10 +30,12 @@ from engine.sources.same_odds import SameOddsAnalyzer
 from engine.prediction.ensemble import EnsembleModel
 from engine.prediction.dixon_coles import DixonColesConfig
 from engine.prediction.monte_carlo import MonteCarloConfig
-from engine.prediction.calibration import (
-    select_devig_method,
-    multi_market_calibration,
-    MarketOdds,
+from engine.prediction.calibration import select_devig_method
+from engine.prediction.fusion import (
+    FusionInput,
+    fuse_probabilities,
+    LEAGUE_DRAW_ANCHOR,
+    DRAW_ANCHOR_W,
 )
 from engine.prediction.reverse_odds import ReverseOddsEngine, ReverseOddsInput
 from engine.strategy.kelly import KellyStrategy
@@ -84,12 +86,8 @@ from engine.pipeline.helpers import (  # noqa: E402
 # 注意：此名单为静态配置，随账本增长需人工复核更新（防止用未来数据泄漏）
 HIGH_DRAW_LEAGUES = frozenset({"芬超", "美职联", "巴甲", "葡超"})
 
-# 联赛平局率锚定表（2026-08-12 账本实证，n>=5）：平局概率向联赛基准靠拢
-# 回测 137 场：w=0.3 时命中率 46.7% 不变，Brier 0.6559→0.6371（标定显著改善）
-# 2026-08-12 二次复核（别名归一化后）：瑞典超实证仅 30% → 移除（原 0.60 无实证支撑，严重虚高）
-# 芬超 0.40 → 0.30（账本 26%，触发区间 44%，保守取中）
-LEAGUE_DRAW_ANCHOR = {"美职联": 0.55, "葡超": 0.50, "巴甲": 0.46, "芬超": 0.30}
-DRAW_ANCHOR_W = 0.3
+# 联赛平局率锚定表 + 融合后处理链：2026-08-29 迁移到 engine/prediction/fusion.py
+# （LEAGUE_DRAW_ANCHOR / DRAW_ANCHOR_W / fuse_probabilities，每步独立开关 + trace）
 
 
 def run_daily_pipeline(target_date: date, predict_only: bool = False):
@@ -426,26 +424,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # 联赛名归一化（2026-08-12）：瑞超→瑞典超、韩职→K1联赛，保证 R1/锚定/账本口径统一
         pred.competition = _canon_league(fixture.competition)
 
-        # --- 增强: Shin去水 + 多市场校准 ---
+        # --- 增强: Shin去水 ---
+        # 2026-08-29 清理：原"多市场KL校准"调用因 MarketOdds 字段不匹配
+        # （home_win/draw/away_win vs had/hhad/...）静默 TypeError，
+        # 从上线起就是死代码 → 删除，保留 Shin 去水。
         calibrated_probs = None
         if market_odds:
-            fair_probs = select_devig_method(list(market_odds))
-            # 多市场KL校准（如果有让球/大小球赔率）
-            if fixture.handicap is not None:
-                try:
-                    mo = MarketOdds(
-                        home_win=market_odds[0],
-                        draw=market_odds[1],
-                        away_win=market_odds[2],
-                    )
-                    cal_result = multi_market_calibration(
-                        pred.home_xg, pred.away_xg, mo
-                    )
-                    calibrated_probs = cal_result.get("probs")
-                except Exception:
-                    pass
-            if calibrated_probs is None:
-                calibrated_probs = fair_probs
+            calibrated_probs = select_devig_method(list(market_odds))
 
         # --- 增强: 逆向赔率分析 ---
         reverse_result = None
@@ -479,76 +464,15 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         )
 
         # 综合概率（融合: 模型 + 市场校准 + DJYY第三方 + 同赔偏差 + 组合加分）
-        # 所有融合参数从 config/prediction.json["fusion"] 读取，可由优化器自动调整
-        final_h, final_d, final_a = pred.home_win_prob, pred.draw_prob, pred.away_win_prob
-
-        # 获取DJYY增强数据
+        # 2026-08-29 重构：融合+后处理链抽到 engine/prediction/fusion.py（纯函数，
+        # 每步独立 post_fusion 开关 + trace 随 predictions.json 落盘可归因）。
+        # 所有融合参数从 config/prediction.json["fusion"] 读取，可由优化器自动调整。
         djyy_data = djyy_enrichment.get(fixture.match_id, {})
         djyy_probs = djyy_data.get("model_probs")
 
-        if calibrated_probs and djyy_probs and djyy_probs.get("home"):
-            # 三路融合: 自有模型 + 市场校准 + DJYY模型
-            # 2026-08-11 条件融合（268 场回测支撑）：DJYY 置信 < 门槛 是负贡献；与市场分歧时权重减半
-            mw = fusion_cfg["model_weight"]
-            kw = fusion_cfg["market_weight"]
-            dw = fusion_cfg["djyy_weight"]
-            _djyy_conf = max(djyy_probs.values())
-            if _djyy_conf < fusion_cfg.get("djyy_min_confidence", 0.50):
-                dw = 0.0  # 低置信 DJYY 不参与融合（回测: 无条件融合 Brier 0.5482 > 纯市场 0.5452）
-            else:
-                # 与市场分歧检测：DJYY 最高方向 vs 市场最高方向
-                _djyy_dir = max(djyy_probs, key=djyy_probs.get)
-                _mkt_dir = max(range(3), key=lambda i: calibrated_probs[i])
-                _mkt_dir_name = ["home", "draw", "away"][_mkt_dir]
-                if _djyy_dir != _mkt_dir_name:
-                    dw *= fusion_cfg.get("djyy_disagree_penalty", 0.5)  # 分歧时权重减半（回测: 分歧时市场 48.9% vs 模型 19.1%）
-            # 归一化权重（确保总和=1）
-            total_w = mw + kw + dw
-            mw, kw, dw = mw / total_w, kw / total_w, dw / total_w
-            final_h = mw * pred.home_win_prob + kw * calibrated_probs[0] + dw * djyy_probs["home"]
-            final_d = mw * pred.draw_prob + kw * calibrated_probs[1] + dw * djyy_probs["draw"]
-            final_a = mw * pred.away_win_prob + kw * calibrated_probs[2] + dw * djyy_probs["away"]
-        elif calibrated_probs:
-            # 两路融合（无DJYY数据时）
-            mw = fusion_cfg["model_weight"]
-            kw = fusion_cfg["market_weight"]
-            total_w = mw + kw
-            mw, kw = mw / total_w, kw / total_w
-            final_h = mw * pred.home_win_prob + kw * calibrated_probs[0]
-            final_d = mw * pred.draw_prob + kw * calibrated_probs[1]
-            final_a = mw * pred.away_win_prob + kw * calibrated_probs[2]
-        elif djyy_probs and djyy_probs.get("home"):
-            # 只有DJYY（无市场赔率时）
-            mw = 1.0 - fusion_cfg["djyy_weight"]
-            dw = fusion_cfg["djyy_weight"]
-            final_h = mw * pred.home_win_prob + dw * djyy_probs["home"]
-            final_d = mw * pred.draw_prob + dw * djyy_probs["draw"]
-            final_a = mw * pred.away_win_prob + dw * djyy_probs["away"]
-
-        # 同赔偏差微调
-        if same_odds_result and same_odds_result.confidence > fusion_cfg["same_odds_min_confidence"]:
-            adj_strength = fusion_cfg["same_odds_max_adjust"] * same_odds_result.confidence
-            final_h += same_odds_result.home_bias * adj_strength
-            final_d += same_odds_result.draw_bias * adj_strength
-            final_a += same_odds_result.away_bias * adj_strength
-
-        # 组合挖掘加分
-        if combo_boost > 0:
-            best_sel = max(
-                [("H", final_h), ("D", final_d), ("A", final_a)],
-                key=lambda x: x[1],
-            )
-            boost_amount = min(combo_boost, fusion_cfg["combo_boost_cap"])
-            if best_sel[0] == "H":
-                final_h += boost_amount
-            elif best_sel[0] == "D":
-                final_d += boost_amount
-            else:
-                final_a += boost_amount
-
-        # --- LightGBM 第三层融合 ---
+        # LGBM 第三层（特征构建依赖 fixture/ratings 留在 main，掺混在 fusion.py）
+        lgbm_probs = None
         if lgbm_model.is_available:
-            lgbm_weight = fusion_cfg.get("lgbm_weight", 0.10)
             feature_dict = build_features(
                 elo_home=home_rating.elo,
                 elo_away=away_rating.elo,
@@ -559,105 +483,48 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 djyy_probs=djyy_probs,
                 include_market_odds=lgbm_cfg.use_odds_features,
             )
-            lgbm_pred = lgbm_model.predict_single(feature_dict)
-            if lgbm_pred:
-                # 混合: (1-lgbm_weight)*当前 + lgbm_weight*lgbm
-                final_h = (1 - lgbm_weight) * final_h + lgbm_weight * lgbm_pred[0]
-                final_d = (1 - lgbm_weight) * final_d + lgbm_weight * lgbm_pred[1]
-                final_a = (1 - lgbm_weight) * final_a + lgbm_weight * lgbm_pred[2]
+            _lgbm_pred = lgbm_model.predict_single(feature_dict)
+            if _lgbm_pred:
+                lgbm_probs = (_lgbm_pred[0], _lgbm_pred[1], _lgbm_pred[2])
 
-        # 归一化
-        total_prob = final_h + final_d + final_a
-        if total_prob > 0:
-            final_h /= total_prob
-            final_d /= total_prob
-            final_a /= total_prob
-
-        # 平局先验修正: 泊松模型系统性低估平局
-        # 策略: 当市场隐含平局概率 >= 25% 时，将模型平局概率向市场方向强力修正
-        if calibrated_probs and calibrated_probs[1] >= 0.25:
-            market_d = calibrated_probs[1]
-            target_d = market_d * 0.90
-            gap = target_d - final_d
-            if gap > 0.005:
-                final_d += gap
-                total_ha = final_h + final_a
-                if total_ha > 0:
-                    final_h -= gap * (final_h / total_ha)
-                    final_a -= gap * (final_a / total_ha)
-
-        # 联赛平局基线修正（2026-08-05 账本 113 场实证 + walk-forward 验证）
-        # 美职联 55% / 巴甲 60% / 瑞典超 43% 平局率 vs 模型判平几乎为 0 → 平局盲点主战场
-        # 强度连续自适应（不硬关闭）：draw_strength() 由该联赛判平反馈驱动
-        #   - 反馈足且准(巴甲 6/10、美职联 6/11) → 0.85 强抬升
-        #   - 样本少/不准(瑞典超 0/2、巴西杯 0/1) → 0.35 温和试探（保留反馈机会）
-        #   - 无反馈 → 0.40 先试探；判平错误会经 record_draw_result 反馈自动降权
-        _league_db = league_mgr.get_draw_baseline(fixture.competition) if league_mgr else 0.25
-        _draw_str = league_mgr.get_draw_strength(fixture.competition) if league_mgr else 0.0
-        if _league_db >= 0.35 and _draw_str >= 0.3:
-            _target_d = max(final_d, _league_db * _draw_str)
-            _gap = _target_d - final_d
-            if _gap > 0.01:
-                final_d += _gap
-                _th = final_h + final_a
-                if _th > 0:
-                    final_h -= _gap * (final_h / _th)
-                    final_a -= _gap * (final_a / _th)
-
-        # --- 赔率变动信号修正 ---
-        # 新浪赔率变化方向作为信号：赔率下降=资金涌入=庄家看好
-        if _sina_data and _sina_data.get("movement"):
-            comp = _sina_data.get("compression", {})
-            # 压缩比 = 初盘/即时盘（见 fetch_sina_odds.py）：
-            #   >1.05 = 赔率下降（资金涌入，市场看好该方）→ 加仓
-            #   <0.95 = 赔率上升（资金撤出，市场看衰该方）→ 减仓
-            # 2026-08-14 修复：此前注释和符号写反了——把"资金涌入"当成了"资金撤出"，
-            # 导致盘口信号被反向应用（这也是盘口信号命中率迟迟不显著的原因之一）。
-            _signal_strength = 0
-            if comp.get("home", 1.0) > 1.05:
-                final_h += 0.02; _signal_strength += 1
-            elif comp.get("home", 1.0) < 0.95:
-                final_h -= 0.02; _signal_strength += 1
-            if comp.get("away", 1.0) > 1.05:
-                final_a += 0.02; _signal_strength += 1
-            elif comp.get("away", 1.0) < 0.95:
-                final_a -= 0.02; _signal_strength += 1
-            if _signal_strength > 0:
-                total_p = final_h + final_d + final_a
-                if total_p > 0:
-                    final_h /= total_p; final_d /= total_p; final_a /= total_p
-
-        # --- Isotonic 校准（最终修正） ---
-        if calibrator.is_fitted:
-            final_h, final_d, final_a = calibrator.calibrate((final_h, final_d, final_a))
-
-        # --- Temperature Scaling 校准 ---
-        if temp_scaler.is_fitted:
-            final_h, final_d, final_a = temp_scaler.calibrate((final_h, final_d, final_a))
-
-        # --- 数据新鲜度护栏（2026-08-06） ---
-        # 借鉴 MBS 概率系统：长时间无正式比赛 → 不确定性扩散（概率向均势收缩）
+        # 数据新鲜度护栏（2026-08-06）：长休赛 → 概率向联赛基线收缩。
+        # 收缩发生在链条中间（温度校准之后），故以闭包传入 fusion。
         _fresh = freshness_tracker.evaluate(fixture.home_team, fixture.away_team, target_date)
+        _fresh_fn = None
         if _fresh.shrink > 0:
-            # 2026-08-06 升级：向联赛基线收缩（替代 1/3 均势，MBS 冷启动做法）
             _baseline = freshness_tracker.league_baseline(fixture.competition)
-            _fh, _fd, _fa = freshness_tracker.apply([final_h, final_d, final_a], _fresh.shrink, _baseline)
-            final_h, final_d, final_a = _fh, _fd, _fa
+            _fresh_fn = lambda p, _s=_fresh.shrink, _b=_baseline: tuple(
+                freshness_tracker.apply(list(p), _s, _b)
+            )
             freshness_active += 1
             if _fresh.risk == "alert":
                 print(f"  ⚠ 新鲜度预警 [{fixture.home_team} {_fresh.home_days}天 / "
                       f"{fixture.away_team} {_fresh.away_days}天] 概率收缩 {_fresh.shrink:.0%} "
                       f"→ {'联赛基线' if _baseline else '均势'}")
 
-        # --- 平局概率联赛锚定（2026-08-12，R1 配套） ---
-        # 解决 isotonic 平局标定倒挂：平局概率无区分度(Cohen d≈0) → 向联赛实证平局率靠拢
-        # 回测 137 场：命中率保持 46.7%，Brier 0.6559→0.6434（概率标定显著改善）
-        _anchor = LEAGUE_DRAW_ANCHOR.get(_canon_league(fixture.competition))
-        if _anchor:
-            final_d = (1 - DRAW_ANCHOR_W) * final_d + DRAW_ANCHOR_W * _anchor
-            _tp = final_h + final_d + final_a
-            if _tp > 0:
-                final_h, final_d, final_a = final_h / _tp, final_d / _tp, final_a / _tp
+        _league_db = league_mgr.get_draw_baseline(fixture.competition) if league_mgr else 0.25
+        _draw_str = league_mgr.get_draw_strength(fixture.competition) if league_mgr else 0.0
+
+        _fusion_out = fuse_probabilities(FusionInput(
+            model_probs=(pred.home_win_prob, pred.draw_prob, pred.away_win_prob),
+            market_probs=tuple(calibrated_probs) if calibrated_probs else None,
+            djyy_probs=djyy_probs,
+            cfg=fusion_cfg,
+            same_odds=same_odds_result,
+            combo_boost=combo_boost,
+            lgbm_probs=lgbm_probs,
+            sina_data=_sina_data,
+            league_draw_baseline=_league_db,
+            league_draw_strength=_draw_str,
+            draw_anchor=LEAGUE_DRAW_ANCHOR.get(_canon_league(fixture.competition)),
+            draw_anchor_w=DRAW_ANCHOR_W,
+            isotonic_fn=calibrator.calibrate if calibrator.is_fitted else None,
+            temperature_fn=temp_scaler.calibrate if temp_scaler.is_fitted else None,
+            freshness_fn=_fresh_fn,
+            post_fusion=fusion_cfg.get("post_fusion", {}),
+        ))
+        final_h, final_d, final_a = _fusion_out.probs
+        fusion_trace = _fusion_out.trace
 
         # --- 平局预警分类 ---
         # 冷门平局: 一方被市场看好但模型+市场证据显示存在平局风险
@@ -807,6 +674,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_fair": (
                 [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
             ),
+            # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
+            "fusion_trace": fusion_trace,
             # 双源融合比分候选（DJYY+MC）+ 盘口信号（2026-08-05）
             "top_scores": _fused,
             "score_sources": _score_src,

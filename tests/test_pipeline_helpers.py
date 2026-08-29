@@ -40,10 +40,11 @@ def test_pick_direction_argmax():
     assert _pick_direction(0.25, 0.35, 0.4) == "away"
 
 
-def test_pick_direction_r1_overrides_to_draw():
-    # R1（league_draw）触发 → 改判平局，即使平局概率不是 argmax
-    assert _pick_direction(0.45, 0.3, 0.25, draw_alert="league_draw") == "draw"
-    # 其他 draw_alert（2026-08-13 停用 balanced/cold）不再触发改判
+def test_pick_direction_pure_argmax_alert_display_only():
+    # 2026-08-17 停用 R1（league_draw）改判：实盘证伪，8 场改判 0 中、
+    # 5 场把正确 argmax 改错（见 engine/pipeline/helpers.py 文档）。
+    # draw_alert 仅作页面展示标记，方向一律纯 argmax
+    assert _pick_direction(0.45, 0.3, 0.25, draw_alert="league_draw") == "home"
     assert _pick_direction(0.45, 0.3, 0.25, draw_alert="balanced_draw") == "home"
 
 
