@@ -6,31 +6,15 @@
 <title>竞彩分析引擎 - 2026-07-31</title>
 <style>
 :root {
-  --bg: #0a0e13;
-  --surface: #111820;
-  --card: var(--surface);
-  --surface2: #1a2332;
-  --surface3: #212d3d;
-  --border: #263344;
-  --border-light: #2f4258;
-  --text: #e8edf4;
-  --text-secondary: #94a8c0;
-  --dim: #6b8299;
-  --blue: #3b82f6;
-  --blue-dim: #1e40af;
-  --red: #ef4444;
-  --red-dim: #7f1d1d;
-  --green: #22c55e;
-  --green-dim: #14532d;
-  --amber: #f59e0b;
-  --amber-dim: #78350f;
-  --purple: #a855f7;
-  --purple-dim: #581c87;
-  --cyan: #06b6d4;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
-  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 2026-08-30 亮色重塑（方向A 简洁亮色 SaaS）：令牌集中定义 */
+  --bg:#f6f8fb; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e8eef5;
+  --border:#e2e8f0; --border-light:#cbd5e1;
+  --text:#0f172a; --text-secondary:#475569; --dim:#94a3b8;
+  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --amber:#d97706; --cyan:#0891b2;
+  --purple:#7c3aed;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.05);
+  --shadow-lift:0 4px 16px rgba(15,23,42,.08);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -52,7 +36,7 @@ body {
 }
 .header-left h1 {
   font-size: 1.6rem; font-weight: 800; letter-spacing: -0.8px;
-  background: linear-gradient(135deg, #e8edf4 0%, #94a8c0 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
 }
@@ -319,7 +303,7 @@ body {
   min-width: 38px; transition: width 0.5s ease;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
-.prob-seg.h { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+.prob-seg.h { background: linear-gradient(135deg, #2563eb, #2563eb); }
 .prob-seg.d { background: linear-gradient(135deg, #4b5563, #6b7280); }
 .prob-seg.a { background: linear-gradient(135deg, #dc2626, #ef4444); }
 
@@ -773,6 +757,36 @@ body {
   .stat { padding: 12px 14px; }
   .stat .value { font-size: 1.3rem; }
 }
+
+/* ===== 2026-08-30 亮色重塑·组件覆写层（后置规则覆盖同名早期规则） ===== */
+body { background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+.card, .kpi, .ticket-card, .sys-card, .evo-card, .match { box-shadow:var(--shadow); border-color:var(--border); }
+.card:hover, .match:hover { box-shadow:var(--shadow-lift); }
+.kpi .value { font-size:1.45rem; letter-spacing:-0.02em; }
+.section-title { font-size:1rem; font-weight:800; letter-spacing:-0.01em; }
+.page { max-width:1080px; margin:0 auto; padding:18px 14px 48px; }
+@media (min-width:600px) { .page { padding:28px 20px 60px; } }
+th { color:var(--text-secondary); background:var(--surface2); }
+th:first-child { border-radius:8px 0 0 8px; }
+th:last-child { border-radius:0 8px 8px 0; }
+td { border-bottom:1px solid var(--border); }
+.league-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); }
+.league-btn:hover { border-color:var(--blue); color:var(--blue); }
+.league-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+.page-tab-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); border-radius:20px; }
+.page-tab-btn.active { background:var(--text); border-color:var(--text); color:#fff; }
+.battle-board { background:linear-gradient(135deg, rgba(37,99,235,.06), rgba(22,163,74,.05)); border:1px solid var(--border); box-shadow:var(--shadow); }
+.bb-big { background:var(--surface); box-shadow:var(--shadow); }
+.bb-ticket { background:var(--surface); box-shadow:var(--shadow); }
+.bb-val { letter-spacing:-0.02em; }
+.evo-card { box-shadow:var(--shadow); }
+.evo-chip { background:var(--surface2); }
+.tag-warn { background:#fffbeb; border-color:#fde68a; color:#b45309; }
+.badge.ok { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+.badge.warn { background:#fffbeb; color:#b45309; border:1px solid #fde68a; }
+.footer { color:var(--dim); }
+.note { color:var(--text-secondary); }
+a { color:var(--blue); }
 </style>
 </head>
 <body>
@@ -1489,7 +1503,7 @@ body {
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>联赛</th><th>场数</th><th>命中率</th><th>均赔</th><th>ROI</th><th>判断</th><th>近5场</th><th>近10场</th><th>判平(命中/次数·强度)</th></tr>
-    <tr><td>欧冠</td><td>34</td><td>50%</td><td>1.98</td><td style="color:var(--red);font-weight:700">-12.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +6%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧罗巴</td><td>32</td><td>47%</td><td>1.83</td><td style="color:var(--red);font-weight:700">-26.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +12%</span></td><td style="color:var(--green)">近10场 8中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +25%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>K1联赛</td><td>30</td><td>60%</td><td>2.05</td><td style="color:var(--green);font-weight:700">+28.3%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -16%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>挪超</td><td>30</td><td>53%</td><td>1.86</td><td style="color:var(--red);font-weight:700">-5.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -0%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -27%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>瑞典超</td><td>28</td><td>36%</td><td>1.95</td><td style="color:var(--red);font-weight:700">-36.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -2%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -23%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>芬超</td><td>25</td><td>32%</td><td>2.19</td><td style="color:var(--red);font-weight:700">-34.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 1中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -52%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -59%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>荷甲</td><td>24</td><td>67%</td><td>1.57</td><td style="color:var(--green);font-weight:700">+1.2%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>西甲</td><td>23</td><td>52%</td><td>1.82</td><td style="color:var(--red);font-weight:700">-10.7%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -40%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -23%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>葡超</td><td>23</td><td>52%</td><td>1.91</td><td style="color:var(--red);font-weight:700">-12.3%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 5中 (100%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +59%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +4%</span></td><td style="color:var(--red)">0/4 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>巴甲</td><td>19</td><td>26%</td><td>2.51</td><td style="color:var(--red);font-weight:700">-39.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 1中 (10%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -70%</span></td><td style="color:var(--amber)">7/17 (41%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr>
+    <tr><td>欧冠</td><td>34</td><td>50%</td><td>1.98</td><td style="color:var(--red);font-weight:700">-12.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +6%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧罗巴</td><td>32</td><td>47%</td><td>1.83</td><td style="color:var(--red);font-weight:700">-26.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +12%</span></td><td style="color:var(--green)">近10场 8中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +25%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>K1联赛</td><td>30</td><td>60%</td><td>2.05</td><td style="color:var(--green);font-weight:700">+28.3%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -16%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>挪超</td><td>30</td><td>53%</td><td>1.86</td><td style="color:var(--red);font-weight:700">-5.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -0%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -27%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>瑞典超</td><td>28</td><td>36%</td><td>1.95</td><td style="color:var(--red);font-weight:700">-36.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -2%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -23%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>芬超</td><td>25</td><td>32%</td><td>2.19</td><td style="color:var(--red);font-weight:700">-34.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 1中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -52%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -59%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>荷甲</td><td>24</td><td>67%</td><td>1.57</td><td style="color:var(--green);font-weight:700">+1.2%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>西甲</td><td>24</td><td>54%</td><td>1.81</td><td style="color:var(--red);font-weight:700">-7.3%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -6%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -18%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>葡超</td><td>24</td><td>54%</td><td>1.88</td><td style="color:var(--red);font-weight:700">-11.2%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 5中 (100%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +52%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +16%</span></td><td style="color:var(--red)">0/4 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>巴甲</td><td>19</td><td>26%</td><td>2.51</td><td style="color:var(--red);font-weight:700">-39.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 1中 (10%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -70%</span></td><td style="color:var(--amber)">7/17 (41%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr>
   </table>
   <div style="padding:6px 2px;font-size:0.62rem;color:var(--dim)">三窗口对照：全部=累计兜底 · 近10场=中期趋势 · 近5场=短期灵敏度。回暖解禁 = 累计口径送钱区，但近5场命中≥60% <b>且</b> 近10场≥50% → 解除禁投观察；再拉胯自动打回送钱区。</div>
   </div>
@@ -1506,11 +1520,11 @@ body {
 
     <!-- ACCURACY TREND -->
     
-  <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--green)">命中率提升 +10pt</span>）</div>
+  <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--green)">命中率提升 +11pt</span>）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th><th>Brier</th><th>累计命中率</th><th>盈亏</th></tr>
-    <tr><td>2026-08-29</td><td>23</td><td>10/23</td><td style="font-weight:700">43%</td><td>0.66</td><td>51%</td><td style="color:var(--red)">-25</td></tr><tr><td>2026-08-28</td><td>14</td><td>7/14</td><td style="font-weight:700">50%</td><td>0.60</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-27</td><td>9</td><td>6/9</td><td style="font-weight:700">67%</td><td>0.46</td><td>51%</td><td style="color:var(--green)">+52</td></tr><tr><td>2026-08-26</td><td>12</td><td>9/12</td><td style="font-weight:700">75%</td><td>0.46</td><td>51%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-25</td><td>9</td><td>5/9</td><td style="font-weight:700">56%</td><td>0.58</td><td>50%</td><td style="color:var(--green)">+201</td></tr><tr><td>2026-08-24</td><td>11</td><td>7/11</td><td style="font-weight:700">64%</td><td>0.55</td><td>50%</td><td style="color:var(--red)">-126</td></tr><tr><td>2026-08-23</td><td>27</td><td>20/27</td><td style="font-weight:700">74%</td><td>0.51</td><td>49%</td><td style="color:var(--red)">-117</td></tr><tr><td>2026-08-22</td><td>28</td><td>16/28</td><td style="font-weight:700">57%</td><td>0.61</td><td>47%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-21</td><td>11</td><td>8/11</td><td style="font-weight:700">73%</td><td>0.58</td><td>47%</td><td style="color:var(--green)">+78</td></tr><tr><td>2026-08-20</td><td>9</td><td>7/9</td><td style="font-weight:700">78%</td><td>0.53</td><td>46%</td><td style="color:var(--dim)">+0</td></tr>
+    <tr><td>2026-08-29</td><td>25</td><td>12/25</td><td style="font-weight:700">48%</td><td>0.62</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-28</td><td>14</td><td>7/14</td><td style="font-weight:700">50%</td><td>0.60</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-27</td><td>9</td><td>6/9</td><td style="font-weight:700">67%</td><td>0.46</td><td>51%</td><td style="color:var(--green)">+52</td></tr><tr><td>2026-08-26</td><td>12</td><td>9/12</td><td style="font-weight:700">75%</td><td>0.46</td><td>51%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-25</td><td>9</td><td>5/9</td><td style="font-weight:700">56%</td><td>0.58</td><td>50%</td><td style="color:var(--green)">+201</td></tr><tr><td>2026-08-24</td><td>11</td><td>7/11</td><td style="font-weight:700">64%</td><td>0.55</td><td>50%</td><td style="color:var(--red)">-126</td></tr><tr><td>2026-08-23</td><td>27</td><td>20/27</td><td style="font-weight:700">74%</td><td>0.51</td><td>49%</td><td style="color:var(--red)">-117</td></tr><tr><td>2026-08-22</td><td>28</td><td>16/28</td><td style="font-weight:700">57%</td><td>0.61</td><td>47%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-21</td><td>11</td><td>8/11</td><td style="font-weight:700">73%</td><td>0.58</td><td>47%</td><td style="color:var(--green)">+78</td></tr><tr><td>2026-08-20</td><td>9</td><td>7/9</td><td style="font-weight:700">78%</td><td>0.53</td><td>46%</td><td style="color:var(--dim)">+0</td></tr>
   </table>
   </div>
   <div class="note" style="margin-top:6px">⚠ 置信度不预示盈亏：高置信 ≈ 低赔热门 ≈ 抽水最大。收益依赖<b>正 EV 门槛</b>与校准质量，实时状态见「🧬 进化仪表盘」。</div>
