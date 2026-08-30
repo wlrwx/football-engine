@@ -47,8 +47,7 @@ body {
 }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .date-nav {
-  display: flex; gap: 6px; padding: 10px 0; overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex; align-items: center; gap: 6px; padding: 10px 0;
 }
 .date-btn {
   padding: 5px 14px; border-radius: 16px; font-size: 0.78rem; font-weight: 600;
@@ -844,7 +843,31 @@ a { color:var(--blue); }
 /* ===== 竞彩编号徽章（2026-08-30: 体彩对账一等公民） ===== */
 .jc-no { background:var(--blue); color:#fff; border-radius:6px; padding:2px 7px;
   font-weight:800; font-size:0.7rem; letter-spacing:.03em; display:inline-block; line-height:1.5; }
-</style></style>
+/* ===== 日期导航重塑（2026-08-30: 近7天 + 日历跳转 + 按月折叠） ===== */
+.date-nav-scroll { flex:1; display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.date-nav-scroll::-webkit-scrollbar { display:none; }
+.date-jump { display:inline-flex; align-items:center; gap:4px; background:var(--surface);
+  border:1px solid var(--border); border-radius:20px; padding:0 10px; height:34px; cursor:pointer; }
+.date-jump:hover { border-color:var(--blue); }
+.date-jump input { border:none; background:transparent; color:var(--text);
+  font-size:0.74rem; font-family:inherit; outline:none; width:118px; cursor:pointer; }
+.date-all { position:relative; display:inline-block; }
+.date-all > summary { list-style:none; cursor:pointer; display:inline-flex; align-items:center; }
+.date-all > summary::-webkit-details-marker { display:none; }
+.date-all[open] > summary { background:var(--blue); border-color:var(--blue); color:#fff; }
+.date-btn { background:var(--surface); border:1px solid var(--border-light);
+  color:var(--text-secondary); font-weight:600; }
+.date-btn:hover { border-color:var(--blue); color:var(--blue); }
+.date-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+.date-all-panel { position:absolute; z-index:60; top:calc(100% + 6px); left:0;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:var(--shadow-lift); padding:12px 14px; max-height:70vh; overflow-y:auto;
+  width:max-content; max-width:86vw; }
+.dam-month { margin-bottom:10px; }
+.dam-month:last-child { margin-bottom:0; }
+.dam-label { font-size:0.66rem; color:var(--dim); font-weight:700; margin-bottom:4px; }
+.dam-links { display:flex; flex-wrap:wrap; gap:6px; }
+</style>
 </head>
 <body>
 <div class="page">
@@ -860,9 +883,19 @@ a { color:var(--blue); }
     </div>
   </div>
 
-  <!-- 日期导航 -->
+  <!-- 日期导航（2026-08-30 重塑: 近7天pills + 原生日历跳转 + 按月折叠全量） -->
   <div class="date-nav">
-    <a href="2026-08-30.html" class="date-btn ">08-30</a><a href="2026-08-29.html" class="date-btn ">08-29</a><a href="2026-08-28.html" class="date-btn ">08-28</a><a href="2026-08-27.html" class="date-btn ">08-27</a><a href="2026-08-26.html" class="date-btn ">08-26</a><a href="2026-08-25.html" class="date-btn ">08-25</a><a href="2026-08-24.html" class="date-btn ">08-24</a><a href="2026-08-23.html" class="date-btn ">08-23</a><a href="2026-08-22.html" class="date-btn ">08-22</a><a href="2026-08-21.html" class="date-btn ">08-21</a><a href="2026-08-20.html" class="date-btn ">08-20</a><a href="2026-08-19.html" class="date-btn ">08-19</a><a href="2026-08-18.html" class="date-btn ">08-18</a><a href="2026-08-17.html" class="date-btn ">08-17</a><a href="2026-08-16.html" class="date-btn ">08-16</a><a href="2026-08-15.html" class="date-btn ">08-15</a><a href="2026-08-14.html" class="date-btn ">08-14</a><a href="2026-08-13.html" class="date-btn ">08-13</a><a href="2026-08-12.html" class="date-btn ">08-12</a><a href="2026-08-11.html" class="date-btn ">08-11</a><a href="2026-08-10.html" class="date-btn ">08-10</a><a href="2026-08-09.html" class="date-btn ">08-09</a><a href="2026-08-08.html" class="date-btn active">08-08</a><a href="2026-08-07.html" class="date-btn ">08-07</a><a href="2026-08-06.html" class="date-btn ">08-06</a><a href="2026-08-05.html" class="date-btn ">08-05</a><a href="2026-08-04.html" class="date-btn ">08-04</a><a href="2026-08-03.html" class="date-btn ">08-03</a><a href="2026-08-02.html" class="date-btn ">08-02</a><a href="2026-08-01.html" class="date-btn ">08-01</a><a href="2026-07-31.html" class="date-btn ">07-31</a><a href="2026-07-30.html" class="date-btn ">07-30</a><a href="2026-07-29.html" class="date-btn ">07-29</a><a href="2026-07-28.html" class="date-btn ">07-28</a><a href="2026-07-27.html" class="date-btn ">07-27</a><a href="2026-07-26.html" class="date-btn ">07-26</a><a href="2026-07-25.html" class="date-btn ">07-25</a><a href="2026-07-24.html" class="date-btn ">07-24</a><a href="2026-07-23.html" class="date-btn ">07-23</a><a href="2026-07-22.html" class="date-btn ">07-22</a><a href="2026-07-21.html" class="date-btn ">07-21</a><a href="2026-07-20.html" class="date-btn ">07-20</a><a href="2026-07-19.html" class="date-btn ">07-19</a>
+    <div class="date-nav-scroll">
+    <a href="2026-08-30.html" class="date-btn ">08-30</a><a href="2026-08-29.html" class="date-btn ">08-29</a><a href="2026-08-28.html" class="date-btn ">08-28</a><a href="2026-08-27.html" class="date-btn ">08-27</a><a href="2026-08-26.html" class="date-btn ">08-26</a><a href="2026-08-25.html" class="date-btn ">08-25</a><a href="2026-08-24.html" class="date-btn ">08-24</a>
+    </div>
+    <label class="date-jump" title="选择日期，自动跳到最接近的有数据日期">
+      <span>📅</span>
+      <input type="date" id="date-jump" min="2026-07-19" max="2026-08-30" value="2026-08-08">
+    </label>
+    <details class="date-all">
+      <summary class="date-btn">全部 ▾</summary>
+      <div class="date-all-panel"><div class="dam-month"><div class="dam-label">2026-08</div><div class="dam-links"><a href="2026-08-30.html" class="date-btn ">08-30</a><a href="2026-08-29.html" class="date-btn ">08-29</a><a href="2026-08-28.html" class="date-btn ">08-28</a><a href="2026-08-27.html" class="date-btn ">08-27</a><a href="2026-08-26.html" class="date-btn ">08-26</a><a href="2026-08-25.html" class="date-btn ">08-25</a><a href="2026-08-24.html" class="date-btn ">08-24</a><a href="2026-08-23.html" class="date-btn ">08-23</a><a href="2026-08-22.html" class="date-btn ">08-22</a><a href="2026-08-21.html" class="date-btn ">08-21</a><a href="2026-08-20.html" class="date-btn ">08-20</a><a href="2026-08-19.html" class="date-btn ">08-19</a><a href="2026-08-18.html" class="date-btn ">08-18</a><a href="2026-08-17.html" class="date-btn ">08-17</a><a href="2026-08-16.html" class="date-btn ">08-16</a><a href="2026-08-15.html" class="date-btn ">08-15</a><a href="2026-08-14.html" class="date-btn ">08-14</a><a href="2026-08-13.html" class="date-btn ">08-13</a><a href="2026-08-12.html" class="date-btn ">08-12</a><a href="2026-08-11.html" class="date-btn ">08-11</a><a href="2026-08-10.html" class="date-btn ">08-10</a><a href="2026-08-09.html" class="date-btn ">08-09</a><a href="2026-08-08.html" class="date-btn active">08-08</a><a href="2026-08-07.html" class="date-btn ">08-07</a><a href="2026-08-06.html" class="date-btn ">08-06</a><a href="2026-08-05.html" class="date-btn ">08-05</a><a href="2026-08-04.html" class="date-btn ">08-04</a><a href="2026-08-03.html" class="date-btn ">08-03</a><a href="2026-08-02.html" class="date-btn ">08-02</a><a href="2026-08-01.html" class="date-btn ">08-01</a></div></div><div class="dam-month"><div class="dam-label">2026-07</div><div class="dam-links"><a href="2026-07-31.html" class="date-btn ">07-31</a><a href="2026-07-30.html" class="date-btn ">07-30</a><a href="2026-07-29.html" class="date-btn ">07-29</a><a href="2026-07-28.html" class="date-btn ">07-28</a><a href="2026-07-27.html" class="date-btn ">07-27</a><a href="2026-07-26.html" class="date-btn ">07-26</a><a href="2026-07-25.html" class="date-btn ">07-25</a><a href="2026-07-24.html" class="date-btn ">07-24</a><a href="2026-07-23.html" class="date-btn ">07-23</a><a href="2026-07-22.html" class="date-btn ">07-22</a><a href="2026-07-21.html" class="date-btn ">07-21</a><a href="2026-07-20.html" class="date-btn ">07-20</a><a href="2026-07-19.html" class="date-btn ">07-19</a></div></div></div>
+    </details>
   </div>
 
   <!-- KPI STATS -->
@@ -5971,7 +6004,7 @@ a { color:var(--blue); }
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>联赛</th><th>场数</th><th>命中率</th><th>均赔</th><th>ROI</th><th>判断</th><th>近5场</th><th>近10场</th><th>判平(命中/次数·强度)</th></tr>
-    <tr><td>挪超</td><td>40</td><td>57%</td><td>1.89</td><td style="color:var(--green);font-weight:700">+6.0%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -0%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -27%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧冠</td><td>34</td><td>50%</td><td>1.98</td><td style="color:var(--red);font-weight:700">-12.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +6%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>瑞典超</td><td>34</td><td>32%</td><td>1.96</td><td style="color:var(--red);font-weight:700">-41.7%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -2%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -23%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>K1联赛</td><td>32</td><td>56%</td><td>2.05</td><td style="color:var(--green);font-weight:700">+20.2%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -16%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧罗巴</td><td>32</td><td>47%</td><td>1.83</td><td style="color:var(--red);font-weight:700">-26.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +12%</span></td><td style="color:var(--green)">近10场 8中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +25%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>芬超</td><td>30</td><td>33%</td><td>2.16</td><td style="color:var(--red);font-weight:700">-32.0%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 1中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -52%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -59%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>西甲</td><td>25</td><td>56%</td><td>1.81</td><td style="color:var(--red);font-weight:700">-3.8%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +8%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -0%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>荷甲</td><td>24</td><td>67%</td><td>1.57</td><td style="color:var(--green);font-weight:700">+1.2%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>葡超</td><td>24</td><td>54%</td><td>1.88</td><td style="color:var(--red);font-weight:700">-11.2%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 5中 (100%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +52%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +16%</span></td><td style="color:var(--red)">0/4 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>巴甲</td><td>23</td><td>30%</td><td>2.42</td><td style="color:var(--red);font-weight:700">-32.6%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 1中 (10%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -70%</span></td><td style="color:var(--amber)">7/17 (41%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr>
+    <tr><td>欧冠</td><td>34</td><td>50%</td><td>1.98</td><td style="color:var(--red);font-weight:700">-12.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +6%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>欧罗巴</td><td>32</td><td>47%</td><td>1.83</td><td style="color:var(--red);font-weight:700">-26.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +12%</span></td><td style="color:var(--green)">近10场 8中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +25%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>K1联赛</td><td>30</td><td>60%</td><td>2.05</td><td style="color:var(--green);font-weight:700">+28.3%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--amber)">近5场 2中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -16%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>挪超</td><td>30</td><td>53%</td><td>1.86</td><td style="color:var(--red);font-weight:700">-5.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -0%</span></td><td style="color:var(--amber)">近10场 4中 (40%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -27%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>瑞典超</td><td>28</td><td>36%</td><td>1.95</td><td style="color:var(--red);font-weight:700">-36.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -2%</span></td><td style="color:var(--amber)">近10场 5中 (50%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -23%</span></td><td style="color:var(--red)">0/2 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>西甲</td><td>25</td><td>56%</td><td>1.81</td><td style="color:var(--red);font-weight:700">-3.8%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 3中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +8%</span></td><td style="color:var(--green)">近10场 6中 (60%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -0%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>芬超</td><td>25</td><td>32%</td><td>2.19</td><td style="color:var(--red);font-weight:700">-34.4%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 1中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -52%</span></td><td style="color:var(--red)">近10场 2中 (20%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -59%</span></td><td style="color:var(--red)">0/3 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>荷甲</td><td>24</td><td>67%</td><td>1.57</td><td style="color:var(--green);font-weight:700">+1.2%</td><td style="color:var(--dim)">👀 观望</td><td style="color:var(--green)">近5场 4中 (80%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +1%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -1%</span></td><td style="color:var(--dim)">—</td></tr><tr><td>葡超</td><td>24</td><td>54%</td><td>1.88</td><td style="color:var(--red);font-weight:700">-11.2%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--green)">近5场 5中 (100%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +52%</span></td><td style="color:var(--green)">近10场 7中 (70%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI +16%</span></td><td style="color:var(--red)">0/4 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.35</span></td></tr><tr><td>巴甲</td><td>19</td><td>26%</td><td>2.51</td><td style="color:var(--red);font-weight:700">-39.5%</td><td style="color:var(--amber)">⚠️ 谨慎</td><td style="color:var(--red)">近5场 0中 (0%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -100%</span></td><td style="color:var(--red)">近10场 1中 (10%)<br><span style="font-size:0.62rem;color:var(--dim)">近ROI -70%</span></td><td style="color:var(--amber)">7/17 (41%)<br><span style="font-size:0.62rem;color:var(--dim)">强度 0.85</span></td></tr>
   </table>
   <div style="padding:6px 2px;font-size:0.62rem;color:var(--dim)">三窗口对照：全部=累计兜底 · 近10场=中期趋势 · 近5场=短期灵敏度。回暖解禁 = 累计口径送钱区，但近5场命中≥60% <b>且</b> 近10场≥50% → 解除禁投观察；再拉胯自动打回送钱区。</div>
   </div>
@@ -6090,6 +6123,24 @@ a { color:var(--blue); }
 </div>
 
 <script>
+// ===== DATE JUMP (2026-08-30: 原生日历 → 最接近的可用日期) =====
+var ALL_DATES = ["2026-08-30", "2026-08-29", "2026-08-28", "2026-08-27", "2026-08-26", "2026-08-25", "2026-08-24", "2026-08-23", "2026-08-22", "2026-08-21", "2026-08-20", "2026-08-19", "2026-08-18", "2026-08-17", "2026-08-16", "2026-08-15", "2026-08-14", "2026-08-13", "2026-08-12", "2026-08-11", "2026-08-10", "2026-08-09", "2026-08-08", "2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-08-02", "2026-08-01", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28", "2026-07-27", "2026-07-26", "2026-07-25", "2026-07-24", "2026-07-23", "2026-07-22", "2026-07-21", "2026-07-20", "2026-07-19"];
+document.getElementById('date-jump').addEventListener('change', function() {
+  var v = this.value;
+  if (!v) return;
+  var best = ALL_DATES[0] || v;
+  var bestGap = Infinity;
+  for (var i = 0; i < ALL_DATES.length; i++) {
+    var g = Math.abs(new Date(ALL_DATES[i]) - new Date(v));
+    if (g < bestGap) { bestGap = g; best = ALL_DATES[i]; }
+  }
+  if (best) location.href = best + '.html';
+});
+// 点外部收起全部日期面板
+document.addEventListener('click', function(e) {
+  var d = document.querySelector('.date-all');
+  if (d && !d.contains(e.target)) d.removeAttribute('open');
+});
 // ===== PAGE TABS (2026-08-10 页面重构) =====
 document.querySelectorAll('.page-tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
