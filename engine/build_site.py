@@ -1139,12 +1139,18 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
         cards += '</div>'
         global_idx += 1 
 
-    # 三票方案
-    ticket_html = _ticket_section(ticket, predictions)
-    # 串关方案（2026-08-08 新增：竞彩实际玩法，校准 EV 驱动）
-    parlay_html = _parlay_section(ticket, predictions)
-    # 比分串（波胆过关）— 彩票票定位：小注搏大奖（2026-08-08）
-    score_parlay_html = _score_parlay_section(ticket)
+    # 三票方案 / 串关 / 比分串（2026-08-30: 传入结算索引, 推荐卡直接标注中/未中）
+    # 注意: _ps 正式加载在下方复盘区块, 此处自包含提前读（幂等读文件, 开销可忽略）
+    _ps_day = {}
+    try:
+        _ps_early = json.loads((ROOT / "data" / "state" / "parlay_settle.json").read_text(encoding="utf-8"))
+        _ps_day = (_ps_early.get("by_date") or {}).get(today, {})
+    except Exception:
+        _ps_day = {}
+    _st_index = _settle_index(_ps_day)
+    ticket_html = _ticket_section(ticket, predictions, _st_index)
+    parlay_html = _parlay_section(ticket, predictions, _st_index)
+    score_parlay_html = _score_parlay_section(ticket, _st_index)
     # 串关/波胆真实复盘（2026-08-10：真实出票结算）
     try:
         _ps_path = ROOT / "data" / "state" / "parlay_settle.json"
@@ -3027,7 +3033,43 @@ def _tab_distribution(p, uid):
     return f"{scores_html}{goals_html}{xg_html}"
 
 
-def _ticket_section(ticket, predictions):
+def _tk_key(t):
+    """出票/结算票的关联键: (玩法, 排序后的腿 match_id 集)"""
+    return (t.get("type", ""), tuple(sorted(lg.get("match", "") for lg in t.get("legs", []))))
+
+
+def _settle_index(day_entry):
+    """parlay_settle.json.by_date[date] → {关联键: 结算票}"""
+    idx = {}
+    if not isinstance(day_entry, dict):
+        return idx
+    for kind in ("parlay", "score_parlay"):
+        block = day_entry.get(kind)
+        if not isinstance(block, dict):
+            continue
+        for t in block.get("tickets") or []:
+            if isinstance(t, dict) and t.get("legs"):
+                idx[_tk_key(t)] = t
+    return idx
+
+
+def _settle_badge(st, stake_fallback=0.0):
+    """结算状态徽章: ✅ 已中奖 +回报 / ❌ 未中 -投入 / ⏳ 待开赛"""
+    if not st:
+        return ""
+    if st.get("pending"):
+        return ('<span style="font-size:.68em;font-weight:700;color:var(--text-secondary);'
+                'margin-left:6px">⏳ 待开赛</span>')
+    if st.get("won"):
+        ret = float(st.get("return") or 0)
+        return (f'<span style="font-size:.68em;font-weight:700;color:var(--green);'
+                f'margin-left:6px">✅ 中 +&yen;{ret:.2f}</span>')
+    staked = float(st.get("stake") or stake_fallback or 0)
+    return (f'<span style="font-size:.68em;font-weight:700;color:var(--red);'
+            f'margin-left:6px">❌ 未中 -&yen;{staked:.0f}</span>')
+
+
+def _ticket_section(ticket, predictions, st_index=None):
     if not ticket:
         return ""
     stable = ticket.get("stable", [])
@@ -3077,7 +3119,22 @@ def _ticket_section(ticket, predictions):
                 _downgrade = ' <span class="tag-warn" title="50-60% 概率段（平局盲点区）减注50%">减注</span>'
             elif it.get("prob") and 0.50 <= it.get("prob", 0) < 0.60:
                 _downgrade = ' <span class="tag-warn" title="50-60% 概率段（平局盲点区）已降档">降档</span>'
-            html += f'<div class="ticket-item"><span class="ti-match">{teams} [{sel_label}]{_downgrade}</span><span class="ti-odds">@{it.get("odds", 0):.2f} / &yen;{it.get("stake", 0):.0f}</span></div>'
+            # 2026-08-30: 已赛果的单注直接标注中/未中，免手工核对
+            _res_badge = ""
+            if sel in ("home", "draw", "away"):
+                _p = next((x for x in predictions if x.get("match_id") == match_id), None)
+                if _p is not None and _p.get("actual_home_score") is not None:
+                    _ah, _aa = _p.get("actual_home_score"), _p.get("actual_away_score")
+                    _actual = "home" if _ah > _aa else ("away" if _aa > _ah else "draw")
+                    _stake = float(it.get("stake") or 0)
+                    _odds = float(it.get("odds") or 0)
+                    if sel == _actual:
+                        _res_badge = (f'<span style="font-size:.68em;font-weight:700;'
+                                      f'color:var(--green);margin-left:6px">✅ +&yen;{_stake * _odds:.0f}</span>')
+                    else:
+                        _res_badge = (f'<span style="font-size:.68em;font-weight:700;'
+                                      f'color:var(--red);margin-left:6px">❌ -&yen;{_stake:.0f}</span>')
+            html += f'<div class="ticket-item"><span class="ti-match">{teams} [{sel_label}]{_downgrade}</span><span class="ti-odds">@{it.get("odds", 0):.2f} / &yen;{it.get("stake", 0):.0f}</span>{_res_badge}</div>'
         return html
 
     return f"""
@@ -3095,7 +3152,7 @@ def _ticket_section(ticket, predictions):
   </div>"""
 
 
-def _parlay_section(ticket, predictions):
+def _parlay_section(ticket, predictions, st_index=None):
     """串关方案（2026-08-08 新增；2026-08-13 用户确认保留——竞彩主流玩法）。
 
     数学纪律：串关吃双重抽水，模型概率高估（账本校准 0.55-0.60 段命中率仅 31.6%）。
@@ -3165,7 +3222,7 @@ def _parlay_section(ticket, predictions):
         return f"""
     <div class="ticket-card" style="{'border-color:var(--green)' if rec else 'border-color:var(--red);opacity:.85'}">
       <h4 class="{'stable' if rec else 'lottery'}" style="display:flex;justify-content:space-between;align-items:center">
-        <span>{ptype} {badge}</span>
+        <span>{ptype} {badge}{_settle_badge((st_index or {}).get(_tk_key(t)), t.get('stake', 0))}</span>
         <span style="font-size:.7rem;opacity:.7">全中@{t.get('total_odds', 0):.2f} · 实际命中率 {t.get('hit_prob_cal', 0)*100:.0f}%</span>
       </h4>
       {_legs_html(t)}
@@ -3216,13 +3273,29 @@ def _parlay_section(ticket, predictions):
     _parlay_total = sum(t.get("stake", 0) for t in parlay)
     _parlay_label = f"· {n_rec} 张推荐" if n_rec else ""
     _parlay_label += f" · 投入¥{_parlay_total:.2f}"
+    # 2026-08-30: 已结算时标题直接给战绩汇总
+    _pw = _pl = 0
+    _pnet = 0.0
+    for _t in parlay:
+        _st = (st_index or {}).get(_tk_key(_t))
+        if _st and not _st.get("pending"):
+            if _st.get("won"):
+                _pw += 1
+                _pnet += float(_st.get("return") or 0) - float(_t.get("stake") or 0)
+            else:
+                _pl += 1
+                _pnet -= float(_t.get("stake") or 0)
+    if _pw + _pl:
+        _pnet_str = f"{_pnet:+.0f}".replace("+", "+")
+        _parlay_label += (f' · 已结算 <span style="color:{("var(--green)" if _pnet >= 0 else "var(--red)")}'
+                          f'">中{_pw} 亏{_pl} 净{_pnet_str}元</span>')
     return f"""
   <div class="section-title">串关方案（过关玩法）{_parlay_label}</div>
   <div class="ticket-grid">{cards}</div>
   {cal_html}"""
 
 
-def _score_parlay_section(ticket):
+def _score_parlay_section(ticket, st_index=None):
     """比分串（波胆过关）— 2026-08-13 科学性改造后恢复。
 
     84 张 0 中（ROI -100%）教训：DJYY top_scores 概率未校准（0-0 系统性
@@ -3253,7 +3326,7 @@ def _score_parlay_section(ticket):
                       if worst > 0 else '<span style="color:var(--dim)">—</span>')
         rows.append(
             f'<tr>'
-            f'<td><b>{ptype}</b><br><span style="font-size:.62rem;color:var(--dim)">{n_bets}注 · {src}赔率</span></td>'
+            f'<td><b>{ptype}</b>{_settle_badge((st_index or {}).get(_tk_key(t)), t.get("stake", 0))}<br><span style="font-size:.62rem;color:var(--dim)">{n_bets}注 · {src}赔率</span></td>'
             f'<td>{legs}</td>'
             f'<td style="text-align:right;color:var(--dim)">{hit*100:.2f}%</td>'
             f'<td style="text-align:right">¥{t.get("stake", 0):.0f}</td>'
@@ -3279,10 +3352,23 @@ def _score_parlay_section(ticket):
     n = len(sp)
     total_stake = sum(t.get("stake", 0) for t in sp)
     max_pot = max((t.get("potential", 0) for t in sp), default=0)
+    _sw = _sl = 0
+    _snet = 0.0
+    for _t in sp:
+        _st = (st_index or {}).get(_tk_key(_t))
+        if _st and not _st.get("pending"):
+            if _st.get("won"):
+                _sw += 1
+                _snet += float(_st.get("return") or 0) - float(_t.get("stake") or 0)
+            else:
+                _sl += 1
+                _snet -= float(_t.get("stake") or 0)
+    _settled_label = (f' · <span style="color:{("var(--green)" if _snet >= 0 else "var(--red)")}'
+                      f'">中{_sw} 亏{_sl} 净{_snet:+.0f}元</span>') if _sw + _sl else ""
 
     return f"""
   <div class="section-title">🎯 比分串（波胆过关）
-    <span style="float:right;font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim)">{n}张 · 投入¥{total_stake:.0f} · 最高¥{max_pot:.0f}</span>
+    <span style="float:right;font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim)">{n}张 · 投入¥{total_stake:.0f} · 最高¥{max_pot:.0f}{_settled_label}</span>
   </div>
   <div style="overflow-x:auto">
   <table class="edge-table">
