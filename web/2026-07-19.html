@@ -840,7 +840,11 @@ td { border-bottom:1px solid var(--border); }
 .footer { color:var(--dim); }
 .note { color:var(--text-secondary); }
 a { color:var(--blue); }
-</style>
+
+/* ===== 竞彩编号徽章（2026-08-30: 体彩对账一等公民） ===== */
+.jc-no { background:var(--blue); color:#fff; border-radius:6px; padding:2px 7px;
+  font-weight:800; font-size:0.7rem; letter-spacing:.03em; display:inline-block; line-height:1.5; }
+</style></style>
 </head>
 <body>
 <div class="page">
@@ -894,6 +898,7 @@ a { color:var(--blue); }
     <div class="match-header">
       <div class="match-top">
         <span class="league-tag">世界杯</span>
+        <span class="jc-no" title="竞彩编号（体彩官方对账口径）">760517</span>
         <div class="match-meta">
           
           
@@ -902,7 +907,6 @@ a { color:var(--blue); }
           
           
           
-          <span class="match-id">760517</span>
           
           <span class="expand-icon">详情 &#9660;</span>
         </div>
@@ -1076,7 +1080,7 @@ a { color:var(--blue); }
       <tr><th>比赛</th><th>比分</th><th>实际</th><th>让球</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
       
         <tr class="hit">
-          <td>Spain vs Argentina</td>
+          <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">760517</span>Spain vs Argentina</td>
           <td style="font-weight:800;text-align:center;">1-0</td>
           <td>主胜</td>
           <td style="font-size:0.75rem;color:var(--dim);"> </td>
