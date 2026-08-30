@@ -1167,6 +1167,17 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
     _evo = _evo_state()
     parlay_list = ticket.get("parlay", []) if isinstance(ticket, dict) else []
 
+    # 全部日期按月分组（2026-08-30 日期导航折叠面板）
+    _months = {}
+    for _d in (all_dates or []):
+        _months.setdefault(_d[:7], []).append(_d)
+    _date_all_html = "".join(
+        f'<div class="dam-month"><div class="dam-label">{m}</div><div class="dam-links">'
+        + "".join(f'<a href="{d}.html" class="date-btn {"active" if d == today else ""}">{d[5:]}</a>' for d in ds)
+        + "</div></div>"
+        for m, ds in sorted(_months.items(), reverse=True)
+    )
+
     health_badge = _health_badge()
 
     return f"""<!DOCTYPE html>
@@ -1218,8 +1229,7 @@ body {{
 }}
 .header-right {{ display: flex; align-items: center; gap: 10px; }}
 .date-nav {{
-  display: flex; gap: 6px; padding: 10px 0; overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex; align-items: center; gap: 6px; padding: 10px 0;
 }}
 .date-btn {{
   padding: 5px 14px; border-radius: 16px; font-size: 0.78rem; font-weight: 600;
@@ -2015,7 +2025,31 @@ a {{ color:var(--blue); }}
 /* ===== 竞彩编号徽章（2026-08-30: 体彩对账一等公民） ===== */
 .jc-no {{ background:var(--blue); color:#fff; border-radius:6px; padding:2px 7px;
   font-weight:800; font-size:0.7rem; letter-spacing:.03em; display:inline-block; line-height:1.5; }}
-</style></style>
+/* ===== 日期导航重塑（2026-08-30: 近7天 + 日历跳转 + 按月折叠） ===== */
+.date-nav-scroll {{ flex:1; display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }}
+.date-nav-scroll::-webkit-scrollbar {{ display:none; }}
+.date-jump {{ display:inline-flex; align-items:center; gap:4px; background:var(--surface);
+  border:1px solid var(--border); border-radius:20px; padding:0 10px; height:34px; cursor:pointer; }}
+.date-jump:hover {{ border-color:var(--blue); }}
+.date-jump input {{ border:none; background:transparent; color:var(--text);
+  font-size:0.74rem; font-family:inherit; outline:none; width:118px; cursor:pointer; }}
+.date-all {{ position:relative; display:inline-block; }}
+.date-all > summary {{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; }}
+.date-all > summary::-webkit-details-marker {{ display:none; }}
+.date-all[open] > summary {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
+.date-btn {{ background:var(--surface); border:1px solid var(--border-light);
+  color:var(--text-secondary); font-weight:600; }}
+.date-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
+.date-btn.active {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
+.date-all-panel {{ position:absolute; z-index:60; top:calc(100% + 6px); left:0;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:var(--shadow-lift); padding:12px 14px; max-height:70vh; overflow-y:auto;
+  width:max-content; max-width:86vw; }}
+.dam-month {{ margin-bottom:10px; }}
+.dam-month:last-child {{ margin-bottom:0; }}
+.dam-label {{ font-size:0.66rem; color:var(--dim); font-weight:700; margin-bottom:4px; }}
+.dam-links {{ display:flex; flex-wrap:wrap; gap:6px; }}
+</style>
 </head>
 <body>
 <div class="page">
@@ -2031,9 +2065,19 @@ a {{ color:var(--blue); }}
     </div>
   </div>
 
-  <!-- 日期导航 -->
+  <!-- 日期导航（2026-08-30 重塑: 近7天pills + 原生日历跳转 + 按月折叠全量） -->
   <div class="date-nav">
-    {''.join(f'<a href="{d}.html" class="date-btn {"active" if d == today else ""}">{d[5:]}</a>' for d in (all_dates or [today]))}
+    <div class="date-nav-scroll">
+    {''.join(f'<a href="{d}.html" class="date-btn {"active" if d == today else ""}">{d[5:]}</a>' for d in (all_dates or [today])[:7])}
+    </div>
+    <label class="date-jump" title="选择日期，自动跳到最接近的有数据日期">
+      <span>📅</span>
+      <input type="date" id="date-jump" min="{(all_dates or [today])[-1]}" max="{(all_dates or [today])[0]}" value="{today}">
+    </label>
+    <details class="date-all">
+      <summary class="date-btn">全部 ▾</summary>
+      <div class="date-all-panel">{_date_all_html}</div>
+    </details>
   </div>
 
   <!-- KPI STATS -->
@@ -2140,6 +2184,24 @@ a {{ color:var(--blue); }}
 </div>
 
 <script>
+// ===== DATE JUMP (2026-08-30: 原生日历 → 最接近的可用日期) =====
+var ALL_DATES = {json.dumps(all_dates or [])};
+document.getElementById('date-jump').addEventListener('change', function() {{
+  var v = this.value;
+  if (!v) return;
+  var best = ALL_DATES[0] || v;
+  var bestGap = Infinity;
+  for (var i = 0; i < ALL_DATES.length; i++) {{
+    var g = Math.abs(new Date(ALL_DATES[i]) - new Date(v));
+    if (g < bestGap) {{ bestGap = g; best = ALL_DATES[i]; }}
+  }}
+  if (best) location.href = best + '.html';
+}});
+// 点外部收起全部日期面板
+document.addEventListener('click', function(e) {{
+  var d = document.querySelector('.date-all');
+  if (d && !d.contains(e.target)) d.removeAttribute('open');
+}});
 // ===== PAGE TABS (2026-08-10 页面重构) =====
 document.querySelectorAll('.page-tab-btn').forEach(function(btn) {{
   btn.addEventListener('click', function() {{
