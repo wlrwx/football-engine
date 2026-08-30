@@ -74,6 +74,27 @@ def load_series(match_id: str) -> list[dict]:
             out.append(json.loads(line))
         except Exception:
             continue
+
+    # 2026-08-30 跨周污染过滤：快照捕获日期必须落在 [销售日-3天, 销售日+1天]。
+    # 序列文件按编号兜底匹配时，可能命中上周同编号（如"周日002"）场次的文件，
+    # 其快照是上周另一场比赛的水位——展示出来就是错的数据（济州SK/曼联实例）。
+    # 无效时间戳的快照同样剔除（无法定位时间的"变动"不可信）。
+    _sale = match_id[:10] if len(match_id) >= 10 and match_id[4] == "-" else ""
+    if _sale:
+        from datetime import datetime as _dt
+        try:
+            _sale_d = _dt.strptime(_sale, "%Y-%m-%d").date()
+        except Exception:
+            return out
+        kept = []
+        for r in out:
+            try:
+                _ts_d = _dt.fromisoformat(str(r.get("ts", ""))[:19]).date()
+            except Exception:
+                continue
+            if -3 <= (_ts_d - _sale_d).days <= 1:
+                kept.append(r)
+        out = kept
     return out
 
 
