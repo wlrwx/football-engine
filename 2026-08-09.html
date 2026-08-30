@@ -663,7 +663,7 @@ body {
 /* 吸顶导航：页面主 Tab 常驻顶部 */
 .page-tabs {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(10,14,19,0.92);
+  background: rgba(246,248,251,0.92);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   margin: 0 -8px 18px; padding: 10px 8px 0;
   border-bottom: 1px solid var(--border);
@@ -757,6 +757,59 @@ body {
   .stat { padding: 12px 14px; }
   .stat .value { font-size: 1.3rem; }
 }
+
+/* ===== 2026-08-30 亮色重塑·组件覆写层（后置规则覆盖同名早期规则） ===== */
+body { background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+.card, .kpi, .ticket-card, .sys-card, .evo-card, .match { box-shadow:var(--shadow); border-color:var(--border); }
+.card:hover, .match:hover { box-shadow:var(--shadow-lift); }
+.kpi .value { font-size:1.45rem; letter-spacing:-0.02em; }
+.section-title { font-size:1rem; font-weight:800; letter-spacing:-0.01em; }
+.page { max-width:1080px; margin:0 auto; padding:18px 14px 48px; }
+@media (min-width:600px) { .page { padding:28px 20px 60px; } }
+th { color:var(--text-secondary); background:var(--surface2); }
+th:first-child { border-radius:8px 0 0 8px; }
+th:last-child { border-radius:0 8px 8px 0; }
+td { border-bottom:1px solid var(--border); }
+.league-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); }
+.league-btn:hover { border-color:var(--blue); color:var(--blue); }
+.league-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+.page-tab-btn { background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); border-radius:20px; }
+.page-tab-btn.active { background:var(--text); border-color:var(--text); color:#fff; }
+.battle-board { background:linear-gradient(135deg, rgba(37,99,235,.06), rgba(22,163,74,.05)); border:1px solid var(--border); box-shadow:var(--shadow); }
+.bb-big { background:var(--surface); box-shadow:var(--shadow); }
+.bb-ticket { background:var(--surface); box-shadow:var(--shadow); }
+.bb-val { letter-spacing:-0.02em; }
+.evo-card { box-shadow:var(--shadow); }
+.evo-chip { background:var(--surface2); }
+.tag-warn { background:#fffbeb; border-color:#fde68a; color:#b45309; }
+.badge.ok { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+.badge.warn { background:#fffbeb; color:#b45309; border:1px solid #fde68a; }
+.footer { color:var(--dim); }
+.note { color:var(--text-secondary); }
+a { color:var(--blue); }
+
+/* 2026-08-30 修复: 基础组件CSS此前只落到track页(replace count=1), 每日页补齐 */
+.battle-board { background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(16,185,129,.08)); border: 1px solid var(--border-light); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.bb-head { font-size: .78rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.bb-main { display: flex; gap: 8px; flex-wrap: wrap; }
+.bb-big { flex: 1; min-width: 72px; background: var(--surface2); border-radius: 8px; padding: 8px 10px; }
+.bb-label { font-size: .6rem; color: var(--dim); }
+.bb-val { font-size: .95rem; font-weight: 700; }
+.bb-tickets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.bb-ticket { font-size: .68rem; background: var(--surface2); border-radius: 6px; padding: 4px 8px; display: flex; gap: 6px; align-items: center; }
+.bb-tag { font-weight: 700; }
+.bb-tag.stable { color: var(--green); }
+.bb-tag.value { color: var(--amber); }
+.bb-tag.lottery { color: var(--purple); }
+.bb-n { color: var(--dim); }
+.bb-empty { font-size: .8rem; padding: 6px 0; }
+.evo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.evo-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.evo-title { font-size: .64rem; color: var(--dim); margin-bottom: 4px; }
+.evo-verdict { font-size: .95rem; font-weight: 700; }
+.evo-detail { font-size: .64rem; color: var(--dim); margin-top: 4px; line-height: 1.5; }
+.evo-chip { display: inline-block; background: var(--surface3); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; font-size: .64rem; }
+.evo-chip i { color: var(--dim); font-style: normal; font-size: .6rem; }
 
 /* ===== 2026-08-30 亮色重塑·组件覆写层（后置规则覆盖同名早期规则） ===== */
 body { background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
@@ -5741,11 +5794,11 @@ a { color:var(--blue); }
 
     <!-- ACCURACY TREND -->
     
-  <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--green)">命中率提升 +12pt</span>）</div>
+  <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--green)">命中率提升 +11pt</span>）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th><th>Brier</th><th>累计命中率</th><th>盈亏</th></tr>
-    <tr><td>2026-08-29</td><td>27</td><td>14/27</td><td style="font-weight:700">52%</td><td>0.59</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-28</td><td>14</td><td>7/14</td><td style="font-weight:700">50%</td><td>0.60</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-27</td><td>9</td><td>6/9</td><td style="font-weight:700">67%</td><td>0.46</td><td>51%</td><td style="color:var(--green)">+52</td></tr><tr><td>2026-08-26</td><td>12</td><td>9/12</td><td style="font-weight:700">75%</td><td>0.46</td><td>51%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-25</td><td>9</td><td>5/9</td><td style="font-weight:700">56%</td><td>0.58</td><td>50%</td><td style="color:var(--green)">+201</td></tr><tr><td>2026-08-24</td><td>11</td><td>7/11</td><td style="font-weight:700">64%</td><td>0.55</td><td>50%</td><td style="color:var(--red)">-126</td></tr><tr><td>2026-08-23</td><td>27</td><td>20/27</td><td style="font-weight:700">74%</td><td>0.51</td><td>49%</td><td style="color:var(--red)">-117</td></tr><tr><td>2026-08-22</td><td>28</td><td>16/28</td><td style="font-weight:700">57%</td><td>0.61</td><td>47%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-21</td><td>11</td><td>8/11</td><td style="font-weight:700">73%</td><td>0.58</td><td>47%</td><td style="color:var(--green)">+78</td></tr><tr><td>2026-08-20</td><td>9</td><td>7/9</td><td style="font-weight:700">78%</td><td>0.53</td><td>46%</td><td style="color:var(--dim)">+0</td></tr>
+    <tr><td>2026-08-29</td><td>28</td><td>14/28</td><td style="font-weight:700">50%</td><td>0.60</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-28</td><td>14</td><td>7/14</td><td style="font-weight:700">50%</td><td>0.60</td><td>51%</td><td style="color:var(--red)">-50</td></tr><tr><td>2026-08-27</td><td>9</td><td>6/9</td><td style="font-weight:700">67%</td><td>0.46</td><td>51%</td><td style="color:var(--green)">+52</td></tr><tr><td>2026-08-26</td><td>12</td><td>9/12</td><td style="font-weight:700">75%</td><td>0.46</td><td>51%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-25</td><td>9</td><td>5/9</td><td style="font-weight:700">56%</td><td>0.58</td><td>50%</td><td style="color:var(--green)">+201</td></tr><tr><td>2026-08-24</td><td>11</td><td>7/11</td><td style="font-weight:700">64%</td><td>0.55</td><td>50%</td><td style="color:var(--red)">-126</td></tr><tr><td>2026-08-23</td><td>27</td><td>20/27</td><td style="font-weight:700">74%</td><td>0.51</td><td>49%</td><td style="color:var(--red)">-117</td></tr><tr><td>2026-08-22</td><td>28</td><td>16/28</td><td style="font-weight:700">57%</td><td>0.61</td><td>47%</td><td style="color:var(--red)">-150</td></tr><tr><td>2026-08-21</td><td>11</td><td>8/11</td><td style="font-weight:700">73%</td><td>0.58</td><td>47%</td><td style="color:var(--green)">+78</td></tr><tr><td>2026-08-20</td><td>9</td><td>7/9</td><td style="font-weight:700">78%</td><td>0.53</td><td>46%</td><td style="color:var(--dim)">+0</td></tr>
   </table>
   </div>
   <div class="note" style="margin-top:6px">⚠ 置信度不预示盈亏：高置信 ≈ 低赔热门 ≈ 抽水最大。收益依赖<b>正 EV 门槛</b>与校准质量，实时状态见「🧬 进化仪表盘」。</div>
