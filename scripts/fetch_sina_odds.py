@@ -314,7 +314,9 @@ def main():
                 "asia": snap.get("asia", {}).get("current"),
                 "totals": snap.get("totals", {}).get("current"),
             }
-            _path = _series_dir / f"{_mid}.jsonl"
+            # 2026-08-30: 文件名带销售日期前缀, 结构性杜绝跨周同编号场次复用同一文件
+            # （此前 <sina_id>.jsonl 虽然唯一, 但读取端按"周日002"兜底时会命中上周文件）
+            _path = _series_dir / f"{date_str}_{_mid}.jsonl"
             _lines = _path.read_text(encoding="utf-8").splitlines() if _path.exists() else []
             if _lines:
                 try:
