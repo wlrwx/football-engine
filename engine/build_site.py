@@ -2011,7 +2011,11 @@ td {{ border-bottom:1px solid var(--border); }}
 .footer {{ color:var(--dim); }}
 .note {{ color:var(--text-secondary); }}
 a {{ color:var(--blue); }}
-</style>
+
+/* ===== 竞彩编号徽章（2026-08-30: 体彩对账一等公民） ===== */
+.jc-no {{ background:var(--blue); color:#fff; border-radius:6px; padding:2px 7px;
+  font-weight:800; font-size:0.7rem; letter-spacing:.03em; display:inline-block; line-height:1.5; }}
+</style></style>
 </head>
 <body>
 <div class="page">
@@ -2633,6 +2637,7 @@ def _match_card(p, value_matches, idx, results_map=None):
     <div class="match-header">
       <div class="match-top">
         <span class="league-tag">{p.get('competition', '')}</span>
+        <span class="jc-no" title="竞彩编号（体彩官方对账口径）">{_jc_no(match_id)}</span>
         <div class="match-meta">
           {'<span class="value-badge">价值精选</span>' if is_val else ''}
           {'<span class="draw-alert-badge" style="background:var(--purple);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠平局预警</span>' if p.get('draw_alert') else ''}
@@ -2641,7 +2646,6 @@ def _match_card(p, value_matches, idx, results_map=None):
           {'<span class="hcr-warn-badge" title="该联赛高置信反向样本≥2场，60%+段已降档" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠高置信反向风险</span>' if p.get('prob_band_60_risk') else ''}
           {'<span class="hcr-warn-badge" title="50-60%概率段=平局盲点区，已降档" style="background:rgba(255,170,60,0.15);color:#b45309;border:1px solid rgba(255,170,60,0.4);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px">⚠平局盲点段</span>' if p.get('prob_band_5060') else ''}
           {'<span class="fresh-warn" style="background:rgba(255,170,60,0.12);color:#b45309;padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="数据新鲜度风险">⚠新鲜度</span>' if (p.get('freshness') or {}).get('risk') in ('watch','alert') else ''}
-          <span class="match-id">{match_id.split('_', 1)[-1] if '_' in match_id else match_id}</span>
           {f'<span class="match-id" style="color:var(--amber)">{p.get("kickoff","")}</span>' if p.get('kickoff') else ''}
           <span class="expand-icon">详情 &#9660;</span>
         </div>
@@ -3033,6 +3037,10 @@ def _tab_distribution(p, uid):
     return f"{scores_html}{goals_html}{xg_html}"
 
 
+def _jc_no(mid: str) -> str:
+    """竞彩编号: '2026-08-29_周六023' → '周六023'（体彩官方对账口径）"""
+    return mid.split("_", 1)[-1] if "_" in (mid or "") else (mid or "")
+
 def _tk_key(t):
     """出票/结算票的关联键: (玩法, 排序后的腿 match_id 集)"""
     return (t.get("type", ""), tuple(sorted(lg.get("match", "") for lg in t.get("legs", []))))
@@ -3134,7 +3142,10 @@ def _ticket_section(ticket, predictions, st_index=None):
                     else:
                         _res_badge = (f'<span style="font-size:.68em;font-weight:700;'
                                       f'color:var(--red);margin-left:6px">❌ -&yen;{_stake:.0f}</span>')
-            html += f'<div class="ticket-item"><span class="ti-match">{teams} [{sel_label}]{_downgrade}</span><span class="ti-odds">@{it.get("odds", 0):.2f} / &yen;{it.get("stake", 0):.0f}</span>{_res_badge}</div>'
+            html += (f'<div class="ticket-item"><span class="ti-match"><span class="jc-no" '
+                     f'style="font-size:.62rem;padding:1px 5px;margin-right:4px">{_jc_no(match_id)}</span>'
+                     f'{teams} [{sel_label}]{_downgrade}</span>'
+                     f'<span class="ti-odds">@{it.get("odds", 0):.2f} / &yen;{it.get("stake", 0):.0f}</span>{_res_badge}</div>')
         return html
 
     return f"""
@@ -3188,7 +3199,9 @@ def _parlay_section(ticket, predictions, st_index=None):
                 _prob_label = (f"{lg.get('prob', 0)*100:.0f}%→{(_hp or _cp or 0)*100:.0f}%"
                                if _hp or _cp else f"{lg.get('prob', 0)*100:.0f}%")
                 _src_badge = '<span class="pick-val home" style="font-size:.7em;margin-right:4px">模型</span>'
-            html += (f'<div class="ticket-item"><span class="ti-match">{_src_badge}{lg.get("home", "")} vs '
+            html += (f'<div class="ticket-item"><span class="ti-match"><span class="jc-no" '
+                     f'style="font-size:.62rem;padding:1px 5px;margin-right:4px">{_jc_no(lg.get("match", ""))}</span>'
+                     f'{_src_badge}{lg.get("home", "")} vs '
                      f'{lg.get("away", "")} <span style="opacity:.6">[{lg.get("league", "")}]</span> '
                      f'<span class="pick-val {"home" if sel=="home" else ("draw" if sel=="draw" else "away")}" '
                      f'style="font-size:.8em">{sel_map.get(sel, sel)} {_prob_label}</span></span>'
@@ -3311,7 +3324,9 @@ def _score_parlay_section(ticket, st_index=None):
     sel_odds_src = {"official": "官方", "simulated": "模拟"}
 
     def _leg_short(lg):
-        return (f'<span class="sp-leg">{lg.get("home", "")[:6]}'
+        return (f'<span class="sp-leg"><span class="jc-no" '
+                f'style="font-size:.6rem;padding:1px 4px;margin-right:3px">{_jc_no(lg.get("match", ""))}</span>'
+                f'{lg.get("home", "")[:6]}'
                 f'<b>{lg.get("score", "")}</b>@{lg.get("odds", 0):.1f}</span>')
 
     rows = []
@@ -3409,6 +3424,7 @@ def _parlay_settle_section(settle: dict | None, target_date: str = "") -> str:
         for t in tickets:
             mark = "✅" if t["won"] else ("⏳" if t["pending"] else "❌")
             legs = " + ".join(
+                f"<span class='jc-no' style='font-size:.6rem;padding:1px 4px;margin-right:3px'>{_jc_no(l.get('match') or '')}</span>"
                 f"{l['home'][:6]}({l['sel'] or l['score']})" for l in t["legs"]
             )
             leg_marks = " ".join(
@@ -3699,7 +3715,7 @@ def _results_section(results, predictions, review_ledger=None, target_date=""):
 
         rows += f"""
         <tr class="{hit_cls}">
-          <td>{pred.get('home_team', '')} vs {pred.get('away_team', '')}</td>
+          <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">{_jc_no(mid)}</span>{pred.get('home_team', '')} vs {pred.get('away_team', '')}</td>
           <td style="font-weight:800;text-align:center;">{home_score}-{away_score}</td>
           <td>{actual_label}</td>
           <td style="font-size:0.75rem;color:var(--dim);">{hcap_label} {hcap_result}</td>
