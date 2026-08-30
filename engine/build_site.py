@@ -1828,7 +1828,7 @@ body {{
 /* 吸顶导航：页面主 Tab 常驻顶部 */
 .page-tabs {{
   position: sticky; top: 0; z-index: 50;
-  background: rgba(10,14,19,0.92);
+  background: rgba(246,248,251,0.92);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   margin: 0 -8px 18px; padding: 10px 8px 0;
   border-bottom: 1px solid var(--border);
