@@ -2028,11 +2028,12 @@ a {{ color:var(--blue); }}
 /* ===== 日期导航重塑（2026-08-30: 近7天 + 日历跳转 + 按月折叠） ===== */
 .date-nav-scroll {{ flex:1; display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }}
 .date-nav-scroll::-webkit-scrollbar {{ display:none; }}
-.date-jump {{ display:inline-flex; align-items:center; gap:4px; background:var(--surface);
-  border:1px solid var(--border); border-radius:20px; padding:0 10px; height:34px; cursor:pointer; }}
+.date-jump {{ display:inline-flex; align-items:center; justify-content:center;
+  background:var(--surface); border:1px solid var(--border); border-radius:50%;
+  width:34px; height:34px; cursor:pointer; font-size:0.85rem; flex:none; }}
 .date-jump:hover {{ border-color:var(--blue); }}
-.date-jump input {{ border:none; background:transparent; color:var(--text);
-  font-size:0.74rem; font-family:inherit; outline:none; width:118px; cursor:pointer; }}
+.date-jump input {{ position:absolute; width:1px; height:1px; opacity:0;
+  border:none; padding:0; pointer-events:none; }}
 .date-all {{ position:relative; display:inline-block; }}
 .date-all > summary {{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; }}
 .date-all > summary::-webkit-details-marker {{ display:none; }}
@@ -2070,7 +2071,7 @@ a {{ color:var(--blue); }}
     <div class="date-nav-scroll">
     {''.join(f'<a href="{d}.html" class="date-btn {"active" if d == today else ""}">{d[5:]}</a>' for d in (all_dates or [today])[:7])}
     </div>
-    <label class="date-jump" title="选择日期，自动跳到最接近的有数据日期">
+    <label class="date-jump" title="选择日期，自动跳到最接近的有数据日期" id="date-jump-label">
       <span>📅</span>
       <input type="date" id="date-jump" min="{(all_dates or [today])[-1]}" max="{(all_dates or [today])[0]}" value="{today}">
     </label>
@@ -2186,6 +2187,11 @@ a {{ color:var(--blue); }}
 <script>
 // ===== DATE JUMP (2026-08-30: 原生日历 → 最接近的可用日期) =====
 var ALL_DATES = {json.dumps(all_dates or [])};
+document.getElementById('date-jump-label').addEventListener('click', function(e) {{
+  var inp = document.getElementById('date-jump');
+  try {{ if (inp.showPicker) inp.showPicker(); else {{ inp.focus(); inp.click(); }} }}
+  catch (err) {{ try {{ inp.focus(); }} catch (e2) {{}} }}
+}});
 document.getElementById('date-jump').addEventListener('change', function() {{
   var v = this.value;
   if (!v) return;
