@@ -2141,19 +2141,24 @@ def run_settlement(target_date: date):
     print(f"    洁净样本 {len(clean_records)} | isotonic 自动启用: {_cal_status['enabled']}"
           f" | {_cal_status.get('reason', '')}")
 
-    # Temperature / Isotonic 重拟合：仅用洁净样本（不足则保留旧拟合文件不动）
+    # Temperature / Isotonic 重拟合：仅用洁净样本（不足则保留旧拟合文件不动）。
+    # 2026-08-31 加固: 校准是可选层, 任何拟合异常只告警不阻断——
+    # 教训: isotonic_cal 的 shrink UnboundLocalError 让 CI 结算连挂数小时。
     if len(clean_records) >= 30:
-        ts_probs = np.array([r.get("final_prob", [0.33, 0.34, 0.33]) for r in clean_records])
-        ts_actuals = np.array([r.get("actual_idx", 0) for r in clean_records])
-        temp_scaler = TemperatureScaler(ROOT / "data" / "models" / "temperature.json")
-        temp_scaler.fit(ts_probs, ts_actuals)
+        try:
+            ts_probs = np.array([r.get("final_prob", [0.33, 0.34, 0.33]) for r in clean_records])
+            ts_actuals = np.array([r.get("actual_idx", 0) for r in clean_records])
+            temp_scaler = TemperatureScaler(ROOT / "data" / "models" / "temperature.json")
+            temp_scaler.fit(ts_probs, ts_actuals)
 
-        from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
-        _cal_cfg = CalibrationConfig(**{k: v for k, v in pred_cfg.get("calibration", {}).items()
-                                        if k in CalibrationConfig.__dataclass_fields__})
-        _calibrator = IsotonicCalibrator(ROOT / "data" / "models" / "isotonic_cal.pkl", config=_cal_cfg)
-        _calibrator.fit(ts_probs, ts_actuals)
-        print(f"    ✓ 校准器已用 {len(clean_records)} 场洁净样本重拟合")
+            from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
+            _cal_cfg = CalibrationConfig(**{k: v for k, v in pred_cfg.get("calibration", {}).items()
+                                            if k in CalibrationConfig.__dataclass_fields__})
+            _calibrator = IsotonicCalibrator(ROOT / "data" / "models" / "isotonic_cal.pkl", config=_cal_cfg)
+            _calibrator.fit(ts_probs, ts_actuals)
+            print(f"    ✓ 校准器已用 {len(clean_records)} 场洁净样本重拟合")
+        except Exception as _cal_err:
+            print(f"    ⚠ 校准拟合失败（不阻断结算）: {_cal_err}")
     else:
         print(f"    洁净样本不足 ({len(clean_records)} < 30)，保留旧拟合文件")
 

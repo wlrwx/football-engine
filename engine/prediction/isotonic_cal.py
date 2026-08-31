@@ -118,6 +118,9 @@ class IsotonicCalibrator:
         #   2) 高置信端样本 < high_conf_min 时强制封顶（不许虚高）
         high_conf_min = max(15, n // 8)     # 高置信端最少样本（约 12%）
         high_conf_cap = 0.55                # 高置信端封顶（实测 70%+ 仅 44%）
+        shrink = 0.0
+        # 2026-08-31 修复: shrink 仅在 isotonic 分支赋值, 30<=n<100 走 platt 分支时
+        # 尾部打印 UnboundLocalError → CI 结算步骤连挂(洁净样本刚过30触发此路径)
         self._shrunk_tables: dict[str, tuple[np.ndarray, np.ndarray]] = {}
 
         for idx, name in enumerate(outcome_names):
