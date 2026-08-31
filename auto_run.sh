@@ -15,6 +15,21 @@ log() {
 
 log "========== 开始执行预测流水线 =========="
 
+# Step 0: 代理自愈（2026-08-31）：git 推送走 127.0.0.1:7897（Clash Verge）。
+# 代理挂掉时自动拉起 Clash Verge 并等待端口恢复，避免整轮推送静默失败。
+if ! nc -z -w 2 127.0.0.1 7897 2>/dev/null; then
+    log "⚠ 检测到代理端口 7897 不通，尝试自动启动 Clash Verge..."
+    open -a "Clash Verge" 2>/dev/null || log "❌ Clash Verge 启动失败（未安装?）"
+    for _i in $(seq 1 12); do
+        sleep 5
+        if nc -z -w 2 127.0.0.1 7897 2>/dev/null; then
+            log "✅ 代理已恢复（等待 $((_i * 5))s）"
+            break
+        fi
+        if [ "$_i" = "12" ]; then log "❌ 代理 60s 内未恢复，本轮继续（推送可能失败）"; fi
+    done
+fi
+
 # 虚拟环境探测（不再硬编码 /Users/dykily/... 路径）
 PY=python3
 for _cand in ".venv/bin/python3" "venv/bin/python3" "$HOME/.hermes/hermes-agent/venv/bin/python3"; do
