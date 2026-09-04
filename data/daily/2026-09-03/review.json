@@ -1,13 +1,13 @@
 {
   "date": "2026-09-03",
-  "n_matches": 6,
-  "hit_rate": 0.6667,
-  "hits": 4,
+  "n_matches": 7,
+  "hit_rate": 0.7143,
+  "hits": 5,
   "source_brier": {
-    "model": 0.4872,
-    "market": 0.4446,
+    "model": 0.5128,
+    "market": 0.4705,
     "djyy": null,
-    "final": 0.4444
+    "final": 0.4654
   },
   "by_league": {
     "沙职": {
@@ -33,6 +33,12 @@
       "hit_rate": 0.0,
       "wilson_lower": 0.0,
       "avg_brier": 0.9262
+    },
+    "巴西杯": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.5912
     }
   },
   "by_confidence_tier": {
@@ -47,14 +53,20 @@
       "hit_rate": 0.75,
       "wilson_lower": 0.3006,
       "avg_brier": 0.3901
+    },
+    "low": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.5912
     }
   },
   "by_odds_band": {
     "2.0-3.0": {
-      "n": 1,
-      "hit_rate": 0.0,
-      "wilson_lower": 0.0,
-      "avg_brier": 0.7791
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.6852
     },
     "1.5-2.0": {
       "n": 4,
@@ -93,15 +105,15 @@
     }
   },
   "market_signal_stats": {
-    "n": 6,
+    "n": 7,
     "hits": 4
   },
   "layered": {
-    "log_loss_final": 0.7864,
-    "rps_final": 0.1159,
-    "rps_market": 0.1173,
+    "log_loss_final": 0.815,
+    "rps_final": 0.1335,
+    "rps_market": 0.137,
     "goal_framework": {
-      "n": 6,
+      "n": 7,
       "hits": 3
     },
     "prob_bands": {
@@ -116,12 +128,16 @@
       "60%+": {
         "n": 2,
         "hit_rate": 1.0
+      },
+      "<40%": {
+        "n": 1,
+        "hit_rate": 1.0
       }
     },
     "freshness_groups": {
       "ok": {
-        "n": 3,
-        "hit_rate": 0.6667
+        "n": 4,
+        "hit_rate": 0.75
       },
       "watch": {
         "n": 3,
@@ -129,20 +145,8 @@
       }
     }
   },
-  "biases": [
-    {
-      "dimension": "outcome",
-      "key": "all",
-      "outcome": "draw",
-      "predicted_avg": 0.2299,
-      "actual_rate": 0.3333,
-      "gap": -0.1034,
-      "n": 6,
-      "severity": "warn",
-      "suggested_action": "reduce draw_bias"
-    }
-  ],
+  "biases": [],
   "total_pnl": 0.0,
-  "generated_at": "2026-09-03T23:17:03.471674",
-  "sha256": "393cc7ef5c4fbfcbbcb897caaf8b4913"
+  "generated_at": "2026-09-04T01:09:00.961613",
+  "sha256": "fd512cf40945eff95663830f792ee425"
 }
