@@ -1,0 +1,186 @@
+{
+  "date": "2026-09-05",
+  "n_matches": 15,
+  "hit_rate": 0.2,
+  "hits": 3,
+  "source_brier": {
+    "model": 0.7163,
+    "market": 0.7594,
+    "djyy": null,
+    "final": 0.7307
+  },
+  "by_league": {
+    "日职": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8387
+    },
+    "日乙": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.9118
+    },
+    "K1联赛": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8593
+    },
+    "英超": {
+      "n": 5,
+      "hit_rate": 0.2,
+      "wilson_lower": 0.0362,
+      "avg_brier": 0.7159
+    },
+    "英冠": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.9251
+    },
+    "意甲": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.883
+    },
+    "德甲": {
+      "n": 5,
+      "hit_rate": 0.4,
+      "wilson_lower": 0.1176,
+      "avg_brier": 0.5928
+    }
+  },
+  "by_confidence_tier": {
+    "mid": {
+      "n": 10,
+      "hit_rate": 0.1,
+      "wilson_lower": 0.0179,
+      "avg_brier": 0.796
+    },
+    "high": {
+      "n": 4,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.15,
+      "avg_brier": 0.5448
+    },
+    "low": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8215
+    }
+  },
+  "by_odds_band": {
+    "1.5-2.0": {
+      "n": 10,
+      "hit_rate": 0.1,
+      "wilson_lower": 0.0179,
+      "avg_brier": 0.8434
+    },
+    "2.0-3.0": {
+      "n": 3,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7558
+    },
+    "1.0-1.5": {
+      "n": 2,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.1298
+    }
+  },
+  "score_stats": {
+    "top1": 4,
+    "top3": 4,
+    "top5": 7,
+    "top8": 9,
+    "any": 9
+  },
+  "score_rank_hist": {
+    "4": 3,
+    "8": 2,
+    "1": 4
+  },
+  "score_source_stats": {
+    "djyy": {
+      "n": 0,
+      "hits": 0
+    },
+    "mc": {
+      "n": 9,
+      "hits": 7
+    }
+  },
+  "market_signal_stats": {
+    "n": 15,
+    "hits": 6
+  },
+  "layered": {
+    "log_loss_final": 1.186,
+    "rps_final": 0.2363,
+    "rps_market": 0.2435,
+    "goal_framework": {
+      "n": 15,
+      "hits": 8
+    },
+    "prob_bands": {
+      "40-50%": {
+        "n": 6,
+        "hit_rate": 0.0
+      },
+      "50-60%": {
+        "n": 6,
+        "hit_rate": 0.1667
+      },
+      "60%+": {
+        "n": 2,
+        "hit_rate": 1.0
+      },
+      "<40%": {
+        "n": 1,
+        "hit_rate": 0.0
+      }
+    },
+    "freshness_groups": {
+      "ok": {
+        "n": 8,
+        "hit_rate": 0.375
+      },
+      "watch": {
+        "n": 7,
+        "hit_rate": 0.0
+      }
+    }
+  },
+  "biases": [
+    {
+      "dimension": "league",
+      "key": "英超",
+      "outcome": "home",
+      "predicted_avg": 0.5174,
+      "actual_rate": 0.2,
+      "gap": 0.3174,
+      "n": 5,
+      "severity": "critical",
+      "suggested_action": "reduce home_adv_weight"
+    },
+    {
+      "dimension": "outcome",
+      "key": "all",
+      "outcome": "draw",
+      "predicted_avg": 0.235,
+      "actual_rate": 0.4,
+      "gap": -0.165,
+      "n": 15,
+      "severity": "warn",
+      "suggested_action": "reduce draw_bias"
+    }
+  ],
+  "total_pnl": 0.0,
+  "generated_at": "2026-09-05T16:04:55.519458",
+  "sha256": "052efe405acb32fb05127dbfd191805e"
+}
