@@ -137,7 +137,7 @@ a { color:var(--blue); }
   <div class="section-title">数据覆盖率（全量预测）</div>
   <div class="card"><table>
     <tr><th>字段</th><th>覆盖</th><th>覆盖率</th></tr>
-    <tr><td>波胆赔率</td><td>630/827</td><td>76%</td></tr><tr><td>总进球赔率</td><td>630/827</td><td>76%</td></tr><tr><td>半全场赔率</td><td>627/827</td><td>76%</td></tr><tr><td>让球</td><td>777/827</td><td>94%</td></tr><tr><td>市场去水</td><td>729/827</td><td>88%</td></tr><tr><td>新浪赔率</td><td>746/827</td><td>90%</td></tr>
+    <tr><td>波胆赔率</td><td>631/828</td><td>76%</td></tr><tr><td>总进球赔率</td><td>631/828</td><td>76%</td></tr><tr><td>半全场赔率</td><td>628/828</td><td>76%</td></tr><tr><td>让球</td><td>778/828</td><td>94%</td></tr><tr><td>市场去水</td><td>729/828</td><td>88%</td></tr><tr><td>新浪赔率</td><td>746/828</td><td>90%</td></tr>
   </table></div>
 
   <div class="section-title">每日命中率（近14天）</div>
@@ -221,7 +221,7 @@ a { color:var(--blue); }
 
 
   <div class="section-title">🧬 进化仪表盘<span class="st-note">系统自进化四状态 · 每次结算自动更新 · 判定口径见 docs/UPGRADE2_20260829.md</span></div>
-  <div class="evo-grid"><div class="evo-card"><div class="evo-title">升级效果</div><div class="evo-verdict" style="color:var(--dim)">等待数据</div><div class="evo-detail">chain=v2 样本随结算累积</div></div><div class="evo-card"><div class="evo-title">EV 校准体检（价值幻觉监控）</div><div class="evo-detail">实际ROI代理 vs 声称edge: <span class="evo-chip">[0.00,0.02): <b style="color:var(--green)">+9%</b><i>(n=6)</i></span><span class="evo-chip">[0.02,0.05): <b style="color:var(--red)">-45%</b><i>(n=15)</i></span><span class="evo-chip">[0.05,0.10): <b style="color:var(--red)">-9%</b><i>(n=18)</i></span><span class="evo-chip">[0.10,10.00): <b style="color:var(--red)">-19%</b><i>(n=56)</i></span></div></div><div class="evo-card"><div class="evo-title">校准层自进化</div><div class="evo-verdict" style="color:var(--dim)">待样本</div><div class="evo-detail">洁净样本 399 · 验证段无显著改善 (Δ=-0.0028, t=-0.38) → 维持关闭</div></div><div class="evo-card"><div class="evo-title">LGBM 影子</div><div class="evo-verdict" style="color:var(--dim)">待样本</div><div class="evo-detail">可用 814 / 500 · 训练异常: 'LGBMClassifier' object has no attribute 'save_model'</div></div></div>
+  <div class="evo-grid"><div class="evo-card"><div class="evo-title">升级效果</div><div class="evo-verdict" style="color:var(--green)">进化生效</div><div class="evo-detail">洁净组 n=399 · Brier 0.5769 / 命中 53.4% · 基线 0.6172</div></div><div class="evo-card"><div class="evo-title">EV 校准体检（价值幻觉监控）</div><div class="evo-detail">实际ROI代理 vs 声称edge: <span class="evo-chip">[0.00,0.02): <b style="color:var(--green)">+9%</b><i>(n=6)</i></span><span class="evo-chip">[0.02,0.05): <b style="color:var(--red)">-45%</b><i>(n=15)</i></span><span class="evo-chip">[0.05,0.10): <b style="color:var(--red)">-3%</b><i>(n=19)</i></span><span class="evo-chip">[0.10,10.00): <b style="color:var(--red)">-20%</b><i>(n=66)</i></span></div></div><div class="evo-card"><div class="evo-title">校准层自进化</div><div class="evo-verdict" style="color:var(--dim)">待样本</div><div class="evo-detail">洁净样本 399 · 验证段无显著改善 (Δ=-0.0028, t=-0.38) → 维持关闭</div></div><div class="evo-card"><div class="evo-title">LGBM 影子</div><div class="evo-verdict" style="color:var(--dim)">待样本</div><div class="evo-detail">可用 814 / 500 · 训练异常: 'LGBMClassifier' object has no attribute 'save_model'</div></div></div>
 
   <div class="section-title">方法论</div>
   <div class="card" style="font-size:0.8rem;color:var(--text-secondary)">
