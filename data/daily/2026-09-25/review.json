@@ -1,0 +1,137 @@
+{
+  "date": "2026-09-25",
+  "n_matches": 5,
+  "hit_rate": 0.6,
+  "hits": 3,
+  "source_brier": {
+    "model": 0.5763,
+    "market": 0.5674,
+    "djyy": null,
+    "final": 0.6036
+  },
+  "by_league": {
+    "亚运男足": {
+      "n": 2,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.173
+    },
+    "亚运女足": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.6681
+    },
+    "国际赛": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 1.336
+    }
+  },
+  "by_confidence_tier": {
+    "high": {
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.5606
+    },
+    "mid": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.6681
+    }
+  },
+  "by_odds_band": {
+    "1.5-2.0": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.2927
+    },
+    "2.0-3.0": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.6681
+    },
+    "1.0-1.5": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.6946
+    }
+  },
+  "score_stats": {
+    "top1": 1,
+    "top3": 1,
+    "top5": 4,
+    "top8": 4,
+    "any": 4
+  },
+  "score_rank_hist": {
+    "5": 1,
+    "1": 1,
+    "4": 2
+  },
+  "score_source_stats": {
+    "djyy": {
+      "n": 0,
+      "hits": 0
+    },
+    "mc": {
+      "n": 4,
+      "hits": 4
+    }
+  },
+  "market_signal_stats": {
+    "n": 3,
+    "hits": 0
+  },
+  "layered": {
+    "log_loss_final": 0.9817,
+    "rps_final": 0.1596,
+    "rps_market": 0.1479,
+    "goal_framework": {
+      "n": 5,
+      "hits": 3
+    },
+    "prob_bands": {
+      "40-50%": {
+        "n": 2,
+        "hit_rate": 0.5
+      },
+      "50-60%": {
+        "n": 1,
+        "hit_rate": 1.0
+      },
+      "60%+": {
+        "n": 2,
+        "hit_rate": 0.5
+      }
+    },
+    "freshness_groups": {
+      "watch": {
+        "n": 5,
+        "hit_rate": 0.6
+      }
+    }
+  },
+  "biases": [
+    {
+      "dimension": "outcome",
+      "key": "all",
+      "outcome": "draw",
+      "predicted_avg": 0.2127,
+      "actual_rate": 0.4,
+      "gap": -0.1873,
+      "n": 5,
+      "severity": "warn",
+      "suggested_action": "reduce draw_bias"
+    }
+  ],
+  "total_pnl": 0.0,
+  "generated_at": "2026-09-25T17:18:07.763179",
+  "sha256": "7e3d3c700acda438447f445ea37bdd0f"
+}
