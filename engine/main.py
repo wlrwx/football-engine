@@ -544,7 +544,14 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                       f"{fixture.away_team} {_fresh.away_days}天] 概率收缩 {_fresh.shrink:.0%} "
                       f"→ {'联赛基线' if _baseline else '均势'}")
 
-        _league_db = league_mgr.get_draw_baseline(fixture.competition) if league_mgr else 0.25
+        # 平局基线：必须用**带可信度门控**的版本。
+        # 【2026-10-09】旧代码用 get_draw_baseline() 返回未经门控的值，
+        # 而该值历史上存的是「判平精度」（巴甲 0.60）而非真实平局率
+        # （巴甲 0.266），叠加 draw_strength 后把巴甲平局概率钉死在 0.5025。
+        # get_effective_draw_baseline() 在样本量不足时返回 0.0，
+        # 融合层据此跳过该步骤。
+        _league_db = (league_mgr.get_effective_draw_baseline(fixture.competition)
+                      if league_mgr else 0.0)
         _draw_str = league_mgr.get_draw_strength(fixture.competition) if league_mgr else 0.0
 
         # 校准层自动启用（2026-08-29）：数据状态文件 > config 静态开关。
