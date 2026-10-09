@@ -1,0 +1,51 @@
+{
+  "activation_mode": "shadow",
+  "kelly_fraction": 0.25,
+  "reference_bankroll": 5000,
+  "stake_unit": 2,
+  "limits": {
+    "max_single_stake": 200,
+    "max_match_exposure": 200,
+    "max_daily_stake": 500,
+    "max_monthly_budget": 5000,
+    "monthly_stop_loss": 5000,
+    "max_parlay_stake": 30,
+    "max_parlay_legs": 3,
+    "max_singles_per_match": 1
+  },
+  "edge_gates": {
+    "min_probability_edge": 0.03,
+    "min_ev": 0.03,
+    "strict_min_probability_edge": 0.05,
+    "strict_min_ev": 0.05,
+    "max_edge": 0.1
+  },
+  "model_weight": {
+    "base": 0.15,
+    "max": 0.75,
+    "calibration_prior": 100
+  },
+  "strict_mode": {
+    "until_samples": 100,
+    "max_stake": 50
+  },
+  "handicap_smoothing_weight": 0.274,
+  "value_zone": {
+    "min_n": 50
+  },
+  "layer_boost": {
+    "min_n": 15,
+    "min_roi": 0.05,
+    "multiplier": 0.15
+  },
+  "market_signal_staking": {
+    "enabled": true,
+    "agree_stake_factor": 1.0,
+    "conflict_stake_factor": 0.5
+  },
+  "favorite_band": {
+    "enabled": true,
+    "odds_below": 1.8,
+    "stake_factor": 0.0
+  }
+}
