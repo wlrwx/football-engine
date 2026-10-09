@@ -115,7 +115,8 @@ def run_cycle(ledger_path: Path, cfg_path: Path, out_dir: Path,
               seed: int = 20261009, memory_path: Path | None = None,
               rejection_file: Path | None = None,
               repo_path: Path | None = None,
-              repo_ref: str = "main") -> dict:
+              repo_ref: str = "main",
+              direct: bool = False) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     raw = E.load_ledger(ledger_path)
@@ -156,7 +157,12 @@ def run_cycle(ledger_path: Path, cfg_path: Path, out_dir: Path,
         ctx["repo_path"] = str(repo_path)
         ctx["repo_ref"] = repo_ref
         ctx["out_dir"] = str(out_dir)
-        print(f"[auto-fix] 已点亮代码级自动修复通道：repo={repo_path} ref={repo_ref}")
+        # direct 模式：在真实仓库上 checkout 新分支 + commit，分支真实
+        # 可 push（用于 GitHub Actions）；否则在 tmp 工作副本 commit（本地试跑）。
+        if direct:
+            ctx["direct"] = True
+        print(f"[auto-fix] 已点亮代码级自动修复通道：repo={repo_path} "
+              f"ref={repo_ref} direct={direct}")
 
     # ---- 拒绝记忆：载入主线 agent 的历史裁决 ----
     memory_path = memory_path or (out_dir / "rejection_memory.json")
@@ -276,13 +282,15 @@ def main():
                     help="真实仓库路径。传入则点亮代码级自动修复通道（建分支+commit，不 push）")
     ap.add_argument("--repo-ref", default="main",
                     help="打补丁的基准 ref（默认 main）")
+    ap.add_argument("--direct", action="store_true",
+                    help="在真实仓库上 checkout 新分支并 commit（Actions 用），否则 tmp 工作副本")
     a = ap.parse_args()
     run_cycle(Path(a.ledger), Path(a.config), Path(a.out),
               rounds=a.rounds, max_candidates=a.max_candidates, seed=a.seed,
               memory_path=Path(a.memory) if a.memory else None,
               rejection_file=Path(a.rejection_file) if a.rejection_file else None,
               repo_path=Path(a.repo) if a.repo else None,
-              repo_ref=a.repo_ref)
+              repo_ref=a.repo_ref, direct=a.direct)
 
 
 if __name__ == "__main__":

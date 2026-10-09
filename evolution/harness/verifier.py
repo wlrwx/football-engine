@@ -309,7 +309,10 @@ def apply_code_patch(c, ctx: dict) -> dict:
       3. 应用补丁；替换未命中/命中多次 → 失败
       4. py_compile 语法检查
       5. 提取被改函数执行 fails_before/验证（验证真实源码文本）
-      6. 通过 → 在工作副本建分支 + commit，返回 commit 信息供 PR 使用
+      6. 通过 → 建分支 + commit：
+         - direct 模式（Actions）：在真实仓库 checkout 新分支并 commit，
+           分支真实留在 origin 可推
+         - 临时模式（本地）：在 tmp 工作副本 commit（用完即弃）
       7. 无论成败都清理工作副本
 
     返回 dict(ok, reason, commit, diff, cleanup_note)
@@ -325,10 +328,16 @@ def apply_code_patch(c, ctx: dict) -> dict:
         return {"ok": False, "reason": f"没有为 {c.cid} 声明可执行补丁",
                 "commit": None, "diff": ""}
 
+    direct = bool(ctx.get("direct"))
+    base_ref = ctx.get("repo_ref", "main")
     wt = None
+    prev_head = None
     try:
-        wt = GW.make_worktree(repo, ref=ctx.get("repo_ref", "main"))
-        target = wt / patch.target
+        # direct 模式在真实仓库取源码；否则在 tmp 工作副本取
+        work_root = repo if direct else GW.make_worktree(repo, ref=base_ref)
+        if not direct:
+            wt = work_root
+        target = work_root / patch.target
         if not target.exists():
             return {"ok": False, "reason": f"目标文件不存在: {patch.target}",
                     "commit": None, "diff": ""}
@@ -358,7 +367,7 @@ def apply_code_patch(c, ctx: dict) -> dict:
             verify_detail = "（该补丁未声明验证器）"
 
         diff = PE.unified_summary(src, new_src, patch.target)
-        GW.apply_to_file(wt, patch.target, new_src)
+        GW.apply_to_file(work_root, patch.target, new_src)
 
         branch = f"evolution/auto/{patch.issue_id.lower().replace('_','-')}"
         msg = (f"fix({patch.issue_id}): 自动进化闭环修复\n\n"
@@ -366,10 +375,22 @@ def apply_code_patch(c, ctx: dict) -> dict:
                f"补丁指纹 {patch.fingerprint()}\n"
                f"验证: {verify_detail}\n\n"
                f"本改动由 evolution 闭环提出并自动验证，待主线 agent 审核。")
-        info = GW.commit_branch(wt, branch, msg, [patch.target])
+
+        if direct:
+            # 在真实仓库上切分支 + commit（先记下当前 HEAD 以便回滚）
+            prev_head = GW.checkout_branch(repo, branch, base_ref)
+            info = GW.commit_in_repo(repo, branch, msg, [patch.target])
+            if info.get("empty"):
+                GW.checkout_back(repo, prev_head)
+                return {"ok": False, "reason": "补丁应用后无变更（空提交）",
+                        "commit": None, "diff": ""}
+            # 切回 detached base，让后续回合在干净 base 上继续
+            GW.checkout_back(repo, base_ref)
+        else:
+            info = GW.commit_branch(wt, branch, msg, [patch.target])
 
         # 把可复核的 patch 文件与分支元数据落盘到 out_dir，
-        # 供主线 agent 用 git apply 复现或核对（不 push，不代主决策）。
+        # 供主线 agent 用 git apply 复现或核对。
         patch_path = None
         out_dir = ctx.get("out_dir")
         if out_dir:
@@ -382,7 +403,8 @@ def apply_code_patch(c, ctx: dict) -> dict:
             meta = {"@type": "autofix", "branch": branch,
                     "commit": info["commit"], "issue": patch.issue_id,
                     "target": patch.target, "verify": verify_detail,
-                    "patch_file": str(patch_path)}
+                    "patch_file": str(patch_path),
+                    "direct": direct}
             (od / f"autofix_{slug}.json").write_text(
                 json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -392,6 +414,11 @@ def apply_code_patch(c, ctx: dict) -> dict:
                 "commit": info, "diff": diff, "branch": branch,
                 "patch_file": str(patch_path) if patch_path else None}
     except Exception as ex:  # noqa: BLE001
+        if direct and prev_head:
+            try:
+                GW.checkout_back(repo, prev_head)
+            except Exception:  # noqa: BLE001
+                pass
         return {"ok": False, "reason": f"补丁流程异常：{type(ex).__name__}: {ex}",
                 "commit": None, "diff": ""}
     finally:
