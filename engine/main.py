@@ -729,6 +729,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_fair": (
                 [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
             ),
+            # 市场锚是否真实（2026-10-09）：合成赔率场次 market_fair 由模型概率反推，
+            # 去水后≈模型自身，非真实市场。此标记供账本/页面识别裸奔场次，
+            # 避免把裸模型概率误当市场公允概率混入 EV 计算与校准。
+            "market_is_synthetic": bool(_odds_synthetic) or (calibrated_probs is None and bool(_odds_synthetic)),
             # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
             "fusion_trace": fusion_trace,
             # 双源融合比分候选（DJYY+MC）+ 盘口信号（2026-08-05）
@@ -799,6 +803,16 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # Elo
             "elo_home": round(home_rating.elo, 1),
             "elo_away": round(away_rating.elo, 1),
+            # per-match 模型输入快照（2026-10-09）：attack/defense/form 此前**未落盘**，
+            # 而 team_ratings.json 里这三项被 elo_updater 持续就地改写，是当前值而非
+            # 预测时历史值 → 用当前值离线回放历史场次，忠实率仅 40.5%。
+            # 落盘后可使模型层离线重放忠实率 ≥ 0.95，解锁模型层自动裁决通道。
+            "attack_home": round(float(home_rating.attack), 4),
+            "defense_home": round(float(home_rating.defense), 4),
+            "form_home": round(float(home_rating.form), 4),
+            "attack_away": round(float(away_rating.attack), 4),
+            "defense_away": round(float(away_rating.defense), 4),
+            "form_away": round(float(away_rating.form), 4),
             # 平局预警
             "draw_alert": draw_alert,
             # 开赛时间（新浪有就用新浪的完整时间，否则用体彩 matchDate+matchTime）

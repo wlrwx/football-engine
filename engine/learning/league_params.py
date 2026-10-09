@@ -40,10 +40,6 @@ class LeagueParam:
     draw_baseline: float = 0.25
     # 安全阀：判平抬升强度的上限（见 draw_strength）
     draw_strength_cap: float = 0.45
-    # 平局基线与权威实测值的最大容许偏差；超过则在加载时迁移修正
-    draw_baseline_tolerance: float = 0.08
-    # 平局基线可信度所需的最小场次数（低于此数不得用于抬升）
-    draw_baseline_min_n: int = 100
     # 平局基线的样本场次数（由权威数据源回填，见 _backfill_draw_baseline_samples）
     draw_baseline_samples: int = 0
     # 判平反馈（2026-08-05 结构升级：判平不是 0/1 开关，而是连续强度，随反馈学习）
@@ -108,6 +104,10 @@ class LeagueParamsConfig:
     default_base_goals: float = 1.35
     default_home_adv: float = 1.0
     default_market_blend: float = 0.28
+    # 平局基线可信度所需的最小场次数（低于此数不得用于抬升，见 get_effective_draw_baseline）
+    draw_baseline_min_n: int = 100
+    # 平局基线与权威实测值的最大容许偏差；超过则在加载时迁移修正
+    draw_baseline_tolerance: float = 0.08
 
 
 # 联赛场均进球先验（来自 DJYY league-matrix 典型值）
