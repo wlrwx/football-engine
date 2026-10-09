@@ -24,9 +24,28 @@ class LeagueParam:
     #   挪超 -0.43/场（低估→>1）vs 巴西杯 +1.38/场（高估→<1），一刀切校准会害低估联赛
     #   系数 = 实际场均总进球 / 预测场均总进球（账本回算，范围 0.55-1.3）
     xg_calibration: float = 1.0
-    # 平局基线（该联赛实际平局率，账本实证）
-    #   美职联 55% / 巴甲 60% / 瑞典超 43% vs 模型判平几乎为 0 → 平局盲点主战场
+    # 平局基线（该联赛**真实平局率**，即实际打平的场次占比）
+    #
+    # 【语义修正 2026-10-09】此前本字段的注释写「该联赛实际平局率」，
+    # 但取值实际来自 draw_predictions/draw_hits（= 系统判平的场次里真打平的
+    # 比例 = **判平精度**），两者是完全不同的量：
+    #     判平精度  巴甲 6/10 = 0.60   ← 旧值含义
+    #     真实平局率 巴甲 4652 场 = 0.266  ← 本字段应有的含义
+    # 融合步骤 7 用 target_d = draw_baseline × draw_strength 抬升平局概率，
+    # 于是巴甲每场平局概率被钉死在 0.5025，而真实平局率仅 0.266。
+    # 该错误自我强化：判平越多 → 样本越多 → 若判平常错则精度看似更高。
+    #
+    # 现在该值一律从权威数据源（league_matrix.json / matches.csv）读取，
+    # 且要求样本量达 draw_baseline_min_n，否则回落默认 0.25。
     draw_baseline: float = 0.25
+    # 安全阀：判平抬升强度的上限（见 draw_strength）
+    draw_strength_cap: float = 0.45
+    # 平局基线与权威实测值的最大容许偏差；超过则在加载时迁移修正
+    draw_baseline_tolerance: float = 0.08
+    # 平局基线可信度所需的最小场次数（低于此数不得用于抬升）
+    draw_baseline_min_n: int = 100
+    # 平局基线的样本场次数（由权威数据源回填，见 _backfill_draw_baseline_samples）
+    draw_baseline_samples: int = 0
     # 判平反馈（2026-08-05 结构升级：判平不是 0/1 开关，而是连续强度，随反馈学习）
     #   draw_predictions: 该联赛被判平的场次数（含基线抬升导致）
     #   draw_hits:        其中实际打平的场次数
@@ -60,7 +79,15 @@ class LeagueParam:
         - 有反馈但样本/精度不足（如瑞典超 0/2、巴西杯 0/1）→ 温和试探 0.35
           （基线×0.35 通常低于模型平局概率，不会硬翻盘，但保留继续积累反馈的机会）
         - 无判平反馈 → 温和 0.40 先试探
+
+        【安全阀 2026-10-09】无论上面怎么判，返回值不得超过 draw_strength_cap。
+        旧实现最高可返回 0.85，叠加一个错误的 draw_baseline 就能把平局概率
+        抬到离谱位置。抬升强度应当是「温和修正」，不是「重新定向」。
         """
+        s = self._raw_draw_strength()
+        return min(s, self.draw_strength_cap)
+
+    def _raw_draw_strength(self) -> float:
         if self.draw_predictions >= 4 and self.draw_hits >= 3:
             return 0.85
         if self.draw_predictions >= 2:
@@ -106,16 +133,56 @@ LEAGUE_PRIORS = {
 # 系数 = 实际场均总进球 / 预测场均总进球（<1=高估需下调, >1=低估需上调）
 # 平局基线 = 该联赛实际平局率（模型判平几乎为 0 → 用基线兜底改判）
 LEAGUE_CALIBRATION_PRIORS = {
-    "K1联赛":   {"xg_calibration": 0.95, "draw_baseline": 0.33},
-    "挪超":     {"xg_calibration": 1.13, "draw_baseline": 0.12},
-    "芬超":     {"xg_calibration": 0.68, "draw_baseline": 0.14},
-    "瑞典超":   {"xg_calibration": 0.78, "draw_baseline": 0.43},
-    "欧冠":     {"xg_calibration": 0.82, "draw_baseline": 0.17},
-    "美职联":   {"xg_calibration": 0.66, "draw_baseline": 0.55},
-    "巴甲":     {"xg_calibration": 0.71, "draw_baseline": 0.60},
-    "欧罗巴":   {"xg_calibration": 0.81, "draw_baseline": 0.20},
-    "巴西杯":   {"xg_calibration": 0.55, "draw_baseline": 0.40},
-    "瑞超":     {"xg_calibration": 0.98, "draw_baseline": 0.00},
+    # xG 校准系数（<1 = 之前模型高估需下调）
+    # 【2026-10-09】dixon_coles 的 attack/defense 量纲 bug 已修（改用 log 形式），
+    # 这些系数原本是在给该 bug 打补丁。其绝对值需重新回测校准，
+    # 在重校完成前先回到 1.0（不过度下调），由 ablation_replay 每周重拟合。
+    "K1联赛":   {"xg_calibration": 1.0,  "draw_baseline": 0.28},
+    "挪超":     {"xg_calibration": 1.0,  "draw_baseline": 0.26},
+    "芬超":     {"xg_calibration": 1.0,  "draw_baseline": 0.25},
+    "瑞典超":   {"xg_calibration": 1.0,  "draw_baseline": 0.26},
+    "欧冠":     {"xg_calibration": 1.0,  "draw_baseline": 0.22},
+    "美职联":   {"xg_calibration": 1.0,  "draw_baseline": 0.24},
+    "巴甲":     {"xg_calibration": 1.0,  "draw_baseline": 0.27},
+    "欧罗巴":   {"xg_calibration": 1.0,  "draw_baseline": 0.24},
+    "巴西杯":   {"xg_calibration": 1.0,  "draw_baseline": 0.25},
+    "瑞超":     {"xg_calibration": 1.0,  "draw_baseline": 0.25},
+}
+
+# 联赛平局率权威实测值（来源：data/historical/matches.csv 全量赛果统计）
+# 用途：当 league_matrix.json 缺该联赛时的兼底。与上表差异时以本表为准。
+#   BRAZIL_SERIE_A  4652 场 → 0.266
+#   PREMIER_LEAGUE  4564 场 → 0.238
+#   LA_LIGA         4564 场 → 0.259
+#   SERIE_A         4566 场 → 0.259
+#   BUNDESLIGA      3697 场 → 0.250
+#   LIGUE_1         4266 场 → 0.255
+#   PRIMEIRA_LIGA   3685 场 → 0.245
+#   EREDIVISIE      3654 场 → 0.235
+#   CHAMPIONS_LEAGUE 2563 场 → 0.219
+#   ARGENTINE_PRIMERA 4638 场 → 0.298
+DRAW_RATE_TRUTH = {
+    "巴甲": 0.266, "英超": 0.238, "西甲": 0.259, "意甲": 0.259,
+    "德甲": 0.250, "法甲": 0.255, "葡超": 0.245, "荷甲": 0.235,
+    "欧冠": 0.219, "阿甲": 0.298, "欧联": 0.241,
+    # league_matrix.json 实测（2026-08-13 快照）
+    "美职联": 0.234,   # n=269
+    "挪超": 0.186,     # n=129
+    "瑞典超": 0.260,   # n=127
+}
+
+# 真实联赛平局率的经验区间（来源：matches.csv 20 个联赛实测，范围 0.219-0.333）
+# 超出此区间的 draw_baseline 一律视为历史错值，在加载时归一。
+DRAW_RATE_PLAUSIBLE_MIN = 0.18
+DRAW_RATE_PLAUSIBLE_MAX = 0.36
+DRAW_RATE_FALLBACK = 0.25
+
+# 联赛名 → matches.csv competition 字段（用于回退统计）
+COMPETITION_ALIASES = {
+    "巴甲": "BRAZIL_SERIE_A", "英超": "PREMIER_LEAGUE", "西甲": "LA_LIGA",
+    "意甲": "SERIE_A", "德甲": "BUNDESLIGA", "法甲": "LIGUE_1",
+    "葡超": "PRIMEIRA_LIGA", "荷甲": "EREDIVISIE", "欧冠": "CHAMPIONS_LEAGUE",
+    "阿甲": "ARGENTINE_PRIMERA_DIVISION", "欧联": "EUROPA_LEAGUE",
 }
 
 
@@ -153,6 +220,91 @@ class LeagueParamsManager:
                     self._params[league] = LeagueParam(**data)
             except Exception:
                 pass
+        self._migrate_draw_baseline()
+        self._backfill_draw_baseline_samples()
+
+    def _migrate_draw_baseline(self):
+        """修正历史上写错的 draw_baseline（2026-10-09）
+
+        背景：旧实现把「判平精度」（draw_hits/draw_predictions）写进了
+        draw_baseline 字段，并把注释标为「该联赛实际平局率」。这两个是完全
+        不同的量：巴甲判平精度 0.60，而巴甲**真实**平局率是 0.266（4652 场）。
+        融合层用 target_d = draw_baseline × draw_strength 抬升平局概率，
+        导致巴甲每场平局概率被钉死在 0.5025。
+
+        由于该值是被持久化到 league_params.json 的，光改代码里的先验表
+        不会生效 —— 旧值已经在磁盘上。这里做一次性迁移：
+        任何与权威实测值（DRAW_RATE_TRUTH）偏差超过 draw_baseline_tolerance
+        的联赛，一律改写为实测值。
+
+        该迁移是幂等的：改写后偏差为 0，下次运行不再触发。
+        """
+        corrected = []
+        for league, param in self._params.items():
+            truth = DRAW_RATE_TRUTH.get(league)
+            if truth is None:
+                # 无权威实测值的联赛：若基线偏离「真实联赛平局率」的经验区间则归一。
+                # 经验区间依据 matches.csv 全量（4652 场巴甲 0.266 / 4564 英超 0.238 /
+                # 4566 意甲 0.259 / 4266 法甲 0.255），20 个联赛实测范围 0.219-0.333。
+                # 旧阈值 0.45 形同虚设 —— 瑞典超 0.43、美职联 0.55 这类错值能直接通过。
+                if (param.draw_baseline > DRAW_RATE_PLAUSIBLE_MAX
+                        or param.draw_baseline < DRAW_RATE_PLAUSIBLE_MIN):
+                    corrected.append((league, param.draw_baseline,
+                                      DRAW_RATE_FALLBACK))
+                    param.draw_baseline = DRAW_RATE_FALLBACK
+                continue
+            if abs(param.draw_baseline - truth) > self.config.draw_baseline_tolerance:
+                corrected.append((league, param.draw_baseline, truth))
+                param.draw_baseline = truth
+        if corrected:
+            self.save()
+            self._last_migration = corrected
+
+    def _backfill_draw_baseline_samples(self, league_matrix_path=None,
+                                        matches_csv_path=None):
+        """回填平局基线的样本场次数。
+
+        draw_baseline 的可信度取决于它是由多少场比赛统计出来的。
+        样本不足的联赛不应据此抬升平局概率（否则一个拍脑袋的常数会
+        直接主导输出）。数据来源按优先级：
+          1. league_matrix.json 的 matches 字段
+          2. matches.csv 实际统计
+        两者都拿不到 → 样本数为 0 → get_effective_draw_baseline 返回 0.0
+        → 融合层跳过该步骤。
+        """
+        # 1) league_matrix.json
+        if league_matrix_path is None:
+            league_matrix_path = self.state_path.parent.parent / "league_matrix.json"
+        lm = None
+        try:
+            p = Path(league_matrix_path)
+            if p.exists():
+                lm = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            lm = None
+        if lm:
+            for entry in lm.get("leagues", []):
+                name = entry.get("name_zh")
+                if name and name in self._params and entry.get("matches") is not None:
+                    self._params[name].draw_baseline_samples = int(entry["matches"])
+
+        # 2) matches.csv 实测（可累加，覆盖上一步）
+        if matches_csv_path is None:
+            matches_csv_path = self.state_path.parent.parent / "historical" / "matches.csv"
+        try:
+            import csv as _csv
+            p = Path(matches_csv_path)
+            if p.exists():
+                with p.open(encoding="utf-8") as f:
+                    for row in _csv.DictReader(f):
+                        comp = row.get("competition")
+                        if not comp:
+                            continue
+                        for zh, alias in COMPETITION_ALIASES.items():
+                            if alias == comp and zh in self._params:
+                                self._params[zh].draw_baseline_samples += 1
+        except Exception:
+            pass
 
     def save(self):
         """持久化"""
@@ -209,8 +361,24 @@ class LeagueParamsManager:
         return self.get_params(league).xg_calibration
 
     def get_draw_baseline(self, league: str) -> float:
-        """获取联赛平局基线（账本实证：美职联 55% / 巴甲 60% / 瑞典超 43%）"""
+        """获取联赛平局基线（**真实平局率**，非判平精度）
+
+        2026-10-09：返回值经 _migrate_draw_baseline 校正，与实测值偏差
+        不得超过 draw_baseline_tolerance。历史值（美职联 0.55 / 巴甲 0.60）
+        已在加载时自动修正为实测值（0.234 / 0.266）。
+        """
         return self.get_params(league).draw_baseline
+
+    def get_effective_draw_baseline(self, league: str) -> float:
+        """融合层应使用的平局基线（带可信度门控）。
+
+        返回 0.0 表示「该联赛的平局基线不可信，不应据此抬升平局概率」。
+        融合层拿到 0.0 时必须跳过 league_draw_baseline 步骤。
+        """
+        p = self.get_params(league)
+        if p.draw_baseline_samples < self.config.draw_baseline_min_n:
+            return 0.0
+        return p.draw_baseline
 
     def get_draw_strength(self, league: str) -> float:
         """获取判平抬升强度（连续自适应，由该联赛判平反馈驱动，不硬关闭）"""

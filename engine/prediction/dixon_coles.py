@@ -111,12 +111,21 @@ class DixonColesModel(PredictionModel):
         # Elo 差项
         elo_term = (home.elo - away.elo) / 400 * cfg.elo_goal_weight
 
+        # attack/defense 是以 1.0 为中心的比例因子（见 elo_updater：
+        # attack≈实际进球/1.35），进入对数域必须以 log() 进入，
+        # 且防守好（defense<1）意味着对手 xG 更低，符号为正（相乘转对数加法）。
+        # 【修复 2026-10-09】此前直接相加并取负号，量纲错 + 符号反。
+        home_atk = math.log(max(0.3, home.attack)) * cfg.attack_weight
+        away_def = math.log(max(0.3, away.defense)) * cfg.defense_weight
+        away_atk = math.log(max(0.3, away.attack)) * cfg.attack_weight
+        home_def = math.log(max(0.3, home.defense)) * cfg.defense_weight
+
         # 主队期望进球
         log_home = (
             base
             + elo_term * 0.5
-            + home.attack * cfg.attack_weight
-            - away.defense * cfg.defense_weight
+            + home_atk
+            + away_def
             + (home.form - away.form) * cfg.form_weight
             + home.injury * cfg.injury_weight
             + (min(home.rest_days, 7) - min(away.rest_days, 7)) * cfg.rest_weight
@@ -127,8 +136,8 @@ class DixonColesModel(PredictionModel):
         log_away = (
             base
             - elo_term * 0.5
-            + away.attack * cfg.attack_weight
-            - home.defense * cfg.defense_weight
+            + away_atk
+            + home_def
             + (away.form - home.form) * cfg.form_weight
             + away.injury * cfg.injury_weight
             + (min(away.rest_days, 7) - min(home.rest_days, 7)) * cfg.rest_weight
