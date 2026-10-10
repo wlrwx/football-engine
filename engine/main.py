@@ -1173,6 +1173,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         score_plan = []
         print(f"  ⚠ 比分串方案生成跳过: {_e}")
 
+    # 2026-10-11 修复：total_stake 只含 stable/value/lottery（Kelly 分配池），
+    # parlay/score_parlay 的注额从未计入 → 真实暴露被系统性低估。
+    # 实测 60 天漏算、合计 1215.20。保留 total_stake 原语义（分配器依赖它），
+    # 另加 parlay_stake 与 total_exposure 两个明确字段。
+    _parlay_stake = (sum(float(getattr(t, "stake", 0) or 0) for t in parlay_plan)
+                     + sum(float(getattr(t, "stake", 0) or 0) for t in score_plan))
+
     # 6.5 场次并集保护（2026-08-07 修复）：Actions 每半小时重跑当天预测，
     # 某次数据源不完整（sporttery WAF 拦截/场次停售）会用少场次覆盖多场次，
     # git 三方合并还会静默吃掉旧场次（8/6 库奥皮奥因此丢失）。
@@ -1233,7 +1240,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "score_parlay": [t.to_dict() for t in score_plan],
             "breaker_status": breaker_status,
             "cppi_budget": risk_budget,
+            # 2026-10-11：total_stake 不含串关，真实暴露见 total_exposure
             "total_stake": plan.total_stake,
+            "parlay_stake": round(_parlay_stake, 2),
+            "total_exposure": round(plan.total_stake + _parlay_stake, 2),
         },
         config_prediction=pred_cfg,
         config_strategy=strat_cfg,
@@ -1277,6 +1287,12 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     _tp_summary = allocator.summary(ticket_plan)
     _tp_summary["parlay"] = [t.to_dict() for t in parlay_plan]
     _tp_summary["score_parlay"] = [t.to_dict() for t in score_plan]
+    _tp_summary["parlay_stake"] = round(_parlay_stake, 2)
+    _tp_summary["total_exposure"] = round(
+        float(_tp_summary.get("total_stake") or 0.0) + _parlay_stake, 2)
+    _tp_summary["_stake_note"] = (
+        "total_stake = Kelly 分配池（stable/value/lottery）；"
+        "total_exposure = total_stake + parlay_stake，才是真实投注额")
     _tp_summary["parlay_calibration"] = {
         "overall": _cal.get("overall", 0.433),
         "n": _cal.get("n", 0),
