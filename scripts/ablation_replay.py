@@ -59,7 +59,18 @@ def load_ledger():
         if r.get("final_prob") and r.get("actual_idx") is not None:
             recs.append(r)
     recs.sort(key=lambda r: (r.get("date", ""), r.get("match_id", "")))
-    return recs
+
+    # 【2026-10-09】账本跨两代融合链：v1（chain 缺失，2026-07-20~08-28，425 场）
+    # 与 v2（2026-08-29 起，概率层重构）。用今天的代码重放 v1 行会带系统性偏差：
+    #   混放两链 replay vs 生产 final 平均平方偏差 0.018（Brier 量级 6%）
+    #   仅 v2                                      0.0001
+    # 旧代码不按 chain 过滤，把 6% 的测量误差混进每次消融的配对检验。
+    # 现在只留当前链，缺失 chain 的旧行不再参与重放（数据已成历史，不可回头）。
+    chain_records = [r for r in recs if r.get("chain") == "v2"]
+    n_old = len(recs) - len(chain_records)
+    if n_old:
+        print(f"[ablation_replay] 已排除 {n_old}/{len(recs)} 场旧链（chain!=v2）行，避免重放偏差")
+    return chain_records
 
 
 def load_daily_features():

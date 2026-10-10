@@ -115,6 +115,18 @@ def check_day(day_str: str) -> list[str]:
     else:
         alerts.append(f"⚠ {day_str}: market_fair 覆盖率不足（{len(mkt_maxs)}/{n}）——市场源缺失")
 
+    # 5. 合成赔率裸奔（2026-10-09）：当数据源缺真实赔率时会合成赔率，
+    #    合成赔率是从 final 概率反推的（1/(final*1.05)），去水后≈final 本身，
+    #    等于把模型自己的输出佯装成市场。此类场次 market_fair=None 时融合
+    #    走 fuse_model_only，概率 100% 来自裸模型，无任何市场锚。
+    #    单独列告警，不让它被笼统的「覆盖率不足」淹没。
+    _synthetic_bare = [p for p in preds
+                       if p.get("odds_synthetic") and not p.get("market_fair")]
+    if _synthetic_bare:
+        alerts.append(
+            f"⚠ {day_str}: {len(_synthetic_bare)}/{n} 场合成赔率且 market_fair=None，"
+            "完全绕过市场融合（裸模型概率）")
+
     return alerts
 
 
