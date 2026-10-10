@@ -1,0 +1,77 @@
+name: Self-Evolving Loop
+
+# 自治进化闭环：定时扫描 → 诊断 → 提出改动 → 自验证 → 开 PR
+#
+# 全自动流水线（非人工触发）：
+#   1. 跑诊断引擎，从账本/预测落盘里主动挖出系统性问题
+#   2. 跑 known_issues 静态清单 + 配置/权重候选
+#   3. 自检（replay 忠实性）不过 → ABORT，不出 PR
+#   4. 裁决：事实性错误走 audit/invariant 通道（不等统计显著性），
+#      效果类走 Brier 配对 + BH-FDR
+#   5. 可自动修复的代码缺陷 → 在工作副本打补丁 + 提取函数执行验证
+#   6. 通过 → 建分支 + commit + 推 PR（不打 tag，不自动合入 main）
+#
+# 合入决策权在主线 agent；本 workflow 只负责「提出 + 验证 + 开 PR」。
+
+on:
+  schedule:
+    # 每天 01:30 UTC（北京时间 09:30），在每日预测结算后运行
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: '进化轮数'
+        required: false
+        default: '2'
+
+permissions:
+  contents: write      # 推分支
+  pull-requests: write # 开 PR
+
+concurrency:
+  group: evolution-loop
+  cancel-in-progress: true
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run self-evolving loop
+        env:
+          EVO_REPO_PATH: ${{ github.workspace }}
+          EVO_OUT_DIR: ${{ github.workspace }}/evolution/out
+        run: |
+          # 闭环纯标准库，零依赖，无需 pip install
+          mkdir -p evolution/out
+          python -m evolution.cycle \
+            --ledger data/state/review_ledger.jsonl \
+            --config config/prediction.json \
+            --out evolution/out \
+            --rounds "${{ inputs.rounds || '2' }}" \
+            --repo "${{ github.workspace }}" \
+            --repo-ref main
+
+      - name: Push auto-fix branches and open PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python evolution/scripts/push_and_pr.py \
+            --out evolution/out \
+            --repo "${{ github.workspace }}"
+
+      - name: Upload loop report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evolution-report
+          path: evolution/out/
+          retention-days: 30
