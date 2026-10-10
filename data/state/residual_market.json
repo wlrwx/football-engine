@@ -1,0 +1,71 @@
+{
+  "n": 31058,
+  "n_refit": 27,
+  "date_range": [
+    "2019-07-26",
+    "2026-08-27"
+  ],
+  "baseline_market_close": {
+    "logloss": 0.97983,
+    "brier": 0.58366,
+    "rps": 0.19816
+  },
+  "challenger_residual": {
+    "logloss": 0.97968,
+    "brier": 0.5836,
+    "rps": 0.19811
+  },
+  "paired_logloss": {
+    "n": 31058,
+    "mean": -0.00015,
+    "t": -1.282,
+    "ci95": [
+      -0.00037,
+      8e-05
+    ],
+    "significant": false
+  },
+  "paired_brier": {
+    "n": 31058,
+    "mean": -6e-05,
+    "t": -0.802,
+    "ci95": [
+      -0.00021,
+      9e-05
+    ],
+    "significant": false
+  },
+  "paired_rps": {
+    "n": 31058,
+    "mean": -4e-05,
+    "t": -1.469,
+    "ci95": [
+      -0.0001,
+      1e-05
+    ],
+    "significant": false
+  },
+  "note": "差值 = challenger − baseline(市场收盘价)，**负 = 市场修正里还有未被收盘价吸收的信息**",
+  "decision_layer": [
+    {
+      "edge_threshold": 0.0,
+      "n_bets": 44895,
+      "roi": -0.0506,
+      "total_pnl_units": -2272.4
+    },
+    {
+      "edge_threshold": 0.02,
+      "n_bets": 461,
+      "roi": -0.0377,
+      "total_pnl_units": -17.4
+    },
+    {
+      "edge_threshold": 0.05,
+      "n_bets": 5,
+      "roi": 0.134,
+      "total_pnl_units": 0.7
+    }
+  ],
+  "decision_note": "按**收盘赔率**下注（市场收盘 overround 约 5.7%，盲买成本 -5.3%）。ROI 为正说明模型修正能覆盖抽水。",
+  "verdict": "E1 未通过：市场收盘价已吸收自身修正 → 任何'预测市场怎么动'的模型都是自欺（这本身是完整结论）"
+}

@@ -863,8 +863,6 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
           f"multiplier={breaker_mult}")
     print(f"  💰 资金池: {actual_bankroll:.0f}")
 
-    # 虚拟投注：不熔断，始终正常投注
-
     # 自适应置信阈值（连败收紧）
     # shadow(虚拟)模式放开；真实下注模式保留最低置信 0.25，避免 0.09 置信的重注
     _activation = strat_cfg.get("activation_mode", "shadow")
@@ -905,7 +903,19 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 造成的 -18% ROI。融合在 evaluate_handicap_ev 内部完成，这里无需额外闸。
 
     # 三票制重分配
-    effective_mult = 1.0  # 虚拟投注不降注
+    # 2026-10-11 修复：此前是 `effective_mult = 1.0  # 虚拟投注不降注`
+    # （提交 f93821560, 2026-07-23），把上面算出的 breaker_mult 整个丢弃 ——
+    # 熔断器"在计算、在打印、从不参与决策"。
+    # 实测后果：circuit_breaker.json 200 条历史里每条 pnl 都是 0.0，
+    # tier 从未 > 0，halted 从未为 true，熔断器自始至终完全惰性。
+    # 现在默认生效；要恢复旧行为在 config/strategy.json 设
+    #   "circuit_breaker": {"enabled": false}
+    _cb_cfg = strat_cfg.get("circuit_breaker", {})
+    if not bool(_cb_cfg.get("enabled", True)):
+        effective_mult = 1.0
+        print("  ⚠ 熔断已在 config/strategy.json 被显式关闭（effective_mult=1.0）")
+    else:
+        effective_mult = breaker_mult
     allocator = ThreeTicketAllocator(
         bankroll=actual_bankroll,
         breaker_multiplier=effective_mult,
@@ -1950,6 +1960,65 @@ def run_settlement(target_date: date):
             losses += 1
         breaker.record_result(won=won, pnl=pnl, bankroll=running_bankroll)
         running_bankroll += pnl
+
+    # 7b) 串关结算（parlay / score_parlay）
+    # 2026-10-11 新增。此前结算只遍历 ("stable","value","lottery") 三个桶，
+    # parlay + score_parlay（403 条计划里的 314 条，占 78%）对熔断器完全不可见。
+    # 实测后果：07-25~07-27 资金 10,000→349,134 的峰值全部来自串关，
+    # 而熔断器一条都没看到；同期单注在止血，两边方向相反。
+    #
+    # 串关必须单独结算：全中才赢，注额是 stake*total_odds 而不是单场赔率。
+    _res_by_mid: dict[str, tuple[int, int]] = {}
+    for n in norm:
+        try:
+            _res_by_mid[n["match_id"]] = (int(n["r"].home_score), int(n["r"].away_score))
+        except Exception:
+            continue
+
+    parlay_n = parlay_settled = parlay_stake = 0
+    parlay_pnl = 0.0
+    for _grp in ("parlay", "score_parlay"):
+        for _e in (ticket_data.get(_grp) or []):
+            legs = _e.get("legs") or []
+            if not legs:
+                continue
+            _stake = float(_e.get("stake") or 0.0)
+            _tot = float(_e.get("total_odds") or 1.0)
+            if _stake <= 0:
+                continue
+            all_hit = True
+            for _leg in legs:
+                _sc = _res_by_mid.get(_leg.get("match", ""))
+                if _sc is None:
+                    all_hit = False       # 该腿还没结算，不下结论
+                    break
+                _hs, _as_ = _sc
+                _pick = _leg.get("sel") or _leg.get("score")
+                if _leg.get("sel"):
+                    _act = "home" if _hs > _as_ else ("draw" if _hs == _as_ else "away")
+                    _ok = (_pick == _act)
+                else:
+                    _ok = (str(_pick) == f"{_hs}-{_as_}")
+                if not _ok:
+                    all_hit = False
+                    break
+            parlay_n += 1
+            _won = all_hit
+            _p = _stake * (_tot - 1.0) if all_hit else -_stake
+            parlay_pnl += _p
+            parlay_stake += _stake
+            if _won:
+                parlay_settled += 1
+            breaker.record_result(won=_won, pnl=_p, bankroll=running_bankroll)
+            running_bankroll += _p
+
+    if parlay_n:
+        print(f"  ✓ 串关 {parlay_settled}/{parlay_n} 中，注额 {parlay_stake:.0f}，"
+              f"PnL {parlay_pnl:+.2f}")
+        total_pnl += parlay_pnl
+        wins += parlay_settled
+        losses += parlay_n - parlay_settled
+
     print(f"  ✓ 命中 {wins}/{wins+losses}, PnL={total_pnl:.2f}")
     print(f"  熔断状态: {breaker.status_report()}")
 
