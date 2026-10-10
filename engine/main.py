@@ -544,7 +544,14 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                       f"{fixture.away_team} {_fresh.away_days}天] 概率收缩 {_fresh.shrink:.0%} "
                       f"→ {'联赛基线' if _baseline else '均势'}")
 
-        _league_db = league_mgr.get_draw_baseline(fixture.competition) if league_mgr else 0.25
+        # 平局基线：必须用**带可信度门控**的版本。
+        # 【2026-10-09】旧代码用 get_draw_baseline() 返回未经门控的值，
+        # 而该值历史上存的是「判平精度」（巴甲 0.60）而非真实平局率
+        # （巴甲 0.266），叠加 draw_strength 后把巴甲平局概率钉死在 0.5025。
+        # get_effective_draw_baseline() 在样本量不足时返回 0.0，
+        # 融合层据此跳过该步骤。
+        _league_db = (league_mgr.get_effective_draw_baseline(fixture.competition)
+                      if league_mgr else 0.0)
         _draw_str = league_mgr.get_draw_strength(fixture.competition) if league_mgr else 0.0
 
         # 校准层自动启用（2026-08-29）：数据状态文件 > config 静态开关。
@@ -722,6 +729,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_fair": (
                 [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
             ),
+            # 市场锚是否真实（2026-10-09）：合成赔率场次 market_fair 由模型概率反推，
+            # 去水后≈模型自身，非真实市场。此标记供账本/页面识别裸奔场次，
+            # 避免把裸模型概率误当市场公允概率混入 EV 计算与校准。
+            "market_is_synthetic": bool(_odds_synthetic) or (calibrated_probs is None and bool(_odds_synthetic)),
             # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
             "fusion_trace": fusion_trace,
             # 双源融合比分候选（DJYY+MC）+ 盘口信号（2026-08-05）
@@ -792,6 +803,16 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # Elo
             "elo_home": round(home_rating.elo, 1),
             "elo_away": round(away_rating.elo, 1),
+            # per-match 模型输入快照（2026-10-09）：attack/defense/form 此前**未落盘**，
+            # 而 team_ratings.json 里这三项被 elo_updater 持续就地改写，是当前值而非
+            # 预测时历史值 → 用当前值离线回放历史场次，忠实率仅 40.5%。
+            # 落盘后可使模型层离线重放忠实率 ≥ 0.95，解锁模型层自动裁决通道。
+            "attack_home": round(float(home_rating.attack), 4),
+            "defense_home": round(float(home_rating.defense), 4),
+            "form_home": round(float(home_rating.form), 4),
+            "attack_away": round(float(away_rating.attack), 4),
+            "defense_away": round(float(away_rating.defense), 4),
+            "form_away": round(float(away_rating.form), 4),
             # 平局预警
             "draw_alert": draw_alert,
             # 开赛时间（新浪有就用新浪的完整时间，否则用体彩 matchDate+matchTime）
