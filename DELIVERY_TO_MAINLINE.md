@@ -1,14 +1,17 @@
-# 主线 agent 交接说明（2026-10-09）
+# 主线 agent 交接说明（2026-10-09 初版 / 2026-10-10 拆 PR 后更新）
 
-分支：`fix/model-dimension-and-draw-baseline`（基于 main `3e44463`）
-提交：2 个，未 push。工作区干净。
+分支：`pr-a-bugfixes`（基于 main `05a83536`）
+定位：**纯 bug 修复 PR**。自治进化闭环是另一个 PR（`pr-b-evolution`），两者互不依赖。
 
 ```
-f2e2d0a  fix: 补齐剩余审计发现的落盘与自检缺陷
-0a513b9  fix: 修复 Dixon-Coles 量纲/符号 bug 与平局基线语义错误
+54bd3592  fix: 修复两个自引入的测试回归，让 CI 转绿
+1663de6e  docs: 主线 agent 交接说明（判定清单与回滚路径）
+7af8db29  fix: 执行 draw_baseline 数据迁移（8 联赛）+ 回收 xg_calibration
+a5135414  fix: 补齐剩余审计发现的落盘与自检缺陷
+77cddfe8  fix: 修复 Dixon-Coles 量纲/符号 bug 与平局基线语义错误
 ```
 
-改动规模：10 文件，+474 / −34。
+改动规模：13 文件，+994 / −397。
 
 **本文件只写「怎么判定」，诊断过程与实测数字见 commit message 和 `evolution/harness/known_issues.py`。**
 
