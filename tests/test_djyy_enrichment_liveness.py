@@ -17,7 +17,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -129,8 +128,7 @@ def test_budget_exhaustion_is_marked(tmp_path, monkeypatch):
         m._djyy = Slow()
         mod.DJYY_ENRICH_MIN_BUDGET = -1.0   # 强制过期
         fixtures = [FakeFixture(1), FakeFixture(2)]
-        mod.enrich_from_djyy.__wrapped__ if False else None
-        out = m.enrich_from_djyy(fixtures, __import__("datetime").date(2026, 10, 12))
+        m.enrich_from_djyy(fixtures, __import__("datetime").date(2026, 10, 12))
         status = json.loads((tmp_path / "djyy_status.json").read_text(encoding="utf-8"))
         assert status["budget_exhausted"] is True
         assert status["healthy"] is False

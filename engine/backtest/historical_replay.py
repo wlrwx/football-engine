@@ -35,13 +35,12 @@ import csv
 import glob
 import json
 import math
-import os
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, Iterator, Optional
+from typing import Optional
 
 import numpy as np
 

@@ -42,7 +42,6 @@ import argparse
 import json
 import math
 import sys
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -52,8 +51,8 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from engine.backtest.historical_replay import (  # noqa: E402
-    HistMatch, compare, devig, line_movement, load_football_data,
-    market_benchmark, paired_test, walk_forward,
+    HistMatch, devig, load_football_data,
+    paired_test, walk_forward,
 )
 
 OUT_JSON = ROOT / "data" / "state" / "gate_test.json"
