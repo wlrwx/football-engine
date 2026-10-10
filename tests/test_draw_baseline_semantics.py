@@ -28,14 +28,24 @@ from engine.learning.league_params import (
 
 
 def test_draw_baseline_is_real_draw_rate_not_precision():
-    """基线语义必须是真实平局率。巴甲真实 0.266，历史错值 0.60。"""
+    """基线语义必须是真实平局率。巴甲真实 0.266，历史错值 0.60。
+
+    这里的正确性断言是对「迁移函数」与「真实平局率表」的校验，
+    而不是对数据类字段的恒等式：LeagueParam 只是容器，draw_baseline
+    字段本身可以暂存错值（0.60），迁移逻辑负责在加载时把它改对。
+    上一版断言 p.draw_baseline != p.draw_precision 是错的——两者在
+    构造时就都可能等于 0.60，必然自相矛盾。
+    """
     assert DRAW_RATE_TRUTH["巴甲"] == 0.266, "巴甲真实平局率基准被改动"
-    # 判平精度与真实平局率是两个量，不允许混用
+    # 判平精度与真实平局率是两个量：
+    # 判平精度 = draw_hits / draw_predictions = 6/10 = 0.60
+    # 真实平局率 = 0.266（这是两个不同的数）
     p = LeagueParam(draw_baseline=0.60, draw_predictions=10, draw_hits=6)
     assert abs(p.draw_precision - 0.60) < 1e-9, "判平精度应仍为 0.60"
-    # 但 draw_baseline 不应由 draw_precision 推导
-    assert p.draw_baseline != p.draw_precision or p.draw_baseline == 0.266, (
-        "draw_baseline 不得等于判平精度（除非恰好等于真实平局率）"
+    assert abs(DRAW_RATE_TRUTH["巴甲"] - 0.266) < 1e-9, "真实平局率应为 0.266"
+    # 关键断言：判平精度(0.60) 不等于 真实平局率(0.266)——两个量不能混同
+    assert abs(p.draw_precision - DRAW_RATE_TRUTH["巴甲"]) > 0.01, (
+        "判平精度与真实平局率被混同——这正是原缺陷"
     )
 
 

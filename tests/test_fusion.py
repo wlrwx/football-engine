@@ -40,7 +40,7 @@ def _reference_inline(
     league_db=0.25,
     draw_str=0.0,
     anchor=None,
-    anchor_w=0.3,
+    anchor_w=0.15,
     iso_fn=None,
     temp_fn=None,
     fresh_apply=None,
@@ -123,8 +123,11 @@ def _reference_inline(
                 final_h -= gap * (final_h / total_ha)
                 final_a -= gap * (final_a / total_ha)
 
-    if league_db >= 0.35 and draw_str >= 0.3:
-        _target_d = max(final_d, league_db * draw_str)
+    # 步骤 7：联赛平局基线（修复后：基线需落在合理区间，且抬升后不超过 0.45）
+    # 修复前旧逻辑：无上限，巴甲 0.60*0.85=0.51 钉死平局
+    _DRAW_REALISTIC_MAX = 0.45
+    if 0.0 < league_db <= _DRAW_REALISTIC_MAX and draw_str >= 0.3:
+        _target_d = min(_DRAW_REALISTIC_MAX, max(final_d, league_db * draw_str))
         _gap = _target_d - final_d
         if _gap > 0.01:
             final_d += _gap
