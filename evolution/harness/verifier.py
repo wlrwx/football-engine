@@ -167,6 +167,17 @@ def judge(cand, base_cfg: dict, base_post: dict, train: list[dict],
     return v
 
 
+def _liveness_gate(c, ctx: dict):
+    """在当前代码上复现 issue，返回 (allow, reason) 或 None（无门控条件）。
+
+    只有传了 repo_path、且该 issue 有活体探针时才门控。
+    """
+    if not ctx.get("repo_path"):
+        return None
+    from . import liveness as LV
+    return LV.gate(c.cid, ctx["repo_path"])
+
+
 def judge_issue(c, base_cfg: dict, base_post: dict, ctx: dict) -> dict:
     """裁决 known_issues 类候选。
 
@@ -243,6 +254,15 @@ def judge_issue(c, base_cfg: dict, base_post: dict, ctx: dict) -> dict:
         if inv is not None:
             verdict["invariant"] = inv
             if inv.get("violated"):
+                # 【收敛性门控】不变式只说明「结构可能违反」，
+                # 但组合开关/锚定表等已在当前代码修好的，历史不变式结果
+                # 不会自动消失。同样要在当前代码上复现。
+                g = _liveness_gate(c, ctx)
+                if g is not None and not g[0]:
+                    verdict["liveness"] = {"allow": False, "reason": g[1]}
+                    verdict["decision"] = "REJECT"
+                    verdict["reason"] = f"当前代码已不复现（{g[1]}）"
+                    return verdict
                 verdict["decision"] = "ACCEPT"
                 verdict["reason"] = (
                     f"检测到不变式违反：{inv.get('detail', '')}。"
@@ -254,6 +274,18 @@ def judge_issue(c, base_cfg: dict, base_post: dict, ctx: dict) -> dict:
 
     # ---- 通道 3：audit + 事实性错误 ----
     if c.auto_mergeable:
+        # 【收敛性门控 2026-10-09】历史账本记录 ≠ 当前代码状态。
+        # 例：巴甲 draw 钉死在 10-09 已修，但账本 08-30~10-08 的 19 场记录
+        # 仍恒为 0.5025，诊断引擎会反复重新发现它，闭环永不收敛。
+        # 因此事实性错误在被 ACCEPT 前，必须在**当前代码**上复现出来。
+        # 复现不了 → 已修复 → 本轮不提；探针不可用 → 保守不提并显式说明。
+        if ctx.get("repo_path"):
+            g = _liveness_gate(c, ctx)
+            if g is not None and not g[0]:
+                verdict["liveness"] = {"allow": False, "reason": g[1]}
+                verdict["decision"] = "REJECT"
+                verdict["reason"] = f"当前代码已不复现（{g[1]}）"
+                return verdict
         verdict["decision"] = "ACCEPT"
         verdict["reason"] = (
             "事实性错误，依据静态证据判定，不依赖统计显著性："
