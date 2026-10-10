@@ -3995,6 +3995,27 @@ def _evo_dashboard(evo=None):
             _detail = f"洁净组 n={v2['n']} · Brier {v2.get('brier', 0):.4f} / 命中 {v2.get('hit_rate', 0)*100:.1f}%"
             if base and base.get("brier"):
                 _detail += f" · 基线 {base['brier']:.4f}"
+        # 2026-10-11: Q1 判定只说明"换链没搞坏"，必须同时展示 Q2（vs 去水市场），
+        # 否则绿色"进化生效"会被读成"系统有 edge"。实测 Q2 = TIED。
+        pvm = tr.get("paired_vs_market") or {}
+        if pvm.get("n", 0) >= 2:
+            m_map = {"BEATING": ("优于市场", "var(--green)"),
+                     "LOSING": ("劣于市场", "var(--red)"),
+                     "TIED": ("与市场持平", "var(--amber)"),
+                     "WARMING_UP": ("与市场持平(样本少)", "var(--dim)"),
+                     "NO_DATA": ("无市场对照", "var(--dim)")}
+            m_label, m_color = m_map.get(pvm.get("verdict"),
+                                          (pvm.get("verdict", "-"), "var(--dim)"))
+            _detail += (f"<br><span style='color:{m_color}'>vs 市场 "
+                        f"{m_label}</span>"
+                        f"（Δ{pvm.get('delta_brier', 0):+.4f} · t={pvm.get('t', 0):+.2f}"
+                        f" · n={pvm.get('n')}）")
+        ew = tr.get("effective_fusion_weights") or {}
+        if ew.get("effective"):
+            e = ew["effective"]
+            _detail += (f"<br><span style='color:var(--dim)'>有效权重 "
+                        f"model {e['model']*100:.1f}% / market {e['market']*100:.1f}%"
+                        f"{' / djyy ' + format(e['djyy']*100, '.1f') + '%' if e.get('djyy') else ' / djyy 0%'}</span>")
         cards.append('<div class="evo-card"><div class="evo-title">升级效果</div>'
                      f'<div class="evo-verdict" style="color:{color}">{label}</div>'
                      f'<div class="evo-detail">{_detail or "chain=v2 样本随结算累积"}</div></div>')
