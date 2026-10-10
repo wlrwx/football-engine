@@ -49,13 +49,21 @@ def collect_autofix(out_dir: Path) -> list[dict]:
 
 
 def push_and_pr(repo_dir: Path, metas: list[dict], dry_run: bool) -> list[str]:
-    """把每个补丁推到 origin 分支并开 PR，返回已创建的 PR URL 列表。"""
+    """把每个补丁推到 origin 分支并开 PR，返回已创建的 PR URL 列表。
+
+    direct 模式：分支已由 apply_code_patch 在真实仓库里 commit（存在 git
+    对象中，可 push）。这里只需 `git push origin <branch>`。
+
+    non-direct 模式：分支只在已删除的 tmp 工作副本里，无法 push；此时
+    用 `git apply` 把 patch 文件应用到 real repo，再重建分支 commit。
+    """
     created = []
     for m in metas:
         branch = m.get("branch", "")
         issue = m.get("issue", "?")
         patch = m.get("patch_file", "")
         verify = m.get("verify", "")
+        direct = bool(m.get("direct"))
         if not branch:
             print(f"[skip] {issue}: 无分支信息")
             continue
@@ -71,27 +79,43 @@ def push_and_pr(repo_dir: Path, metas: list[dict], dry_run: bool) -> list[str]:
         )
 
         if dry_run:
-            print(f"[dry-run] 将推送 {branch} 并开 PR（issue={issue}）")
+            print(f"[dry-run] 将推送 {branch} 并开 PR（issue={issue} direct={direct}）")
             created.append(f"(dry-run) {branch}")
             continue
 
-        # 1. 应用补丁到当前工作副本（若脚本从 autofix 复现）
-        patch_path = Path(patch) if patch and Path(patch).exists() else None
-        if patch_path:
+        # non-direct：分支只存在于已删的 tmp，用 patch 文件重建
+        if not direct:
+            patch_path = Path(patch) if patch and Path(patch).exists() else None
+            if not patch_path:
+                print(f"[fail] {issue}: 非 direct 模式但 patch 文件缺失，无法重建分支")
+                continue
+            # 从 main 切新分支
+            r = subprocess.run(["git", "checkout", "-q", "-B", branch, "main"],
+                               cwd=repo_dir, capture_output=True, text=True)
+            if r.returncode != 0:
+                print(f"[fail] {issue}: 切分支失败: {r.stderr[:200]}")
+                continue
             r = subprocess.run(["git", "apply", str(patch_path)],
                                cwd=repo_dir, capture_output=True, text=True)
             if r.returncode != 0:
                 print(f"[fail] {issue}: git apply 失败: {r.stderr[:200]}")
                 continue
+            r = subprocess.run(
+                ["git", "-c", "user.name=evolution", "-c", "user.email=evolution@local",
+                 "commit", "-q", "-am", f"fix({issue}): 自动进化闭环修复"],
+                cwd=repo_dir, capture_output=True, text=True)
+            if r.returncode != 0:
+                print(f"[fail] {issue}: commit 失败: {r.stderr[:200]}")
+                continue
 
-        # 2. 推分支
+        # 推分支
         r = subprocess.run(["git", "push", "origin", branch],
                            cwd=repo_dir, capture_output=True, text=True)
         if r.returncode != 0:
             print(f"[fail] {issue}: push 失败: {r.stderr[:200]}")
             continue
 
-        # 3. 开 PR
+        # 开 PR
         r = _gh(["pr", "create", "--base", "main", "--head", branch,
                  "--title", f"fix({issue}): 自动进化闭环修复",
                  "--body", body])

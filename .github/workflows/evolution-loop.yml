@@ -58,7 +58,8 @@ jobs:
             --out evolution/out \
             --rounds "${{ inputs.rounds || '2' }}" \
             --repo "${{ github.workspace }}" \
-            --repo-ref main
+            --repo-ref main \
+            --direct
 
       - name: Push auto-fix branches and open PRs
         env:

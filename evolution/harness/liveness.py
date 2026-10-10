@@ -182,6 +182,35 @@ def _probe_ledger_chain(repo: Path) -> tuple[bool, str]:
     return True, "ablation_replay 未按 chain 过滤，重放会混入旧链行"
 
 
+def _probe_asof_bucket(repo: Path) -> tuple[bool, str]:
+    """predictions.json 是否已有 as_of 时间戳（预测时间桶归属的依据）。"""
+    # 该 issue 原为「PREDICTION-TIMING-BUCKET-NO-ASOF」：早期 v1 时代预测
+    # 缺 as_of，无法归属到开赛前 6h/90min/24h 时间桶。post_match.py:497-498
+    # 自 2026-08-16 已落盘 as_of，故本条为过时条目。
+    daily = repo / "data" / "daily"
+    if not daily.exists():
+        return False, "无法读取 data/daily，探针不可用"
+    import json as _json
+    checked = 0
+    for d in sorted(daily.iterdir()):
+        pf = d / "predictions.json"
+        if not pf.exists():
+            continue
+        try:
+            preds = _json.loads(pf.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(preds, dict):
+            preds = preds.get("predictions", preds)
+        for p in preds:
+            checked += 1
+            if not p.get("as_of"):
+                return True, f"{d.name} 仍有预测缺 as_of（as_of 未落盘）"
+    if checked == 0:
+        return False, "未找到任何 predictions.json，探针不可用"
+    return False, f"最近 {checked} 条预测均已落盘 as_of，本条为过时条目，已修复"
+
+
 PROBES = {
     "DRAW-ANCHOR-JUDGMENT-AS-RATE": _probe_draw_baseline,
     "LEAGUE-DRAW-ANCHOR-HARDCODED": _probe_draw_baseline,
@@ -190,7 +219,7 @@ PROBES = {
     "MODEL-REPLAY-UNREPRODUCIBLE": _probe_model_replay_fields,
     "DC-ATTACK-LOG-DIMENSION": _probe_dc_dimension,
     "LEDGER-MULTI-CHAIN-CONTAMINATION": _probe_ledger_chain,
-    "PREDICTION-TIMING-BUCKET-NO-ASOF": _probe_model_replay_fields,
+    "PREDICTION-TIMING-BUCKET-NO-ASOF": _probe_asof_bucket,
     "SYNTHETIC-ODDS-NO-MARKET-ANCHOR": None,  # 需 scan 上下文，见 diagnostics
 }
 
