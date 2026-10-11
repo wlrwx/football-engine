@@ -232,7 +232,6 @@ def test_djyy_base_is_env_overridable():
 
 def test_all_djyy_call_sites_honour_proxy():
     """三处直连点必须全部可配，否则只改一处会出现口径分裂。"""
-    import pathlib
     for f in ("engine/sources/djyy.py", "scripts/fetch_djyy_ssr.py",
               "engine/build_site.py"):
         txt = (ROOT / f).read_text(encoding="utf-8")
