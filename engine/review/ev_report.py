@@ -48,16 +48,14 @@ def gate_passes(odds: float, band_cfg: dict) -> bool:
 
 
 def layer_of(odds: float) -> str:
-    """老系统 L1-L5 赔率分层口径（与竞彩实战一致）"""
-    if odds < 1.5:
-        return "L1 大热(<1.5)"
-    if odds < 1.8:
-        return "L2 热(1.5-1.8)"
-    if odds < 2.2:
-        return "L3 中(1.8-2.2)"
-    if odds < 3.0:
-        return "L4 冷(2.2-3.0)"
-    return "L5 深冷(≥3.0)"
+    """L1-L5 赔率分层（单一真源在 engine/odds_bands.py）。
+
+    2026-10-11：此前本函数与 review/post_match.py 的 _odds_band 各写一份，
+    边界不一致（这里 1.8/2.2，那里 2.0/3.0），导致账本里看不出 L3 缺口。
+    现在统一委派，改边界只需改一处。
+    """
+    from engine.odds_bands import layer_of as _layer_of
+    return _layer_of(odds)
 
 
 def _load_settled_predictions(daily_root: Path) -> list:
