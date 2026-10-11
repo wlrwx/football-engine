@@ -23,6 +23,7 @@ KNOWN_ISSUES 中，闭环可以
   - 每条替换必须唯一命中；命中 0 次或多次都判失败
   - 补丁后的文件必须 py_compile 通过
   - 绝不动 git：只改工作副本，commit 由 git_writer 显式调用
+  - **白名单路径禁触**（2026-10-11 新增，见 FORBIDDEN / assert_patchable）
 """
 
 from __future__ import annotations
@@ -31,6 +32,96 @@ import ast
 import hashlib
 import re
 from dataclasses import dataclass, field
+
+
+# --------------------------------------------------------------- 路径白名单
+
+# 闭环会朝"指标好看"的方向进化。若它能改指标本身，这个闭环就是个奖杯机：
+# 把 brier 的计算改错、把账本改干净、把基线重算一遍，任何"改进"都能凭空造出来。
+# 所以评估层的文件对自动补丁**永久禁触**，改它们只能走人工 review。
+#
+# 注意这里的条目刻意写成**仓库里的真实路径**而不是抽象概念名。workbuddy 的
+# 原始表述是「禁触 metrics/ backtest/ holdout/ ledger/ expectations.json」，
+# 但本仓库根本没有 metrics/ holdout/ ledger/ 这几个目录，也没有
+# expectations.json —— 照字面实现会得到一把**锁住空集**的假锁，
+# 看起来有防护，实际一条都拦不住。这里逐条映射到真实文件。
+FORBIDDEN: tuple[str, ...] = (
+    # backtest/ —— 评估与回放
+    "engine/backtest/",
+    # metrics/ —— 基线与校准状态（等价于「期望值」的存放处）
+    "data/state/market_baseline.json",
+    "data/state/football_data_baselines.json",
+    "data/state/edge_calibration.json",
+    "data/state/calibration_status.json",
+    "engine/prediction/calibration.py",
+    "engine/learning/calibration_auto.py",
+    "engine/learning/score_calibration.py",
+    # ledger/ —— 账本即事实来源，改账本等于改历史
+    "data/state/review_ledger.jsonl",
+    "data/state/ledger_reconcile.json",
+)
+
+# 被禁触的代码符号（文件不在上面，但改了等于绕过）
+FORBIDDEN_SYMBOLS: tuple[str, ...] = (
+    "def brier", "def log_loss", "def rps", "def paired_test",
+    "def evaluate", "def _summarize", "def p_one_sided_from_t",
+    "def benjamini_hochberg", "def load_ledger", "def filter_trusted",
+    "def min_sample",
+)
+
+
+# ForbiddenTarget 继承 PatchError 的实现在文件后段（PatchError 定义处），
+# 这样调用方 catch PatchError 就能同时兜住「补丁失败」和「补丁越权」。
+
+
+def _norm(rel: str) -> str:
+    return str(rel).replace("\\", "/").lstrip("./").lstrip("/")
+
+
+def forbidden_reason(rel: str) -> str:
+    """rel 命中白名单则返回原因，否则返回空串。
+
+    同时覆盖：目录前缀（engine/backtest/）与精确文件（data/state/…json）。
+    """
+    r = _norm(rel)
+    for f in FORBIDDEN:
+        if f.endswith("/"):
+            if r.startswith(f):
+                return f"路径前缀 {f} 属评估层，自动补丁禁触"
+        elif r == f:
+            return f"文件 {f} 属评估层，自动补丁禁触"
+    return ""
+
+
+def forbidden_symbol_reason(src: str) -> str:
+    """源码文本里若出现被保护的指标函数定义则返回原因，否则空串。
+
+    文件不在 FORBIDDEN 名单内、但函数被改名搬走的情况由这道锁兜住。
+    """
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return ""          # 语法错误由 compiles() 负责报，不在这里越权判死
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            sig = f"def {node.name}"
+            for bad in FORBIDDEN_SYMBOLS:
+                if sig == bad:
+                    return (f"源码重定义了受保护的指标函数 {bad}()，"
+                            f"自动补丁禁触（行 {node.lineno}）")
+    return ""
+
+
+def assert_patchable(rel: str, new_text: str | None = None) -> None:
+    """补丁落盘前的总闸。命中任一白名单即抛 ForbiddenTarget。"""
+    why = forbidden_reason(rel)
+    if why:
+        raise ForbiddenTarget(why)
+    if new_text is not None:
+        why = forbidden_symbol_reason(new_text)
+        if why:
+            raise ForbiddenTarget(f"{rel}: {why}")
+
 
 
 # --------------------------------------------------------------- 补丁声明
@@ -74,6 +165,10 @@ class Patch:
 
 class PatchError(Exception):
     pass
+
+
+class ForbiddenTarget(PatchError):
+    """补丁试图改评估层 —— 自动闭环不得触碰，必须人工 review。"""
 
 
 def apply_patch(src: str, patch: Patch) -> str:

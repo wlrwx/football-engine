@@ -8,13 +8,17 @@ on:
   push:
     paths:
       - 'engine/**'
+      - 'evolution/**'
       - 'tests/**'
       - 'scripts/**'
+      - '.github/CODEOWNERS'
       - 'requirements*.txt'
   pull_request:
     paths:
       - 'engine/**'
+      - 'evolution/**'
       - 'tests/**'
+      - '.github/CODEOWNERS'
 
 permissions:
   contents: read

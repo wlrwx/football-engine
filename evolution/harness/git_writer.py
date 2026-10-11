@@ -30,6 +30,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .patch_engine import assert_patchable
+
 
 class GitError(Exception):
     pass
@@ -73,6 +75,15 @@ def make_worktree(repo: Path, ref: str = "main") -> Path:
 
 
 def apply_to_file(root: Path, rel: str, new_text: str) -> Path:
+    """把补丁后的文本落盘。
+
+    【C1 白名单总闸】落盘前先过 patch_engine.assert_patchable。
+    放在这里而不是调用方，是因为这是所有补丁写盘的唯一咽喉 ——
+    无论补丁来自已知缺陷表还是模型提议，都绕不开它。
+    以前这里只有「文件存在吗」一个检查，任何路径都能写，
+    包括评估层（engine/backtest/、账本、基线），那等于让闭环自己改考卷。
+    """
+    assert_patchable(rel, new_text)
     p = root / rel
     if not p.exists():
         raise GitError(f"文件不存在: {rel}")

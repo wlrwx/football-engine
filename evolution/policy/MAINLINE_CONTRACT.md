@@ -177,3 +177,55 @@ verdict == "ACCEPT_NONE" ?
    系数失效，需重新校准。在重校完成前不过度下调，最终值由每周回测裁决。
 3. **候选池靠 adaptive 扩充**：粗网格 24 个跑完即穷尽，
    现补充细网格/温度/校准三族（round 2 新候选 0 → 18）。
+
+---
+
+## 4. 三道锁（2026-10-11 落地，PR 与 auto-patch 同批）
+
+自动进化闭环会朝「指标好看」的方向进化。如果没有下面三道约束，
+它改的可以是**尺子**而不是**被量的东西**，任何实验都能凭空造出想要的结论。
+
+### C1 · patch 白名单禁触评估层
+
+`evolution/harness/patch_engine.py` 的 `FORBIDDEN` + `assert_patchable()`，
+落盘咽喉 `git_writer.apply_to_file()` 强制调用。
+
+| workbuddy 的抽象说法 | 本仓库的真实路径 |
+|---|---|
+| `backtest/` | `engine/backtest/` |
+| `metrics/` | `data/state/{market,football_data}_baseline*.json`、`*calibration*.json`、`engine/prediction/calibration.py` |
+| `ledger/` | `data/state/review_ledger.jsonl`、`data/state/ledger_reconcile.json` |
+| `holdout/`、`expectations.json` | 本仓库不存在 → 映射到 `engine/backtest/` 与 `*calibration*` |
+
+> 刻意写成真实路径而非抽象概念名：照字面实现会得到一把**锁住空集**的假锁，
+> 看着有防护，实际一条都拦不住。`tests/test_patch_whitelist_locks.py` 里有
+> 一条测试逐条核对 `FORBIDDEN` 每个条目都对应仓库里真实存在的路径。
+
+另有一道符号锁：文件不在名单内、但源码里重定义了 `brier` / `log_loss` /
+`rps` / `paired_test` / `benjamini_hochberg` 等指标函数，同样拒绝。
+
+### C2 · 自动 PR 强制附反事实对照
+
+`evolution/harness/counterfactual.py`，由 `push_and_pr.py` 在建分支**之前**调用，
+不合规的补丁连推都不推。
+
+必需字段：`n` / `delta` / `ci_low` / `ci_high`（bootstrap percentile CI，固定 seed 可复现）。
+
+语义验证（bug 确实修好了）与效果对照（指标变好多少）是两件事，本 PR 两者都给。
+用 bootstrap CI 而不是只给 t 值：t 值对离群点极敏感 —— 实测 E2 里亚盘 OLS
+斜率 t=+2.97 看着显著，十分位 ROI 却全为负且非单调，斜率几乎全由离群尾巴撑着。
+
+### C3 · 主指标定义 CODEOWNERS 锁死给人
+
+`.github/CODEOWNERS`。C1 是**代码级**拦截（自动补丁根本改不了），
+C3 是**流程级**兜底（人自己改时也被提醒一句）。两者缺一不可。
+
+有一条测试强制 `FORBIDDEN` 的每个条目都在 CODEOWNERS 里出现，
+防止两份清单各自漂移。
+
+### 回归保护
+
+三道锁的测试放在 `tests/test_patch_whitelist_locks.py`（22 项），
+**不是** `evolution/tests/` —— CI 的 `test.yml` 只跑 `pytest tests/`，
+写在 evolution 下等于没有回归保护。本次同时把 `evolution/**` 与
+`.github/CODEOWNERS` 加进 test.yml 的触发路径。

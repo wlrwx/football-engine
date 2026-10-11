@@ -21,6 +21,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+from evolution.harness.counterfactual import (  # noqa: E402
+    CounterfactualMissing, render_counterfactual_md, require_counterfactual,
+)
+
 
 def _gh(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(["gh"] + args, capture_output=True, text=True)
@@ -68,11 +74,22 @@ def push_and_pr(repo_dir: Path, metas: list[dict], dry_run: bool) -> list[str]:
             print(f"[skip] {issue}: 无分支信息")
             continue
 
+        # C2 硬闸门：没有「不打补丁 vs 打补丁」的配对反事实，就不许开 PR。
+        # 放在建分支之前 —— 不合规的补丁连推都不推。
+        try:
+            cf = require_counterfactual(m)
+        except CounterfactualMissing as ex:
+            print(f"[fail] {issue}: C2 反事实闸门拒绝 —— {ex}")
+            continue
+
         body = (
             f"## 自动进化闭环修复：{issue}\n\n"
             f"**补丁**: `{patch}`\n\n"
-            f"**验证**: {verify}\n\n"
+            f"**语义验证**: {verify}\n\n"
             f"**提交**: `{m.get('commit', '?')[:8]}`\n\n"
+            f"{render_counterfactual_md(cf)}\n"
+            f"> 语义验证（bug 确实修好了）与效果对照（指标变好多少）是两件事，"
+            f"本 PR 两者都给出。\n\n"
             f"> 本 PR 由 self-evolving loop 自动提出并验证，"
             f"**未自动合入**。请主线 agent 裁决。\n"
             f"> 回滚：关闭本 PR 并 `git branch -D {branch}` 即可。\n"

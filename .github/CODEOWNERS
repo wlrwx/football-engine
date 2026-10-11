@@ -1,0 +1,37 @@
+# CODEOWNERS —— 主指标定义锁死给人（C3）
+#
+# 为什么要锁：
+# 闭环会朝"指标好看"的方向进化。如果改指标定义本身不需要人看一眼，
+# 那么"把 brier 算错""把账本清干净""把基线重算一遍"都能伪装成"改进"。
+# 这三样一改，任何实验都能凭空造出想要的结论 —— 整个评估层就失效了。
+#
+# 所以下面这些路径的任何改动都会自动请求 @wlrwx 评审。
+# 注意 C1（patch_engine.FORBIDDEN）是**代码级**拦截，C3 是**流程级**兜底：
+# C1 让自动补丁根本改不了，C3 保证人自己改的时候也被提醒一句。
+# 两者缺一不可 —— C1 只管闭环，C3 管所有人。
+
+# ---- 主指标的定义（判定"变好没变好"的尺子）--------------------------
+/evolution/harness/evaluator.py        @wlrwx
+/evolution/harness/counterfactual.py   @wlrwx
+
+# ---- 基线与期望值（尺子的零点）--------------------------------------
+/data/state/market_baseline.json          @wlrwx
+/data/state/football_data_baselines.json  @wlrwx
+/data/state/edge_calibration.json         @wlrwx
+/data/state/calibration_status.json       @wlrwx
+
+# ---- 账本（事实来源，改账本等于改历史）------------------------------
+/data/state/review_ledger.jsonl   @wlrwx
+/data/state/ledger_reconcile.json @wlrwx
+
+# ---- 校准逻辑（决定概率长什么样）------------------------------------
+/engine/prediction/calibration.py      @wlrwx
+/engine/learning/calibration_auto.py   @wlrwx
+/engine/learning/score_calibration.py  @wlrwx
+
+# ---- 评估与回放（与 C1 的 engine/backtest/ 对应）----------------------
+/engine/backtest/  @wlrwx
+
+# ---- 闸门与实验登记（改判据等于改结论）------------------------------
+/evolution/policy/MAINLINE_CONTRACT.md  @wlrwx
+/docs/EXPERIMENTS.md                    @wlrwx
