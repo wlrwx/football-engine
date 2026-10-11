@@ -1,0 +1,1346 @@
+{
+  "generated_at": "2026-10-11T22:27:16",
+  "n_rows_in": 33058,
+  "n_matches_ah": 66116,
+  "n_matches_ou": 66115,
+  "skipped": {},
+  "note": "信号 = log(市场赔率 / 模型公平赔率)，其中模型公平赔率由 1X2 反解出的独立泊松 (λ_h, λ_a) 定价。结算按亚式（含半赢/半输/走盘），ROI 为每注单位净收益。关键：信号含一个与市场无效率无关的常数偏差（独立泊松拟合 1X2 后总进球被系统性低估约 9%），所以只有去均值口径与回归斜率才可判定。",
+  "asian_handicap": {
+    "n": 66116,
+    "signal_distribution": {
+      "mean": -0.0453,
+      "std": 0.03,
+      "p05": -0.0955,
+      "p95": -0.0026
+    },
+    "signal_demeaned_by_group": {
+      "n_groups": 30,
+      "group_means": {
+        "-0.25": -0.0451,
+        "-0.5": -0.0464,
+        "-0.75": -0.0449,
+        "-1.0": -0.0448,
+        "-1.25": -0.0454,
+        "-1.5": -0.0456,
+        "-1.75": -0.0455,
+        "-2.0": -0.0468,
+        "-2.25": -0.0451,
+        "-2.5": -0.0491,
+        "-2.75": -0.0464,
+        "-3.0": -0.0469,
+        "-3.25": -0.0465,
+        "-3.5": -0.0498,
+        "-3.75": -0.055,
+        "-4.0": -0.1028,
+        "0.0": -0.0436,
+        "0.25": -0.0458,
+        "0.5": -0.0455,
+        "0.75": -0.0435,
+        "1.0": -0.045,
+        "1.25": -0.0461,
+        "1.5": -0.048,
+        "1.75": -0.0465,
+        "2.0": -0.0469,
+        "2.25": -0.0439,
+        "2.5": -0.0414,
+        "2.75": -0.045,
+        "3.0": -0.0402,
+        "3.25": -0.0544
+      }
+    },
+    "signal_demeaned": {
+      "mean": 0.0,
+      "std": 0.03
+    },
+    "regression": {
+      "slope": 0.3352,
+      "t": 2.97,
+      "r2": 0.00013,
+      "intercept": -0.0372,
+      "n": 66116,
+      "note": "单位收益 = a + b·去均值信号。b 的 t 显著才是真信号。"
+    },
+    "scan": [
+      {
+        "basis": "raw",
+        "threshold": 0.0,
+        "direction": "both",
+        "n_bets": 66116,
+        "roi": -0.0372,
+        "t": -11.0,
+        "pnl_units": -2462.7,
+        "hit_rate": 0.4659,
+        "flat_rate": 0.0681
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.0,
+        "direction": "underpriced",
+        "n_bets": 2645,
+        "roi": -0.0093,
+        "t": -0.55,
+        "pnl_units": -24.7,
+        "hit_rate": 0.4722,
+        "flat_rate": 0.0953
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.0,
+        "direction": "overpriced",
+        "n_bets": 63471,
+        "roi": -0.0384,
+        "t": -11.12,
+        "pnl_units": -2438.0,
+        "hit_rate": 0.4657,
+        "flat_rate": 0.067
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.01,
+        "direction": "both",
+        "n_bets": 61226,
+        "roi": -0.0393,
+        "t": -11.15,
+        "pnl_units": -2403.8,
+        "hit_rate": 0.4666,
+        "flat_rate": 0.0646
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.01,
+        "direction": "underpriced",
+        "n_bets": 1059,
+        "roi": -0.0231,
+        "t": -0.85,
+        "pnl_units": -24.4,
+        "hit_rate": 0.4703,
+        "flat_rate": 0.0746
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.01,
+        "direction": "overpriced",
+        "n_bets": 60167,
+        "roi": -0.0395,
+        "t": -11.14,
+        "pnl_units": -2379.4,
+        "hit_rate": 0.4665,
+        "flat_rate": 0.0645
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.02,
+        "direction": "both",
+        "n_bets": 56313,
+        "roi": -0.0377,
+        "t": -10.26,
+        "pnl_units": -2122.9,
+        "hit_rate": 0.4686,
+        "flat_rate": 0.0653
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.02,
+        "direction": "underpriced",
+        "n_bets": 513,
+        "roi": 0.0211,
+        "t": 0.54,
+        "pnl_units": 10.8,
+        "hit_rate": 0.4971,
+        "flat_rate": 0.0624
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.02,
+        "direction": "overpriced",
+        "n_bets": 55800,
+        "roi": -0.0382,
+        "t": -10.36,
+        "pnl_units": -2133.7,
+        "hit_rate": 0.4684,
+        "flat_rate": 0.0653
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.03,
+        "direction": "both",
+        "n_bets": 48079,
+        "roi": -0.0378,
+        "t": -9.52,
+        "pnl_units": -1815.6,
+        "hit_rate": 0.4636,
+        "flat_rate": 0.0697
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.03,
+        "direction": "underpriced",
+        "n_bets": 276,
+        "roi": 0.1034,
+        "t": 1.94,
+        "pnl_units": 28.5,
+        "hit_rate": 0.5435,
+        "flat_rate": 0.0616
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.03,
+        "direction": "overpriced",
+        "n_bets": 47803,
+        "roi": -0.0386,
+        "t": -9.7,
+        "pnl_units": -1844.1,
+        "hit_rate": 0.4632,
+        "flat_rate": 0.0698
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.05,
+        "direction": "both",
+        "n_bets": 25449,
+        "roi": -0.0453,
+        "t": -8.27,
+        "pnl_units": -1153.3,
+        "hit_rate": 0.4597,
+        "flat_rate": 0.0587
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.05,
+        "direction": "underpriced",
+        "n_bets": 97,
+        "roi": 0.0116,
+        "t": 0.13,
+        "pnl_units": 1.1,
+        "hit_rate": 0.4948,
+        "flat_rate": 0.0515
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.05,
+        "direction": "overpriced",
+        "n_bets": 25352,
+        "roi": -0.0455,
+        "t": -8.29,
+        "pnl_units": -1154.5,
+        "hit_rate": 0.4596,
+        "flat_rate": 0.0587
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.08,
+        "direction": "both",
+        "n_bets": 7183,
+        "roi": -0.058,
+        "t": -5.65,
+        "pnl_units": -416.7,
+        "hit_rate": 0.4451,
+        "flat_rate": 0.0816
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.08,
+        "direction": "underpriced",
+        "n_bets": 28,
+        "roi": 0.1573,
+        "t": 0.9,
+        "pnl_units": 4.4,
+        "hit_rate": 0.5714,
+        "flat_rate": 0.0714
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.08,
+        "direction": "overpriced",
+        "n_bets": 7155,
+        "roi": -0.0589,
+        "t": -5.72,
+        "pnl_units": -421.1,
+        "hit_rate": 0.4446,
+        "flat_rate": 0.0816
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.0,
+        "direction": "both",
+        "n_bets": 66116,
+        "roi": -0.0372,
+        "t": -11.0,
+        "pnl_units": -2462.7,
+        "hit_rate": 0.4659,
+        "flat_rate": 0.0681
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.0,
+        "direction": "underpriced",
+        "n_bets": 35905,
+        "roi": -0.0341,
+        "t": -7.44,
+        "pnl_units": -1225.4,
+        "hit_rate": 0.4742,
+        "flat_rate": 0.0699
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.0,
+        "direction": "overpriced",
+        "n_bets": 30211,
+        "roi": -0.041,
+        "t": -8.17,
+        "pnl_units": -1237.3,
+        "hit_rate": 0.4561,
+        "flat_rate": 0.0661
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.01,
+        "direction": "both",
+        "n_bets": 45272,
+        "roi": -0.0401,
+        "t": -9.79,
+        "pnl_units": -1817.0,
+        "hit_rate": 0.4723,
+        "flat_rate": 0.0612
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.01,
+        "direction": "underpriced",
+        "n_bets": 24633,
+        "roi": -0.0332,
+        "t": -5.97,
+        "pnl_units": -818.0,
+        "hit_rate": 0.4835,
+        "flat_rate": 0.0587
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.01,
+        "direction": "overpriced",
+        "n_bets": 20639,
+        "roi": -0.0484,
+        "t": -7.98,
+        "pnl_units": -999.0,
+        "hit_rate": 0.4589,
+        "flat_rate": 0.0642
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.02,
+        "direction": "both",
+        "n_bets": 27509,
+        "roi": -0.0439,
+        "t": -8.35,
+        "pnl_units": -1206.7,
+        "hit_rate": 0.4587,
+        "flat_rate": 0.0724
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.02,
+        "direction": "underpriced",
+        "n_bets": 13749,
+        "roi": -0.0344,
+        "t": -4.63,
+        "pnl_units": -473.3,
+        "hit_rate": 0.4638,
+        "flat_rate": 0.0681
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.02,
+        "direction": "overpriced",
+        "n_bets": 13760,
+        "roi": -0.0533,
+        "t": -7.19,
+        "pnl_units": -733.5,
+        "hit_rate": 0.4536,
+        "flat_rate": 0.0767
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.03,
+        "direction": "both",
+        "n_bets": 16926,
+        "roi": -0.0417,
+        "t": -6.25,
+        "pnl_units": -706.0,
+        "hit_rate": 0.4506,
+        "flat_rate": 0.088
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.03,
+        "direction": "underpriced",
+        "n_bets": 8043,
+        "roi": -0.0228,
+        "t": -2.36,
+        "pnl_units": -183.6,
+        "hit_rate": 0.4568,
+        "flat_rate": 0.0937
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.03,
+        "direction": "overpriced",
+        "n_bets": 8883,
+        "roi": -0.0588,
+        "t": -6.38,
+        "pnl_units": -522.5,
+        "hit_rate": 0.445,
+        "flat_rate": 0.0829
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.05,
+        "direction": "both",
+        "n_bets": 5019,
+        "roi": -0.0467,
+        "t": -3.79,
+        "pnl_units": -234.3,
+        "hit_rate": 0.4545,
+        "flat_rate": 0.0789
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.05,
+        "direction": "underpriced",
+        "n_bets": 1740,
+        "roi": -0.0097,
+        "t": -0.46,
+        "pnl_units": -16.8,
+        "hit_rate": 0.4764,
+        "flat_rate": 0.0833
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.05,
+        "direction": "overpriced",
+        "n_bets": 3279,
+        "roi": -0.0663,
+        "t": -4.38,
+        "pnl_units": -217.4,
+        "hit_rate": 0.4428,
+        "flat_rate": 0.0765
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.08,
+        "direction": "both",
+        "n_bets": 885,
+        "roi": -0.0535,
+        "t": -1.79,
+        "pnl_units": -47.3,
+        "hit_rate": 0.4452,
+        "flat_rate": 0.0881
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.08,
+        "direction": "underpriced",
+        "n_bets": 220,
+        "roi": 0.0852,
+        "t": 1.4,
+        "pnl_units": 18.8,
+        "hit_rate": 0.5364,
+        "flat_rate": 0.0545
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.08,
+        "direction": "overpriced",
+        "n_bets": 665,
+        "roi": -0.0994,
+        "t": -2.91,
+        "pnl_units": -66.1,
+        "hit_rate": 0.415,
+        "flat_rate": 0.0992
+      }
+    ],
+    "deciles": [
+      {
+        "basis": "raw",
+        "decile": 1,
+        "sig_lo": -2.1379,
+        "sig_hi": -0.0816,
+        "n": 6612,
+        "roi": -0.0599,
+        "t": -5.59,
+        "hit_rate": 0.4445
+      },
+      {
+        "basis": "raw",
+        "decile": 2,
+        "sig_lo": -0.0816,
+        "sig_hi": -0.0662,
+        "n": 6611,
+        "roi": -0.0512,
+        "t": -4.78,
+        "hit_rate": 0.4607
+      },
+      {
+        "basis": "raw",
+        "decile": 3,
+        "sig_lo": -0.0662,
+        "sig_hi": -0.0563,
+        "n": 6612,
+        "roi": -0.0398,
+        "t": -3.7,
+        "hit_rate": 0.4716
+      },
+      {
+        "basis": "raw",
+        "decile": 4,
+        "sig_lo": -0.0563,
+        "sig_hi": -0.0489,
+        "n": 6611,
+        "roi": -0.0239,
+        "t": -2.2,
+        "hit_rate": 0.4632
+      },
+      {
+        "basis": "raw",
+        "decile": 5,
+        "sig_lo": -0.0489,
+        "sig_hi": -0.0423,
+        "n": 6612,
+        "roi": -0.0181,
+        "t": -1.71,
+        "hit_rate": 0.4463
+      },
+      {
+        "basis": "raw",
+        "decile": 6,
+        "sig_lo": -0.0423,
+        "sig_hi": -0.0366,
+        "n": 6611,
+        "roi": -0.0436,
+        "t": -4.11,
+        "hit_rate": 0.4538
+      },
+      {
+        "basis": "raw",
+        "decile": 7,
+        "sig_lo": -0.0366,
+        "sig_hi": -0.0313,
+        "n": 6612,
+        "roi": -0.0405,
+        "t": -3.81,
+        "hit_rate": 0.4893
+      },
+      {
+        "basis": "raw",
+        "decile": 8,
+        "sig_lo": -0.0313,
+        "sig_hi": -0.0248,
+        "n": 6611,
+        "roi": -0.0307,
+        "t": -2.84,
+        "hit_rate": 0.5064
+      },
+      {
+        "basis": "raw",
+        "decile": 9,
+        "sig_lo": -0.0248,
+        "sig_hi": -0.0117,
+        "n": 6612,
+        "roi": -0.0461,
+        "t": -4.29,
+        "hit_rate": 0.4663
+      },
+      {
+        "basis": "raw",
+        "decile": 10,
+        "sig_lo": -0.0117,
+        "sig_hi": 0.5554,
+        "n": 6612,
+        "roi": -0.0187,
+        "t": -1.76,
+        "hit_rate": 0.4574
+      },
+      {
+        "basis": "demeaned",
+        "decile": 1,
+        "sig_lo": -2.0899,
+        "sig_hi": -0.0363,
+        "n": 6612,
+        "roi": -0.0582,
+        "t": -5.45,
+        "hit_rate": 0.4448
+      },
+      {
+        "basis": "demeaned",
+        "decile": 2,
+        "sig_lo": -0.0363,
+        "sig_hi": -0.021,
+        "n": 6611,
+        "roi": -0.0528,
+        "t": -4.93,
+        "hit_rate": 0.4598
+      },
+      {
+        "basis": "demeaned",
+        "decile": 3,
+        "sig_lo": -0.021,
+        "sig_hi": -0.011,
+        "n": 6612,
+        "roi": -0.0377,
+        "t": -3.51,
+        "hit_rate": 0.4707
+      },
+      {
+        "basis": "demeaned",
+        "decile": 4,
+        "sig_lo": -0.011,
+        "sig_hi": -0.0037,
+        "n": 6611,
+        "roi": -0.0277,
+        "t": -2.56,
+        "hit_rate": 0.4562
+      },
+      {
+        "basis": "demeaned",
+        "decile": 5,
+        "sig_lo": -0.0037,
+        "sig_hi": 0.0027,
+        "n": 6612,
+        "roi": -0.0144,
+        "t": -1.36,
+        "hit_rate": 0.4448
+      },
+      {
+        "basis": "demeaned",
+        "decile": 6,
+        "sig_lo": 0.0027,
+        "sig_hi": 0.0085,
+        "n": 6611,
+        "roi": -0.0498,
+        "t": -4.69,
+        "hit_rate": 0.4494
+      },
+      {
+        "basis": "demeaned",
+        "decile": 7,
+        "sig_lo": 0.0085,
+        "sig_hi": 0.014,
+        "n": 6612,
+        "roi": -0.0282,
+        "t": -2.65,
+        "hit_rate": 0.4983
+      },
+      {
+        "basis": "demeaned",
+        "decile": 8,
+        "sig_lo": 0.014,
+        "sig_hi": 0.0207,
+        "n": 6611,
+        "roi": -0.0364,
+        "t": -3.35,
+        "hit_rate": 0.511
+      },
+      {
+        "basis": "demeaned",
+        "decile": 9,
+        "sig_lo": 0.0207,
+        "sig_hi": 0.0334,
+        "n": 6612,
+        "roi": -0.0494,
+        "t": -4.58,
+        "hit_rate": 0.4654
+      },
+      {
+        "basis": "demeaned",
+        "decile": 10,
+        "sig_lo": 0.0334,
+        "sig_hi": 0.6034,
+        "n": 6612,
+        "roi": -0.0179,
+        "t": -1.69,
+        "hit_rate": 0.459
+      }
+    ],
+    "robustness": {
+      "raw": {
+        "spearman_decile_roi": 0.418,
+        "monotone": false,
+        "top_decile_roi": -0.0187,
+        "top_decile_t": -1.76,
+        "top_decile_n": 6612,
+        "all_deciles_negative": true
+      },
+      "demeaned": {
+        "spearman_decile_roi": 0.491,
+        "monotone": false,
+        "top_decile_roi": -0.0179,
+        "top_decile_t": -1.69,
+        "top_decile_n": 6612,
+        "all_deciles_negative": true
+      }
+    }
+  },
+  "over_under": {
+    "n": 66115,
+    "signal_distribution": {
+      "mean": -0.0669,
+      "std": 0.1713,
+      "p05": -0.3078,
+      "p95": 0.1666
+    },
+    "signal_demeaned_by_group": {
+      "n_groups": 1,
+      "group_means": {
+        "2.5": -0.0669
+      }
+    },
+    "signal_demeaned": {
+      "mean": -0.0,
+      "std": 0.1713
+    },
+    "regression": {
+      "slope": -0.0402,
+      "t": -1.81,
+      "r2": 5e-05,
+      "intercept": -0.0577,
+      "n": 66115,
+      "note": "单位收益 = a + b·去均值信号。b 的 t 显著才是真信号。"
+    },
+    "scan": [
+      {
+        "basis": "raw",
+        "threshold": 0.0,
+        "direction": "both",
+        "n_bets": 66115,
+        "roi": -0.0577,
+        "t": -15.16,
+        "pnl_units": -3812.2,
+        "hit_rate": 0.5,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.0,
+        "direction": "underpriced",
+        "n_bets": 31241,
+        "roi": -0.0641,
+        "t": -11.37,
+        "pnl_units": -2002.9,
+        "hit_rate": 0.4862,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.0,
+        "direction": "overpriced",
+        "n_bets": 34874,
+        "roi": -0.0519,
+        "t": -10.07,
+        "pnl_units": -1809.3,
+        "hit_rate": 0.5123,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.01,
+        "direction": "both",
+        "n_bets": 65141,
+        "roi": -0.0569,
+        "t": -14.85,
+        "pnl_units": -3704.7,
+        "hit_rate": 0.5006,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.01,
+        "direction": "underpriced",
+        "n_bets": 30680,
+        "roi": -0.0626,
+        "t": -11.01,
+        "pnl_units": -1920.7,
+        "hit_rate": 0.4869,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.01,
+        "direction": "overpriced",
+        "n_bets": 34461,
+        "roi": -0.0518,
+        "t": -10.0,
+        "pnl_units": -1784.0,
+        "hit_rate": 0.5128,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.02,
+        "direction": "both",
+        "n_bets": 64027,
+        "roi": -0.0575,
+        "t": -14.89,
+        "pnl_units": -3680.5,
+        "hit_rate": 0.5004,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.02,
+        "direction": "underpriced",
+        "n_bets": 29890,
+        "roi": -0.0638,
+        "t": -11.08,
+        "pnl_units": -1908.3,
+        "hit_rate": 0.4858,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.02,
+        "direction": "overpriced",
+        "n_bets": 34137,
+        "roi": -0.0519,
+        "t": -10.0,
+        "pnl_units": -1772.2,
+        "hit_rate": 0.5132,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.03,
+        "direction": "both",
+        "n_bets": 62684,
+        "roi": -0.0568,
+        "t": -14.57,
+        "pnl_units": -3560.0,
+        "hit_rate": 0.5007,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.03,
+        "direction": "underpriced",
+        "n_bets": 28824,
+        "roi": -0.0631,
+        "t": -10.75,
+        "pnl_units": -1819.4,
+        "hit_rate": 0.4851,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.03,
+        "direction": "overpriced",
+        "n_bets": 33860,
+        "roi": -0.0514,
+        "t": -9.88,
+        "pnl_units": -1740.6,
+        "hit_rate": 0.5139,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.05,
+        "direction": "both",
+        "n_bets": 58809,
+        "roi": -0.0575,
+        "t": -14.27,
+        "pnl_units": -3383.5,
+        "hit_rate": 0.4986,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.05,
+        "direction": "underpriced",
+        "n_bets": 25519,
+        "roi": -0.0657,
+        "t": -10.43,
+        "pnl_units": -1675.4,
+        "hit_rate": 0.4783,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.05,
+        "direction": "overpriced",
+        "n_bets": 33290,
+        "roi": -0.0513,
+        "t": -9.8,
+        "pnl_units": -1708.1,
+        "hit_rate": 0.5142,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.08,
+        "direction": "both",
+        "n_bets": 50517,
+        "roi": -0.0579,
+        "t": -13.19,
+        "pnl_units": -2922.5,
+        "hit_rate": 0.4932,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.08,
+        "direction": "underpriced",
+        "n_bets": 18295,
+        "roi": -0.0684,
+        "t": -8.95,
+        "pnl_units": -1251.9,
+        "hit_rate": 0.4606,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "raw",
+        "threshold": 0.08,
+        "direction": "overpriced",
+        "n_bets": 32222,
+        "roi": -0.0518,
+        "t": -9.72,
+        "pnl_units": -1670.6,
+        "hit_rate": 0.5117,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.0,
+        "direction": "both",
+        "n_bets": 66115,
+        "roi": -0.0577,
+        "t": -15.16,
+        "pnl_units": -3812.2,
+        "hit_rate": 0.5,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.0,
+        "direction": "underpriced",
+        "n_bets": 33388,
+        "roi": -0.0642,
+        "t": -11.72,
+        "pnl_units": -2142.0,
+        "hit_rate": 0.4866,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.0,
+        "direction": "overpriced",
+        "n_bets": 32727,
+        "roi": -0.051,
+        "t": -9.66,
+        "pnl_units": -1670.1,
+        "hit_rate": 0.5136,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.01,
+        "direction": "both",
+        "n_bets": 65379,
+        "roi": -0.0583,
+        "t": -15.23,
+        "pnl_units": -3812.6,
+        "hit_rate": 0.4987,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.01,
+        "direction": "underpriced",
+        "n_bets": 33036,
+        "roi": -0.0645,
+        "t": -11.73,
+        "pnl_units": -2132.1,
+        "hit_rate": 0.4857,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.01,
+        "direction": "overpriced",
+        "n_bets": 32343,
+        "roi": -0.052,
+        "t": -9.77,
+        "pnl_units": -1680.5,
+        "hit_rate": 0.512,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.02,
+        "direction": "both",
+        "n_bets": 64621,
+        "roi": -0.0578,
+        "t": -14.99,
+        "pnl_units": -3735.6,
+        "hit_rate": 0.4981,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.02,
+        "direction": "underpriced",
+        "n_bets": 32716,
+        "roi": -0.0638,
+        "t": -11.54,
+        "pnl_units": -2088.6,
+        "hit_rate": 0.4855,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.02,
+        "direction": "overpriced",
+        "n_bets": 31905,
+        "roi": -0.0516,
+        "t": -9.62,
+        "pnl_units": -1647.0,
+        "hit_rate": 0.5109,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.03,
+        "direction": "both",
+        "n_bets": 63881,
+        "roi": -0.0581,
+        "t": -14.97,
+        "pnl_units": -3711.8,
+        "hit_rate": 0.497,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.03,
+        "direction": "underpriced",
+        "n_bets": 32441,
+        "roi": -0.0641,
+        "t": -11.54,
+        "pnl_units": -2078.4,
+        "hit_rate": 0.4853,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.03,
+        "direction": "overpriced",
+        "n_bets": 31440,
+        "roi": -0.052,
+        "t": -9.59,
+        "pnl_units": -1633.4,
+        "hit_rate": 0.5091,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.05,
+        "direction": "both",
+        "n_bets": 62134,
+        "roi": -0.0586,
+        "t": -14.86,
+        "pnl_units": -3639.6,
+        "hit_rate": 0.4951,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.05,
+        "direction": "underpriced",
+        "n_bets": 31873,
+        "roi": -0.0644,
+        "t": -11.52,
+        "pnl_units": -2052.1,
+        "hit_rate": 0.4857,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.05,
+        "direction": "overpriced",
+        "n_bets": 30261,
+        "roi": -0.0525,
+        "t": -9.44,
+        "pnl_units": -1587.4,
+        "hit_rate": 0.505,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.08,
+        "direction": "both",
+        "n_bets": 58468,
+        "roi": -0.0577,
+        "t": -14.14,
+        "pnl_units": -3374.6,
+        "hit_rate": 0.4925,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.08,
+        "direction": "underpriced",
+        "n_bets": 30469,
+        "roi": -0.0629,
+        "t": -11.03,
+        "pnl_units": -1917.3,
+        "hit_rate": 0.4866,
+        "flat_rate": 0.0
+      },
+      {
+        "basis": "demeaned",
+        "threshold": 0.08,
+        "direction": "overpriced",
+        "n_bets": 27999,
+        "roi": -0.052,
+        "t": -8.91,
+        "pnl_units": -1457.3,
+        "hit_rate": 0.4989,
+        "flat_rate": 0.0
+      }
+    ],
+    "deciles": [
+      {
+        "basis": "raw",
+        "decile": 1,
+        "sig_lo": -2.6974,
+        "sig_hi": -0.2804,
+        "n": 6612,
+        "roi": -0.064,
+        "t": -4.98,
+        "hit_rate": 0.4567
+      },
+      {
+        "basis": "raw",
+        "decile": 2,
+        "sig_lo": -0.2804,
+        "sig_hi": -0.2461,
+        "n": 6611,
+        "roi": -0.0494,
+        "t": -4.02,
+        "hit_rate": 0.4878
+      },
+      {
+        "basis": "raw",
+        "decile": 3,
+        "sig_lo": -0.2461,
+        "sig_hi": -0.2133,
+        "n": 6612,
+        "roi": -0.0467,
+        "t": -3.94,
+        "hit_rate": 0.507
+      },
+      {
+        "basis": "raw",
+        "decile": 4,
+        "sig_lo": -0.2133,
+        "sig_hi": -0.164,
+        "n": 6611,
+        "roi": -0.045,
+        "t": -3.97,
+        "hit_rate": 0.5314
+      },
+      {
+        "basis": "raw",
+        "decile": 5,
+        "sig_lo": -0.164,
+        "sig_hi": -0.0573,
+        "n": 6611,
+        "roi": -0.049,
+        "t": -4.77,
+        "hit_rate": 0.5883
+      },
+      {
+        "basis": "raw",
+        "decile": 6,
+        "sig_lo": -0.0573,
+        "sig_hi": 0.0453,
+        "n": 6612,
+        "roi": -0.0633,
+        "t": -5.21,
+        "hit_rate": 0.507
+      },
+      {
+        "basis": "raw",
+        "decile": 7,
+        "sig_lo": 0.0453,
+        "sig_hi": 0.0741,
+        "n": 6611,
+        "roi": -0.0518,
+        "t": -4.54,
+        "hit_rate": 0.5296
+      },
+      {
+        "basis": "raw",
+        "decile": 8,
+        "sig_lo": 0.0741,
+        "sig_hi": 0.101,
+        "n": 6612,
+        "roi": -0.0767,
+        "t": -6.53,
+        "hit_rate": 0.4955
+      },
+      {
+        "basis": "raw",
+        "decile": 9,
+        "sig_lo": 0.101,
+        "sig_hi": 0.1369,
+        "n": 6611,
+        "roi": -0.0357,
+        "t": -2.88,
+        "hit_rate": 0.488
+      },
+      {
+        "basis": "raw",
+        "decile": 10,
+        "sig_lo": 0.1369,
+        "sig_hi": 0.5965,
+        "n": 6612,
+        "roi": -0.0948,
+        "t": -6.96,
+        "hit_rate": 0.4088
+      },
+      {
+        "basis": "demeaned",
+        "decile": 1,
+        "sig_lo": -2.6306,
+        "sig_hi": -0.2135,
+        "n": 6612,
+        "roi": -0.064,
+        "t": -4.98,
+        "hit_rate": 0.4567
+      },
+      {
+        "basis": "demeaned",
+        "decile": 2,
+        "sig_lo": -0.2135,
+        "sig_hi": -0.1792,
+        "n": 6611,
+        "roi": -0.0494,
+        "t": -4.02,
+        "hit_rate": 0.4878
+      },
+      {
+        "basis": "demeaned",
+        "decile": 3,
+        "sig_lo": -0.1792,
+        "sig_hi": -0.1464,
+        "n": 6612,
+        "roi": -0.0467,
+        "t": -3.94,
+        "hit_rate": 0.507
+      },
+      {
+        "basis": "demeaned",
+        "decile": 4,
+        "sig_lo": -0.1464,
+        "sig_hi": -0.0971,
+        "n": 6611,
+        "roi": -0.045,
+        "t": -3.97,
+        "hit_rate": 0.5314
+      },
+      {
+        "basis": "demeaned",
+        "decile": 5,
+        "sig_lo": -0.0971,
+        "sig_hi": 0.0095,
+        "n": 6611,
+        "roi": -0.049,
+        "t": -4.77,
+        "hit_rate": 0.5883
+      },
+      {
+        "basis": "demeaned",
+        "decile": 6,
+        "sig_lo": 0.0095,
+        "sig_hi": 0.1121,
+        "n": 6612,
+        "roi": -0.0633,
+        "t": -5.21,
+        "hit_rate": 0.507
+      },
+      {
+        "basis": "demeaned",
+        "decile": 7,
+        "sig_lo": 0.1121,
+        "sig_hi": 0.1409,
+        "n": 6611,
+        "roi": -0.0518,
+        "t": -4.54,
+        "hit_rate": 0.5296
+      },
+      {
+        "basis": "demeaned",
+        "decile": 8,
+        "sig_lo": 0.1409,
+        "sig_hi": 0.1679,
+        "n": 6612,
+        "roi": -0.0767,
+        "t": -6.53,
+        "hit_rate": 0.4955
+      },
+      {
+        "basis": "demeaned",
+        "decile": 9,
+        "sig_lo": 0.1679,
+        "sig_hi": 0.2038,
+        "n": 6611,
+        "roi": -0.0357,
+        "t": -2.88,
+        "hit_rate": 0.488
+      },
+      {
+        "basis": "demeaned",
+        "decile": 10,
+        "sig_lo": 0.2038,
+        "sig_hi": 0.6633,
+        "n": 6612,
+        "roi": -0.0948,
+        "t": -6.96,
+        "hit_rate": 0.4088
+      }
+    ],
+    "robustness": {
+      "raw": {
+        "spearman_decile_roi": -0.212,
+        "monotone": false,
+        "top_decile_roi": -0.0948,
+        "top_decile_t": -6.96,
+        "top_decile_n": 6612,
+        "all_deciles_negative": true
+      },
+      "demeaned": {
+        "spearman_decile_roi": -0.212,
+        "monotone": false,
+        "top_decile_roi": -0.0948,
+        "top_decile_t": -6.96,
+        "top_decile_n": 6612,
+        "all_deciles_negative": true
+      }
+    }
+  },
+  "regression_verdict": {
+    "asian_handicap": {
+      "slope": 0.3352,
+      "t": 2.97,
+      "r2": 0.00013,
+      "intercept": -0.0372,
+      "n": 66116,
+      "note": "单位收益 = a + b·去均值信号。b 的 t 显著才是真信号。"
+    },
+    "over_under": {
+      "slope": -0.0402,
+      "t": -1.81,
+      "r2": 5e-05,
+      "intercept": -0.0577,
+      "n": 66115,
+      "note": "单位收益 = a + b·去均值信号。b 的 t 显著才是真信号。"
+    }
+  },
+  "verdict": "E2 未通过：asian_handicap 十分位非单调(Spearman=0.491)、最高十分位 ROI=-0.0179 未为正；over_under 斜率不显著(t=-1.81)、十分位非单调(Spearman=-0.212)、最高十分位 ROI=-0.0948 未为正"
+}

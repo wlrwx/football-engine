@@ -68,6 +68,11 @@ class HistMatch:
     # 收盘亚盘线（让球数）与收盘大小球线
     ah_line: Optional[float] = None
     ou_line: Optional[float] = None
+    # 2026-10-11 新增（E2 跨盘口实验用）：收盘亚盘/大小球的实际报价
+    ah_home_odds: Optional[float] = None
+    ah_away_odds: Optional[float] = None
+    ou_over_odds: Optional[float] = None
+    ou_under_odds: Optional[float] = None
     # 跨公司分歧：Max - Avg，越大说明各家分歧越高
     book_disp: Optional[float] = None
     shots: Optional[tuple[int, int]] = None
@@ -174,6 +179,10 @@ def load_football_data(raw_dir: Path = RAW_DIR) -> list[HistMatch]:
                         open_=_triplet(r, "AvgH", "AvgD", "AvgA"),
                         ah_line=_f(r.get("AHCh")) if _f(r.get("AHCh")) is not None else _f(r.get("AHh")),
                         ou_line=_f(r.get("AvgC>2.5")),
+                        ah_home_odds=_f(r.get("AvgCAHH")) or _f(r.get("AvgAHH")),
+                        ah_away_odds=_f(r.get("AvgCAHA")) or _f(r.get("AvgAHA")),
+                        ou_over_odds=_f(r.get("AvgC>2.5")),
+                        ou_under_odds=_f(r.get("AvgC<2.5")),
                         book_disp=disp,
                         shots=((_i(r.get("HS")), _i(r.get("AS")))
                                if _i(r.get("HS")) is not None and _i(r.get("AS")) is not None else None),
@@ -187,6 +196,23 @@ def load_football_data(raw_dir: Path = RAW_DIR) -> list[HistMatch]:
 
 
 # ---------------------------------------------------------------- 去抽水
+
+def devig2(odds: tuple[float, float], method: str = "proportional") -> tuple[float, float]:
+    """两路市场（大小球）去抽水。devig() 只处理三路。"""
+    inv = np.array([1.0 / o for o in odds])
+    overround = inv.sum()
+    if method == "power":
+        lo, hi = 0.5, 3.0
+        for _ in range(60):
+            k = (lo + hi) / 2
+            if (inv ** k).sum() > 1:
+                lo = k
+            else:
+                hi = k
+        pr = inv ** ((lo + hi) / 2)
+        return float(pr[0] / pr.sum()), float(pr[1] / pr.sum())
+    return float(inv[0] / overround), float(inv[1] / overround)
+
 
 def devig(odds: tuple[float, float, float], method: str = "proportional") -> tuple[float, float, float]:
     """把博彩赔率转成无水位概率。
@@ -305,6 +331,8 @@ def inventory(matches: list[HistMatch]) -> dict:
         "with_open_and_close": len(both),
         "with_closing_ah_line": sum(1 for m in matches if m.ah_line is not None),
         "with_closing_ou_line": sum(1 for m in matches if m.ou_line is not None),
+        "with_closing_ah_prices": sum(1 for m in matches if m.ah_home_odds and m.ah_away_odds),
+        "with_closing_ou_prices": sum(1 for m in matches if m.ou_over_odds and m.ou_under_odds),
         "with_shots": sum(1 for m in matches if m.shots),
         "with_ht_score": sum(1 for m in matches if m.ht_score),
         "book_disp_available": sum(1 for m in matches if m.book_disp is not None),
