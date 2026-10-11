@@ -185,12 +185,20 @@ def test_api_test_probe_wired():
     assert "date.today()" in djyy_block, "DJYY 探针应用当天窗口"
 
 
-def test_api_test_yaml_parses_and_probe_runs():
+def test_api_test_probe_script_is_valid_python():
+    """YAML `run: |` 里的内嵌脚本必须能被抽出并解析。
+
+    刻意不 import yaml —— CI 的 requirements-dev.txt 只有 pytest 和 ruff，
+    没有 PyYAML（PR#11 已在这个问题上红过一次）。
+    直接按 PYEOF 标记做文本抽取即可。
+    """
     import ast
-    import yaml
-    d = yaml.safe_load((ROOT / ".github" / "workflows" / "api-test.yml").read_text(encoding="utf-8"))
-    run = [s for s in d["jobs"]["connectivity"]["steps"]
-           if s.get("name") == "Test all APIs"][0]["run"]
-    lines = run.splitlines()
-    start = next(i for i, l in enumerate(lines) if "PYEOF" in l)
-    ast.parse("\n".join(lines[start + 1:]))
+    txt = (ROOT / ".github" / "workflows" / "api-test.yml").read_text(encoding="utf-8")
+    lines = txt.splitlines()
+    start = next(i for i, l in enumerate(lines) if "PYEOF" in l and "<<" in l)
+    end = next(i for i, l in enumerate(lines) if i > start and "PYEOF" in l)
+    # YAML 块标量统一缩进 10 空格，剥离后即为脚本本体
+    body = []
+    for l in lines[start + 1:end]:
+        body.append(l[10:] if l.startswith(" " * 10) else l)
+    ast.parse("\n".join(body))
