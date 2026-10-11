@@ -125,28 +125,24 @@ def test_health_check_does_not_need_checkout():
     但该 job 刻意不 checkout（原注释"用 gh api 触发，不需要 git checkout"），
     于是以 ModuleNotFoundError 失败（2026-10-11 01:33 实测）。
     修正为：由 daily-forecast（有 checkout）计算并提交，本 job 只用 gh api 读结果。
+
+    刻意不 import yaml —— CI 环境未安装 PyYAML，且这里的断言用文本匹配足够。
     """
-    import yaml
-    wf = yaml.safe_load(
-        (ROOT / ".github" / "workflows" / "health-check.yml").read_text(encoding="utf-8"))
-    steps = wf["jobs"]["check"]["steps"]
-    uses = [s.get("uses", "") for s in steps]
-    assert not any("checkout" in u for u in uses), \
-        "health-check job 不应新增 checkout（会破坏其无依赖设计）"
-    body = "\n".join(s.get("run", "") for s in steps)
-    assert "engine.odds_series_coverage" not in body, \
+    yml = (ROOT / ".github" / "workflows" / "health-check.yml").read_text(encoding="utf-8")
+    # 只看非注释行 —— 注释里引用被删掉的旧命令是正常的说明，不算回归。
+    # （这个坑本会话已踩过两次，见 upgrade_tracker / parlay 测试）
+    code = "\n".join(ln for ln in yml.splitlines() if not ln.strip().startswith("#"))
+    assert "actions/checkout" not in code, \
+        "health-check 不得新增 checkout（会破坏其无依赖设计）"
+    assert "python -m engine.odds_series_coverage" not in code, \
         "health-check 不得直接调用本地模块（没有 checkout）"
-    assert "gh api" in body, "应改为用 gh api 读已提交的覆盖率结果"
+    assert "gh api" in code, "应改为用 gh api 读已提交的覆盖率结果"
 
 
 def test_daily_forecast_computes_coverage():
     """daily-forecast 有 checkout 且会提交 data/，覆盖率必须在那里算。"""
-    import yaml
-    wf = yaml.safe_load(
-        (ROOT / ".github" / "workflows" / "daily-forecast.yml").read_text(encoding="utf-8"))
-    steps = wf["jobs"]["forecast"]["steps"]
-    assert any("checkout" in (s.get("uses", "")) for s in steps)
-    assert any("python -m engine.odds_series_coverage" in (s.get("run", ""))
-               for s in steps), "daily-forecast 必须计算覆盖率"
-    gitadd = "\n".join(s.get("run", "") for s in steps)
-    assert "git add data/" in gitadd, "必须提交 data/，否则 health-check 读不到结果"
+    yml = (ROOT / ".github" / "workflows" / "daily-forecast.yml").read_text(encoding="utf-8")
+    assert "actions/checkout" in yml, "daily-forecast 必须有 checkout"
+    assert "python -m engine.odds_series_coverage" in yml, \
+        "daily-forecast 必须计算覆盖率"
+    assert "git add data/" in yml, "必须提交 data/，否则 health-check 读不到结果"
