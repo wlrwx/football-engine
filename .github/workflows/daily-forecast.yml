@@ -145,6 +145,23 @@ jobs:
               pass
           EOF
 
+      # 2026-10-11：刷新评估类报告。
+      #
+      # 此前 upgrade_tracker / edge_calibration / config_audit **没有任何 workflow
+      # 调用**，全是人工跑一次提交到仓库，然后就永远不再更新。实测后果：
+      #   upgrade_tracker.json 在 main 上仍是 PR#6 之前的旧 schema
+      #     → 网页至今显示旧的误导性「进化生效」，而修复后的 Q1/Q2 拆分从未生效
+      #   edge_calibration.json 陈旧 11 天
+      #
+      # 三个生成器都在 2 秒内，放进 30 分钟的 job 无负担。
+      # 耗时实验类（historical_replay / gate_test / residual_market，15-40 分钟）
+      # **不放这里**，应由 backtest-weekly 或手动触发。
+      - name: Refresh evaluation reports
+        run: |
+          python scripts/upgrade_tracker.py || echo "::warning::upgrade_tracker 失败（网页判定将停留在旧值）"
+          python scripts/edge_calibration.py || echo "::warning::edge_calibration 失败"
+          python -m engine.config_audit --strict || echo "::warning::config 审计失败"
+
       - name: Build site
         run: python engine/build_site.py
 

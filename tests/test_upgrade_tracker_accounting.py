@@ -161,3 +161,80 @@ def test_baseline_n_not_hardcoded():
     src = (ROOT / "scripts" / "upgrade_tracker.py").read_text(encoding="utf-8")
     assert '"n": ref and 426' not in src
     assert "ref and 426" not in src
+
+
+# ---------- DJYY 存活判定阈值（PR#14 修正） ----------
+
+def test_djyy_threshold_is_not_merely_positive():
+    """回归：0.72% 命中率不得被判定为"存活"。
+
+    原实现是 `hit_rate > 0.0`，于是 CI 侧被 Cloudflare 403 拦截期间
+    （4/558 = 0.7%）也被当成完全存活，有效权重就等于原始权重
+    （model 0.05 / market 0.75 / djyy 0.2），
+    而真实情况是 djyy 几乎从不生效、权重被摊回 model/market。
+    """
+    assert ut.DJYY_MIN_HIT_RATE == 0.5, "存活阈值必须显式且非零"
+    assert 0.0072 < ut.DJYY_MIN_HIT_RATE, "实测 0.72% 应判为未接线"
+
+
+def test_effective_weights_when_djyy_dead(tmp_path, monkeypatch):
+    """djyy 未接线时，有效权重必须是归一化后的 6.25% / 93.75%。"""
+    fw = tmp_path / "fw.json"
+    fw.write_text(json.dumps({"champion": {"model": 0.05, "market": 0.75, "djyy": 0.2}}))
+    monkeypatch.setattr(ut, "FUSION_W", fw)
+    # 4/558 命中 —— 与真实账本一致
+    dead = [{"djyy_prob": None} for _ in range(554)] + \
+           [{"djyy_prob": {"home": .4, "draw": .3, "away": .3}} for _ in range(4)]
+    out = ut.effective_weights(dead)
+    assert out["effective"]["djyy"] == 0.0
+    assert out["effective"]["model"] == pytest.approx(0.0625, abs=1e-4)
+    assert out["effective"]["market"] == pytest.approx(0.9375, abs=1e-4)
+    assert out["note"], "未接线必须给出说明"
+
+
+def test_effective_weights_when_djyy_healthy(tmp_path, monkeypatch):
+    """djyy 真存活时三路权重原样生效。"""
+    fw = tmp_path / "fw.json"
+    fw.write_text(json.dumps({"champion": {"model": 0.05, "market": 0.75, "djyy": 0.2}}))
+    monkeypatch.setattr(ut, "FUSION_W", fw)
+    live = [{"djyy_prob": {"home": .4, "draw": .3, "away": .3}} for _ in range(100)]
+    out = ut.effective_weights(live)
+    assert out["effective"]["djyy"] == pytest.approx(0.20, abs=1e-4)
+    assert out["effective"]["model"] == pytest.approx(0.05, abs=1e-4)
+
+
+def test_effective_weights_boundary(tmp_path, monkeypatch):
+    """恰好在阈值上算存活，低于则算未接线。"""
+    fw = tmp_path / "fw.json"
+    # 必须给 djyy 一个非零名义权重，否则死活都算 0，测不出阈值
+    fw.write_text(json.dumps({"champion": {"model": 0.05, "market": 0.75, "djyy": 0.20}}))
+    monkeypatch.setattr(ut, "FUSION_W", fw)
+    at = [{"djyy_prob": {"h": .3}} for _ in range(50)] + \
+         [{"djyy_prob": None} for _ in range(50)]     # 恰好 0.5
+    assert ut.effective_weights(at)["effective"]["djyy"] > 0
+    below = [{"djyy_prob": {"h": .3}} for _ in range(49)] + \
+            [{"djyy_prob": None} for _ in range(51)]  # 0.49
+    assert ut.effective_weights(below)["effective"]["djyy"] == 0.0
+
+
+# ---------- CI 接线（PR#14） ----------
+
+def test_reports_regenerated_in_ci():
+    """评估类报告必须由 CI 刷新。
+
+    回归动机：此前 upgrade_tracker / edge_calibration / config_audit
+    **没有任何 workflow 调用**，全是人工跑一次提交，然后就永远陈旧。
+    实测 upgrade_tracker.json 在 main 上仍是修复前的旧 schema
+    → 网页至今显示旧的误导性「进化生效」。
+    """
+    txt = (ROOT / ".github" / "workflows" / "daily-forecast.yml").read_text(encoding="utf-8")
+    code = "\n".join(l for l in txt.splitlines() if not l.strip().startswith("#"))
+    for gen in ("scripts/upgrade_tracker.py", "scripts/edge_calibration.py",
+                "engine.config_audit"):
+        assert gen in code, f"{gen} 必须由 CI 刷新，否则会永久陈旧"
+    # 耗时实验类不应混进 30 分钟的 job
+    for heavy in ("gate_test", "residual_market", "historical_replay"):
+        assert f"engine.backtest.{heavy}" not in code, \
+            f"{heavy} 耗时 15-40 分钟，不应放进 30 分钟的 daily job"
+    # YAML 必须仍可被解析出结构
+    assert "Refresh evaluation reports" in txt

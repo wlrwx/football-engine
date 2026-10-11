@@ -45,6 +45,10 @@ OUT = ROOT / "data" / "state" / "upgrade_tracker.json"
 SCHEMA_VERSION = 2
 MIN_N_VERDICT = 30          # 低于此不做判定
 MIN_N_MARKET = 30           # vs 市场判定所需最小配对样本
+# DJYY 命中率低于此值即视为"未接线"（名义权重不产生贡献）。
+# 实测：CI 侧被 Cloudflare 403 拦截期间为 4/558 = 0.7%；
+# 恢复后应回到 50%+。取 0.5 是因为低于一半就谈不上"参与融合"。
+DJYY_MIN_HIT_RATE = 0.5
 
 
 def brier(p, a):
@@ -177,12 +181,16 @@ def effective_weights(v2_recs):
     out["source"] = "data/state/fusion_weights.json#champion"
     out["raw"] = {"model": m, "market": k, "djyy": d}
 
-    # 用账本实测 DJYY 在当前链的命中率，而不是相信权重文件里的声明
+    # 用账本实测 DJYY 在当前链的命中率，而不是相信权重文件里的声明。
+    # 2026-10-11 修正：判定阈值原先是 `> 0.0`，于是 4/558 = 0.72% 这种
+    # "基本已死"的状态也被当成"完全存活"，有效权重就等于原始权重，
+    # 而真实情况是 djyy 名义 0.2 几乎从不生效、权重被摊回 model/market。
+    # 改为显式阈值：命中率低于该值即视为未接线。
     n2 = len(v2_recs)
     hits2 = sum(1 for r in v2_recs if r.get("djyy_prob"))
     hit_rate = (hits2 / n2) if n2 else 0.0
     out["djyy_hit_rate"] = round(hit_rate, 4)
-    djyy_live = hit_rate > 0.0
+    djyy_live = hit_rate >= DJYY_MIN_HIT_RATE
 
     tw = (m or 0) + (k or 0) + ((d or 0) if djyy_live else 0)
     if tw <= 0:
