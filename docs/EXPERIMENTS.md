@@ -123,6 +123,53 @@ PnL 曾在三个互不勾稽的地方，且账本长期缺失 2026-07-22~08-03 �
 扩窗口能否把 3.6% 拉起来需要**等若干天真实运行才能验证** ——
 在此之前不要启动 CLV 类实验。
 
+## DJYY 在 CI 侧被 Cloudflare 拦截（2026-10-11 确诊）
+
+用 `API Connectivity Test` workflow 在 GitHub Actions 上实测：
+
+```
+4. DJYY (djyylive.com)
+HTTP: 403                    ← CI 侧
+BLOCKED! Body: <html>...
+```
+
+同一时刻本地 `curl` 返回 **200**（并能取到 181 场带 `_djyy_id` 的赛程）。
+
+**这解释了 `djyy_prob` 从 2026-08-15 起在账本里恒为 null、持续 3.5 周无人察觉**：
+`engine/sources/djyy.py` 的 `_get_json` 此前把一切异常吞成 `return None`，
+于是"被边缘拦截"与"当天没数据"在日志里完全一样。
+
+当前状态：`config` 仍挂 `djyy_weight: 0.2`，实际贡献 0
+（`fusion.py` 重新归一化 → 运行时 model 6.25% / market 93.75%）。
+
+### 代码侧已修（PR#13）
+
+- `_get_json` 按状态码分流：401/403 记 `blocked_by_edge` 并**立即返回不重试**
+  （被拦截不是限流，重试无意义）；5xx 才重试
+- 403 时打印**可执行的修复指引**，并点名是否读到 `DJYY_KEY`
+- `LAST_ERROR` 模块级记录，成功后清空
+- `manager.enrich_from_djyy` 把真实原因写进 `djyy_status.json`
+  （此前一律记 `fetch_fixtures_empty`）
+- 支持 `X-DJYY-Key`（`DJYY_KEY` 环境变量）；未配置时不发该 header，便于灰度
+- `api-test` 探针：403 有专门分支并直接打印两条修复路径；
+  日期窗口从硬编码的 2026-07-20 改为当天
+  （原先即使 DJYY 正常也只报 "0 fixtures"，与"被拦截"无法区分）
+
+### 仍需你在 Cloudflare 后台操作
+
+二选一：
+
+- **A（推荐）** Worker 校验 `X-DJYY-Key` + 仓库 Secret `DJYY_KEY`（IP 段会变）
+- **B** WAF Skip 规则放行 GitHub 官方 IP 段（`api.github.com/meta` 的 `actions`）
+
+验证：
+```bash
+gh api repos/wlrwx/football-engine/actions/workflows/api-test.yml/dispatches -X POST -f ref=main
+gh run list --workflow "API Connectivity Test" --limit 1
+gh run view <run-id> --log | grep -A3 "4. DJYY"
+```
+`HTTP: 403` → `HTTP: 200` 即通。
+
 ## 尚未解决的开放问题
 
 1. **2026-08-04 资金从 85,488 重置到 5,000** —— 系统自修复导致（用户确认）。

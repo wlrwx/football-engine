@@ -427,8 +427,18 @@ class SourceManager:
             return enrichment
 
         if not djyy_fixtures:
-            print("    [djyy诊断] fetch_fixtures 返回 0 场（DJYY 对该网络不可达或无数据）")
-            _stats["error"] = "fetch_fixtures_empty"
+            # 2026-10-11：区分"被边缘拦截"与"当天真的没数据"。
+            # 此前一律记 fetch_fixtures_empty，导致 CI 侧被 Cloudflare 403
+            # 拦了 3.5 周，日志里与"当天无赛程"完全无法区分。
+            from engine.sources import djyy as _djyy_mod
+            _err = dict(getattr(_djyy_mod, "LAST_ERROR", {}) or {})
+            if _err.get("kind") == "blocked_by_edge":
+                _stats["error"] = _err.get("detail") or "blocked_by_edge"
+                print(f"    [djyy诊断] ⚠ 被边缘拦截: {_err.get('detail')}")
+            else:
+                _stats["error"] = _err.get("detail") or "fetch_fixtures_empty"
+                print("    [djyy诊断] fetch_fixtures 返回 0 场"
+                      + (f"（{_err.get('detail')}）" if _err else "（当天无赛程）"))
             self._write_djyy_status(target_date, _stats, len(fixtures), _budget)
             return enrichment
         _stats["fixtures"] = len(djyy_fixtures)

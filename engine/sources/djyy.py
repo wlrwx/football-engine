@@ -13,6 +13,7 @@ from __future__ import annotations
 - /data/league-matrix.json  33联赛场均数据
 """
 import json
+import os
 import time
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -32,6 +33,28 @@ HEADERS = {
     ),
     "Accept": "application/json",
 }
+
+# 2026-10-11：Cloudflare 对 GitHub Actions 的数据中心 IP 返回 403
+# （实测：本地 200 / CI 403，已持续 3.5 周，期间 djyy_prob 长期为 null 而无人察觉）。
+# 配套方案是在 djyylive 的 Worker 里校验 X-DJYY-Key；
+# 设为空字符串则完全不发该 header，等同于修复前的行为（便于灰度）。
+DJYY_KEY = os.environ.get("DJYY_KEY", "").strip()
+if DJYY_KEY:
+    HEADERS["X-DJYY-Key"] = DJYY_KEY
+
+# 最近一次失败的可观测记录：_get_json 此前把 403 吞成 None，
+# 导致"数据源被拦截"与"数据源没数据"完全无法区分。
+LAST_ERROR: dict = {}
+
+
+def _record_error(kind: str, detail: str) -> None:
+    LAST_ERROR.clear()
+    LAST_ERROR.update({
+        "kind": kind,
+        "detail": detail,
+        "at": datetime.now().isoformat(timespec="seconds"),
+        "djyy_key_configured": bool(DJYY_KEY),
+    })
 
 
 class DJYYSource(DataSource):
@@ -58,17 +81,48 @@ class DJYYSource(DataSource):
         return 4  # 体彩(1) > 新浪(2) > 500万(3) > DJYY(4)
 
     def _get_json(self, path: str, params: dict = None, retries: int = 2) -> Optional[dict]:
-        """通用 GET 请求"""
+        """通用 GET 请求。
+
+        2026-10-11：失败原因必须可区分。此前一律 except → return None，
+        于是 Cloudflare 拦截（403）与"当天没数据"在日志里完全一样，
+        真实原因是 CI 侧被 403 拦了 3.5 周却无人发现。
+        """
         url = f"{DJYY_BASE}{path}"
+        last: str = ""
         for attempt in range(retries):
             try:
                 resp = requests.get(url, params=params, headers=HEADERS, timeout=(3.05, 8))
-                resp.raise_for_status()
-                return resp.json()
-            except (requests.RequestException, json.JSONDecodeError):
-                if attempt == retries - 1:
+                if resp.status_code != 200:
+                    kind = ("blocked_by_edge" if resp.status_code in (401, 403)
+                            else "http_error")
+                    last = f"{kind} HTTP {resp.status_code}"
+                    if kind == "blocked_by_edge":
+                        hint = ("检查 Cloudflare 是否对 GitHub Actions IP 返回 403；"
+                                "若已配 DJYY_KEY，确认仓库 Secret 也已配置")
+                        if not DJYY_KEY:
+                            hint += "（当前进程未读到 DJYY_KEY 环境变量）"
+                        _record_error(kind, f"{last} {path} — {hint}")
+                        print(f"    [djyy] {last} {path} — {hint}")
+                        return None       # 被拦截时重试无意义
+                    if attempt < retries - 1:
+                        time.sleep(1)
+                        continue
+                    _record_error(kind, f"{last} {path}")
                     return None
-                time.sleep(1)
+                LAST_ERROR.clear()
+                return resp.json()
+            except requests.RequestException as e:
+                last = f"network {type(e).__name__}"
+                if attempt < retries - 1:
+                    time.sleep(1)
+                    continue
+                _record_error("network", f"{last} {path}: {e}")
+                return None
+            except json.JSONDecodeError as e:
+                last = f"bad_json {type(e).__name__}"
+                _record_error("bad_json", f"{last} {path}: {e}")
+                return None
+        _record_error("unknown", f"{last} {path}")
         return None
 
     def fetch_fixtures(self, target_date: date) -> list[Fixture]:
