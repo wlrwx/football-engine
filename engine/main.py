@@ -38,6 +38,7 @@ from engine.prediction.fusion import (
     DRAW_ANCHOR_W,
 )
 from engine.prediction.reverse_odds import ReverseOddsEngine, ReverseOddsInput
+from engine.prediction.score_candidates import merge_score_candidates
 from engine.strategy.kelly import KellyStrategy, favorite_band_factor, market_signal_gate
 from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
@@ -652,51 +653,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         #   每源原始候选保留(djyy_top_scores/mc_top_scores)，结算记录各源命中率，数据说话调权重
         _djyy_ts = (djyy_data.get("top_scores") if djyy_data and djyy_data.get("top_scores") else None)
         _mc_ts = getattr(pred, "top_scores", None)
-
-        def _norm_scores(ts):
-            """归一化比分候选: [(h,a,p),...] → [(h,a,p_norm),...]; 无概率则按排名衰减"""
-            if not ts:
-                return []
-            out = []
-            for i, it in enumerate(ts):
-                if isinstance(it, (list, tuple)) and len(it) >= 3:
-                    try:
-                        p = float(it[2])
-                    except (TypeError, ValueError):
-                        p = 0.0
-                    if p <= 0:
-                        p = 1.0 / (i + 1)
-                    out.append((int(it[0]), int(it[1]), p))
-                elif isinstance(it, (list, tuple)) and len(it) >= 2:
-                    out.append((int(it[0]), int(it[1]), 1.0 / (i + 1)))
-            s = sum(x[2] for x in out) or 1.0
-            return [(h, a, p / s) for h, a, p in out]
-
-        _djyy_norm = _norm_scores(_djyy_ts)
-        _mc_norm = _norm_scores(_mc_ts)
-        # 比分候选：DJYY 优先 + xG差温和重排（2026-08-05 实证，替代 0.55/0.45 双源融合）
-        # 发现：双源融合稀释命中率（top5 52.2%→48.7%），DJYY 纯源最优；
-        #       DJYY 分布对强弱不敏感（碾压局 xG差>1.5 实际 59% 高比分, top1 只给 12%）
-        # 温和重排（xG差≥0.8: 高比分×1.3、1-1/0-0×0.85）：
-        #   walk-forward 113 场: top1 9.7%→13.3%, top5 52.2%→54.9%, top1≥3球 7.1%→31.0%
         _xdiff = abs(float(pred.home_xg) - float(pred.away_xg)) if pred.home_xg and pred.away_xg else 0.0
-        _reranked = None
-        if _djyy_norm:
-            _reranked = list(_djyy_norm)
-            if _xdiff >= 0.8:
-                _reranked = [
-                    (h, a, round(p * (1.3 if h + a >= 3 else (0.85 if (h, a) in ((1, 1), (0, 0)) else 1.0)), 6))
-                    for h, a, p in _reranked
-                ]
-                _reranked.sort(key=lambda x: -x[2])
-            _fused = [(h, a, round(p, 4)) for h, a, p in _reranked[:8]]
-            _score_src = "djyy"
-        elif _mc_norm:
-            _fused = [(h, a, round(p, 4)) for h, a, p in _mc_norm[:8]]
-            _score_src = "mc"
-        else:
-            _fused = None
-            _score_src = None
+        # 归一化 + 双源合并（2026-10-11 抽出到 engine/prediction/score_candidates.py）：
+        # DJYY 优先 + xG差温和重排，口径与数值逐位不变，只是从 1200 行的
+        # 编排函数里搬出来变成可测纯函数。详见该模块 docstring。
+        _fused, _score_src, _djyy_norm, _mc_norm = merge_score_candidates(
+            _djyy_ts, _mc_ts, _xdiff, limit=8
+        )
 
         # 盘口信号（2026-08-05 结构化，替代装饰性 ±0.02）：
         #   sina 欧赔压缩比 → 方向分: 压缩(资金涌入)=+, 抬升=-
