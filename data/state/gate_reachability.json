@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-10-11T22:49:45",
+  "config": {
+    "model_weight": 0.1,
+    "vig": 0.121,
+    "min_probability_edge": 0.03,
+    "min_ev": 0.03
+  },
+  "historical": {
+    "n_matches": 33058,
+    "n_selections": 99174,
+    "ev_gate_reachable_share": 0.7233,
+    "ev_gate_required_weight": {
+      "assumption": "p_dc=1.0（模型完全正确，已是理论最优）",
+      "median": 0.0638,
+      "mean": 0.1,
+      "config_weight": 0.1
+    }
+  },
+  "edge_gate": {
+    "rows": [
+      {
+        "p_fair": 0.1,
+        "nominal": 0.03,
+        "effective": 0.0421,
+        "ratio": 1.4
+      },
+      {
+        "p_fair": 0.15,
+        "nominal": 0.03,
+        "effective": 0.0481,
+        "ratio": 1.6
+      },
+      {
+        "p_fair": 0.2,
+        "nominal": 0.03,
+        "effective": 0.0542,
+        "ratio": 1.81
+      },
+      {
+        "p_fair": 0.3,
+        "nominal": 0.03,
+        "effective": 0.0663,
+        "ratio": 2.21
+      },
+      {
+        "p_fair": 0.4,
+        "nominal": 0.03,
+        "effective": 0.0784,
+        "ratio": 2.61
+      }
+    ],
+    "note": "kelly.py 用 1/odds（含抽水），系统其它模块用去水概率"
+  },
+  "ledger": {
+    "n_rows": 873,
+    "model_minus_market": {
+      "mean": 0.0377,
+      "median": 0.0343,
+      "share_model_worse": 0.4021
+    },
+    "ev_gate_required_weight": {
+      "note": "只统计 p_dc>p_fair（模型确实更看好）的场次；其余需负权重",
+      "n": 521,
+      "median": 0.5505,
+      "share_within_config": 0.0499
+    }
+  },
+  "verdict": "E3 未通过：决策层闸门**不是**调错了，而是在 model_weight=0.10 + 抽水 12.1% 下被模型质量锁死。两个数字必须一起读——(a) 即便模型完全正确(p_dc=1，理论最优)，EV 闸门所需权重中位仅 0.0638，低于配置的 0.1，可达 72.3% 的选项；也就是说 w=0.10 本身不算小，抽水才是主要门槛。(b) 但换成实测模型，所需权重中位飙到 0.5505，只有 5.0% 的场次够得着配置值。差距来自 E0 已实测的模型劣于市场(Brier Δ=+0.02018, t=+34.74)。因此调 min_ev/min_edge 救不回来：降阈值只是把不可达的闸门强行打开，让系统去下负期望的注，不产生正 EV。另有一处口径问题：kelly.py 的 edge 用含抽水的 1/odds 计算，而 clv.py / upgrade_tracker.py / post_match.py / 账本 market_fair 全用去水概率，导致 min_probability_edge 的实际门槛比参数名暗示的严 1.4~2.6 倍 —— 参数名与行为不符，需要人来决定是改口径还是改文档。"
+}
