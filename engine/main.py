@@ -39,6 +39,7 @@ from engine.prediction.fusion import (
 )
 from engine.prediction.reverse_odds import ReverseOddsEngine, ReverseOddsInput
 from engine.prediction.score_candidates import merge_score_candidates
+from engine.prediction.signals import classify_draw_alert, detect_market_disagreement
 from engine.strategy.kelly import KellyStrategy, favorite_band_factor, market_signal_gate
 from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
@@ -602,22 +603,11 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         )
 
         # --- 平局预警分类 ---
-        # 冷门平局: 一方被市场看好但模型+市场证据显示存在平局风险
-        # 均势平局: 双方实力接近、平局被市场低估
-        # 联赛平局(R1, 2026-08-12): 高平联赛 + 市场平局P∈[0.20,0.30) 无脑改判
-        draw_alert = None
-        if calibrated_probs:
-            market_h, market_d, market_a = calibrated_probs
-            max_market = max(market_h, market_d, market_a)
-            # R1: 高平联赛且市场平局概率处于低估区间（回测 +2.9pp，切半稳健）
-            if _canon_league(fixture.competition) in HIGH_DRAW_LEAGUES and 0.20 <= market_d < 0.30:
-                draw_alert = "league_draw"  # 联赛平局（数据驱动 R1）
-            # 冷门平局: 市场强烈看好一方(>50%)，但平局概率>=25%
-            elif max_market > 0.50 and market_d >= 0.25:
-                draw_alert = "cold_draw"  # 冷门平局
-            # 均势平局: 双方接近(差距<15%)，平局概率>=26%
-            elif abs(market_h - market_a) < 0.15 and market_d >= 0.26:
-                draw_alert = "balanced_draw"  # 均势平局
+        # 2026-10-11 抽出到 engine/prediction/signals.py（纯函数，可测）。
+        # 口径与判定顺序不变，详见该函数 docstring。
+        draw_alert = classify_draw_alert(
+            _canon_league(fixture.competition), calibrated_probs, HIGH_DRAW_LEAGUES
+        )
 
         # 半全场概率 (基于最终xG)
         _htft = htft_probabilities(pred.home_xg, pred.away_xg)
@@ -926,22 +916,11 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # 8/5 实证：周三002/003 客胜 EV +38%/+115% 被方向纪律拦下且无提示；
         # 低置信度场次（margin<0.08）尤其容易发生——模型概率接近时市场赔率信息量大。
         # 存 predictions 供复盘验证"市场分歧方向是否值得破纪律"（数据说话，不预设）。
-        _dir = p.get("direction")
-        if not _dir:
-            _probs0 = (p.get("home_win_prob", 0), p.get("draw_prob", 0), p.get("away_win_prob", 0))
-            _dir = ["home", "draw", "away"][_probs0.index(max(_probs0))]
-        for _sel0, _prob0, _ok0 in (
-            ("home", p.get("home_win_prob", 0), "home_odds"),
-            ("draw", p.get("draw_prob", 0), "draw_odds"),
-            ("away", p.get("away_win_prob", 0), "away_odds"),
-        ):
-            if _sel0 == _dir:
-                continue
-            _od0 = p.get(_ok0)
-            if _od0 and _prob0 * _od0 - 1 > 0.05:
-                p.setdefault("market_disagreement", {})[_sel0] = {
-                    "prob": round(_prob0, 3), "odds": _od0, "ev": round(_prob0 * _od0 - 1, 3)
-                }
+        # 检测本体在 engine/prediction/signals.py（2026-10-11 抽出的纯函数）。
+        # 语义保持 setdefault 合并：同一 prediction 可能被走到多次。
+        _mkt_dis = detect_market_disagreement(p, ev_threshold=0.05)
+        if _mkt_dis:
+            p.setdefault("market_disagreement", {}).update(_mkt_dis)
         # 让球 EV 全量落盘（2026-08-06）：独立于置信/禁投过滤，任何有让球盘的场次都记录
         # 三方向 edges 都存——argmax 只显示概率最高方向，但让球平/让球主常有正 EV
         # 藏在窄区间+高赔率里（让球平赔率 3.5-4.5，概率 15% 就可能 +EV）。
