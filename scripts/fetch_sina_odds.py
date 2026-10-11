@@ -199,6 +199,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--date", default=None, help="目标日期 YYYY-MM-DD")
     parser.add_argument("--output-dir", default=None, help="输出目录")
+    parser.add_argument(
+        "--days", type=int, default=2,
+        help="抓取窗口天数（从目标日起算，含当天）。"
+             "2026-10-11 起默认 2：原实现只抓 [today]，"
+             "实测 899 场里 557 场（62%）的最后一次采集停在开赛前一整天，"
+             "导致只有 8.1% 的场次有开赛前 2 小时内的快照 —— "
+             "我们记的『收盘价』大多不是收盘价。",
+    )
     args = parser.parse_args()
 
     if args.date:
@@ -213,7 +221,13 @@ def main():
             today = beijing_today()
         except Exception:
             today = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d")
-        dates = [today]
+        # 2026-10-11: 扩窗口。原 `dates = [today]` 让跨夜场次在滚出当天清单后
+        # 就停止采集 —— 而它们恰恰是最缺收盘价的那批。
+        n = max(1, int(args.days))
+        base = datetime.strptime(today, "%Y-%m-%d")
+        dates = [(base + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(n)]
+        if n > 1:
+            print(f"[fetch_sina_odds] 抓取窗口扩到 {n} 天: {dates}")
 
     output_dir = Path(args.output_dir) if args.output_dir else None
 

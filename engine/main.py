@@ -544,7 +544,14 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                       f"{fixture.away_team} {_fresh.away_days}天] 概率收缩 {_fresh.shrink:.0%} "
                       f"→ {'联赛基线' if _baseline else '均势'}")
 
-        _league_db = league_mgr.get_draw_baseline(fixture.competition) if league_mgr else 0.25
+        # 平局基线：必须用**带可信度门控**的版本。
+        # 【2026-10-09】旧代码用 get_draw_baseline() 返回未经门控的值，
+        # 而该值历史上存的是「判平精度」（巴甲 0.60）而非真实平局率
+        # （巴甲 0.266），叠加 draw_strength 后把巴甲平局概率钉死在 0.5025。
+        # get_effective_draw_baseline() 在样本量不足时返回 0.0，
+        # 融合层据此跳过该步骤。
+        _league_db = (league_mgr.get_effective_draw_baseline(fixture.competition)
+                      if league_mgr else 0.0)
         _draw_str = league_mgr.get_draw_strength(fixture.competition) if league_mgr else 0.0
 
         # 校准层自动启用（2026-08-29）：数据状态文件 > config 静态开关。
@@ -722,6 +729,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_fair": (
                 [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
             ),
+            # 市场锚是否真实（2026-10-09）：合成赔率场次 market_fair 由模型概率反推，
+            # 去水后≈模型自身，非真实市场。此标记供账本/页面识别裸奔场次，
+            # 避免把裸模型概率误当市场公允概率混入 EV 计算与校准。
+            "market_is_synthetic": bool(_odds_synthetic) or (calibrated_probs is None and bool(_odds_synthetic)),
             # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
             "fusion_trace": fusion_trace,
             # 双源融合比分候选（DJYY+MC）+ 盘口信号（2026-08-05）
@@ -792,6 +803,16 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # Elo
             "elo_home": round(home_rating.elo, 1),
             "elo_away": round(away_rating.elo, 1),
+            # per-match 模型输入快照（2026-10-09）：attack/defense/form 此前**未落盘**，
+            # 而 team_ratings.json 里这三项被 elo_updater 持续就地改写，是当前值而非
+            # 预测时历史值 → 用当前值离线回放历史场次，忠实率仅 40.5%。
+            # 落盘后可使模型层离线重放忠实率 ≥ 0.95，解锁模型层自动裁决通道。
+            "attack_home": round(float(home_rating.attack), 4),
+            "defense_home": round(float(home_rating.defense), 4),
+            "form_home": round(float(home_rating.form), 4),
+            "attack_away": round(float(away_rating.attack), 4),
+            "defense_away": round(float(away_rating.defense), 4),
+            "form_away": round(float(away_rating.form), 4),
             # 平局预警
             "draw_alert": draw_alert,
             # 开赛时间（新浪有就用新浪的完整时间，否则用体彩 matchDate+matchTime）
@@ -842,8 +863,6 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
           f"multiplier={breaker_mult}")
     print(f"  💰 资金池: {actual_bankroll:.0f}")
 
-    # 虚拟投注：不熔断，始终正常投注
-
     # 自适应置信阈值（连败收紧）
     # shadow(虚拟)模式放开；真实下注模式保留最低置信 0.25，避免 0.09 置信的重注
     _activation = strat_cfg.get("activation_mode", "shadow")
@@ -884,7 +903,19 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 造成的 -18% ROI。融合在 evaluate_handicap_ev 内部完成，这里无需额外闸。
 
     # 三票制重分配
-    effective_mult = 1.0  # 虚拟投注不降注
+    # 2026-10-11 修复：此前是 `effective_mult = 1.0  # 虚拟投注不降注`
+    # （提交 f93821560, 2026-07-23），把上面算出的 breaker_mult 整个丢弃 ——
+    # 熔断器"在计算、在打印、从不参与决策"。
+    # 实测后果：circuit_breaker.json 200 条历史里每条 pnl 都是 0.0，
+    # tier 从未 > 0，halted 从未为 true，熔断器自始至终完全惰性。
+    # 现在默认生效；要恢复旧行为在 config/strategy.json 设
+    #   "circuit_breaker": {"enabled": false}
+    _cb_cfg = strat_cfg.get("circuit_breaker", {})
+    if not bool(_cb_cfg.get("enabled", True)):
+        effective_mult = 1.0
+        print("  ⚠ 熔断已在 config/strategy.json 被显式关闭（effective_mult=1.0）")
+    else:
+        effective_mult = breaker_mult
     allocator = ThreeTicketAllocator(
         bankroll=actual_bankroll,
         breaker_multiplier=effective_mult,
@@ -1142,6 +1173,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         score_plan = []
         print(f"  ⚠ 比分串方案生成跳过: {_e}")
 
+    # 2026-10-11 修复：total_stake 只含 stable/value/lottery（Kelly 分配池），
+    # parlay/score_parlay 的注额从未计入 → 真实暴露被系统性低估。
+    # 实测 60 天漏算、合计 1215.20。保留 total_stake 原语义（分配器依赖它），
+    # 另加 parlay_stake 与 total_exposure 两个明确字段。
+    _parlay_stake = (sum(float(getattr(t, "stake", 0) or 0) for t in parlay_plan)
+                     + sum(float(getattr(t, "stake", 0) or 0) for t in score_plan))
+
     # 6.5 场次并集保护（2026-08-07 修复）：Actions 每半小时重跑当天预测，
     # 某次数据源不完整（sporttery WAF 拦截/场次停售）会用少场次覆盖多场次，
     # git 三方合并还会静默吃掉旧场次（8/6 库奥皮奥因此丢失）。
@@ -1202,7 +1240,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "score_parlay": [t.to_dict() for t in score_plan],
             "breaker_status": breaker_status,
             "cppi_budget": risk_budget,
+            # 2026-10-11：total_stake 不含串关，真实暴露见 total_exposure
             "total_stake": plan.total_stake,
+            "parlay_stake": round(_parlay_stake, 2),
+            "total_exposure": round(plan.total_stake + _parlay_stake, 2),
         },
         config_prediction=pred_cfg,
         config_strategy=strat_cfg,
@@ -1246,6 +1287,12 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     _tp_summary = allocator.summary(ticket_plan)
     _tp_summary["parlay"] = [t.to_dict() for t in parlay_plan]
     _tp_summary["score_parlay"] = [t.to_dict() for t in score_plan]
+    _tp_summary["parlay_stake"] = round(_parlay_stake, 2)
+    _tp_summary["total_exposure"] = round(
+        float(_tp_summary.get("total_stake") or 0.0) + _parlay_stake, 2)
+    _tp_summary["_stake_note"] = (
+        "total_stake = Kelly 分配池（stable/value/lottery）；"
+        "total_exposure = total_stake + parlay_stake，才是真实投注额")
     _tp_summary["parlay_calibration"] = {
         "overall": _cal.get("overall", 0.433),
         "n": _cal.get("n", 0),
@@ -1929,6 +1976,83 @@ def run_settlement(target_date: date):
             losses += 1
         breaker.record_result(won=won, pnl=pnl, bankroll=running_bankroll)
         running_bankroll += pnl
+
+    # 7b) 串关结算（parlay / score_parlay）
+    # 2026-10-11 新增。此前结算只遍历 ("stable","value","lottery") 三个桶，
+    # parlay + score_parlay（403 条计划里的 314 条，占 78%）对熔断器完全不可见。
+    # 实测后果：07-25~07-27 资金 10,000→349,134 的峰值全部来自串关，
+    # 而熔断器一条都没看到；同期单注在止血，两边方向相反。
+    #
+    # 串关必须单独结算：全中才赢，注额是 stake*total_odds 而不是单场赔率。
+    _res_by_mid: dict[str, tuple[int, int]] = {}
+    for n in norm:
+        try:
+            _res_by_mid[n["match_id"]] = (int(n["r"].home_score), int(n["r"].away_score))
+        except Exception:
+            continue
+
+    # 幂等守卫（2026-10-11 修正）：
+    #   本块遍历 ticket_plan 而非 new_items，若无守卫，每次重跑结算都会把
+    #   同一批串关重复计入 breaker 与 running_bankroll。
+    #   规则：全部腿都已出赛果，且**至少有一腿是本轮新结算**，才结算本注。
+    #   → 重跑时无新腿，直接跳过；跨天分腿的串关在最后一腿结算时才落地。
+    _new_mids = {n["match_id"] for n in new_items}
+    parlay_n = parlay_settled = parlay_stake = 0
+    parlay_pnl = 0.0
+    parlay_skipped_unresolved = 0
+    parlay_skipped_already = 0
+    for _grp in ("parlay", "score_parlay"):
+        for _e in (ticket_data.get(_grp) or []):
+            legs = _e.get("legs") or []
+            if not legs:
+                continue
+            _stake = float(_e.get("stake") or 0.0)
+            _tot = float(_e.get("total_odds") or 1.0)
+            if _stake <= 0:
+                continue
+            # 腿还没全部出赛果 → 不判定，也**不计盈亏**（缺腿判负会凭空造亏损）
+            _scored = []
+            for _leg in legs:
+                _sc = _res_by_mid.get(_leg.get("match", ""))
+                if _sc is None:
+                    break
+                _scored.append((_leg, _sc))
+            if len(_scored) != len(legs):
+                parlay_skipped_unresolved += 1
+                continue
+            # 本轮无新腿 → 之前已结算过，跳过（幂等）
+            if not any(lg.get("match") in _new_mids for lg, _ in _scored):
+                parlay_skipped_already += 1
+                continue
+            all_hit = True
+            for _leg, (_hs, _as_) in _scored:
+                _pick = _leg.get("sel") or _leg.get("score")
+                if _leg.get("sel"):
+                    _act = "home" if _hs > _as_ else ("draw" if _hs == _as_ else "away")
+                    _ok = (_pick == _act)
+                else:
+                    _ok = (str(_pick) == f"{_hs}-{_as_}")
+                if not _ok:
+                    all_hit = False
+                    break
+            parlay_n += 1
+            _won = all_hit
+            _p = _stake * (_tot - 1.0) if all_hit else -_stake
+            parlay_pnl += _p
+            parlay_stake += _stake
+            if _won:
+                parlay_settled += 1
+            breaker.record_result(won=_won, pnl=_p, bankroll=running_bankroll)
+            running_bankroll += _p
+
+    if parlay_n or parlay_skipped_unresolved or parlay_skipped_already:
+        print(f"  ✓ 串关 {parlay_settled}/{parlay_n} 中，注额 {parlay_stake:.0f}，"
+              f"PnL {parlay_pnl:+.2f}"
+              f"（腿未齐跳过 {parlay_skipped_unresolved}，已结算跳过 {parlay_skipped_already}）")
+        total_pnl += parlay_pnl
+        wins += parlay_settled
+        losses += parlay_n - parlay_settled
+
     print(f"  ✓ 命中 {wins}/{wins+losses}, PnL={total_pnl:.2f}")
     print(f"  熔断状态: {breaker.status_report()}")
 

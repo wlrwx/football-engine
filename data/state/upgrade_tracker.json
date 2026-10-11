@@ -1,13 +1,17 @@
 {
-  "generated_at": "2026-10-07T10:34:44",
+  "generated_at": "2026-10-11T20:53:53",
+  "schema": 2,
   "baseline_pre_upgrade": {
     "brier": 0.6172206898122067,
     "hit_rate": 0.5164319248826291,
-    "n": 426
+    "n": 426,
+    "note": "ablation_report.json 冻结的升级前全量基线（与下方 market_reference 同子集）"
   },
-  "market_reference": {
+  "market_reference_frozen": {
     "brier": 0.5833607748076923,
-    "hit_rate": 0.5467032967032966
+    "hit_rate": 0.5467032967032966,
+    "n": 364,
+    "note": "⚠ 这是 legacy 子集的市场分，**不可与 v2_clean 直接相减**（比赛集合不同）。与市场的有效比较一律以 paired_vs_market 为准。"
   },
   "legacy_unchanged": {
     "n": 426,
@@ -15,18 +19,46 @@
     "hit_rate": 0.5164
   },
   "v2_clean": {
-    "n": 503,
-    "brier": 0.5553,
-    "hit_rate": 0.5626
+    "n": 558,
+    "brier": 0.555,
+    "hit_rate": 0.5609
   },
-  "v2_vs_market_same_period": {
-    "n": 458,
-    "brier": 0.5605,
-    "hit_rate": 0.559
+  "effective_fusion_weights": {
+    "source": "data/state/fusion_weights.json#champion",
+    "raw": {
+      "model": 0.05,
+      "market": 0.75,
+      "djyy": 0.2
+    },
+    "effective": {
+      "model": 0.0625,
+      "market": 0.9375,
+      "djyy": 0.0
+    },
+    "djyy_hit_rate": 0.0072,
+    "note": "⚠ DJYY 名义权重 0.2 当前完全不生效（v2 链 558 场中 djyy_prob 命中 4 场，命中率 0%）。名义权重和为 1.0，归一化后真实比例为 model 6.25% / market 93.75%"
   },
   "verdict": "IMPROVED",
   "paired_vs_legacy": {
-    "delta_brier": 0.0619,
-    "z": 3.19
-  }
+    "delta_brier": 0.0622,
+    "t": 3.3,
+    "n_v2": 558,
+    "n_legacy": 426
+  },
+  "paired_vs_market": {
+    "n": 509,
+    "brier_final": 0.5646,
+    "brier_market": 0.5601,
+    "delta_brier": 0.0045,
+    "t": 1.23,
+    "ci95_delta": [
+      -0.0027,
+      0.0116
+    ],
+    "significant": false,
+    "matches_better": 255,
+    "matches_worse": 254,
+    "verdict": "TIED"
+  },
+  "verdict_vs_market": "TIED"
 }

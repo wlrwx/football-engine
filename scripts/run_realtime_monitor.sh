@@ -8,6 +8,23 @@ PYTHON="/Users/dykily/.hermes/hermes-agent/venv/bin/python3"
 
 mkdir -p logs
 
+# 代理自愈（2026-10-10）: cron 无人值守, Clash 关闭时推送全失败(凌晨连挂)
+heal_proxy() {
+    if nc -z -w 2 127.0.0.1 7897 2>/dev/null; then return 0; fi
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠ 代理不通, 自动拉起 Clash Verge..." >> "$LOG_FILE"
+    open -a "Clash Verge" 2>/dev/null
+    for _i in $(seq 1 12); do
+        sleep 5
+        if nc -z -w 2 127.0.0.1 7897 2>/dev/null; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ 代理已恢复" >> "$LOG_FILE"
+            return 0
+        fi
+    done
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 代理 60s 未恢复" >> "$LOG_FILE"
+    return 1
+}
+heal_proxy || true
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 启动实时监控..." >> "$LOG_FILE"
 
 $PYTHON scripts/realtime_odds_monitor.py 2>&1 | tee -a "$LOG_FILE"

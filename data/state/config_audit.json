@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-10-11T20:02:34",
+  "config_keys": {
+    "prediction.json": {
+      "total_leaf_keys": 79,
+      "referenced": 79,
+      "unreferenced": [],
+      "known_unwired": {},
+      "unexpected_unwired": [],
+      "dataclass_aware_blocks": [
+        "calibration",
+        "circuit_breaker",
+        "lgbm",
+        "prediction"
+      ]
+    },
+    "strategy.json": {
+      "total_leaf_keys": 29,
+      "referenced": 25,
+      "unreferenced": [
+        "edge_gates.strict_min_probability_edge",
+        "edge_gates.strict_min_ev",
+        "strict_mode.until_samples",
+        "strict_mode.max_stake"
+      ],
+      "known_unwired": {
+        "edge_gates.strict_min_probability_edge": "严格模式门槛从未实现（自 init 提交起）。当前只读 min_probability_edge。",
+        "edge_gates.strict_min_ev": "同上。",
+        "strict_mode.until_samples": "严格模式整块未接线。",
+        "strict_mode.max_stake": "严格模式整块未接线。"
+      },
+      "unexpected_unwired": [],
+      "dataclass_aware_blocks": [
+        "calibration",
+        "circuit_breaker",
+        "lgbm",
+        "prediction"
+      ]
+    }
+  },
+  "dataclass_wiring": {
+    "monte_carlo": {
+      "fields": [
+        "attack_weight",
+        "base_goals",
+        "defense_weight",
+        "elo_goal_weight",
+        "form_weight",
+        "handicap_smoothing",
+        "home_advantage",
+        "lambda_overdispersion",
+        "simulations",
+        "time_decay_anchors",
+        "xg_calibration"
+      ],
+      "config_keys_not_in_dataclass": [
+        "home_adv_weight",
+        "injury_weight",
+        "market_blend_weight",
+        "max_goals",
+        "rest_weight",
+        "rho"
+      ],
+      "dataclass_fields_missing_from_config": [
+        "home_advantage",
+        "lambda_overdispersion",
+        "xg_calibration"
+      ],
+      "alias_risks": [
+        {
+          "config_key": "home_adv_weight",
+          "config_value": 1.0,
+          "dataclass_field": "home_advantage",
+          "field_in_config": false,
+          "note": "同名概念、两处命名；只调 config_key 会让两个模型分叉"
+        }
+      ]
+    }
+  },
+  "unexpected_unwired_total": 0,
+  "verdict": "✓ 无未声明的未消费键"
+}

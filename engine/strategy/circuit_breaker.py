@@ -41,6 +41,13 @@ class CircuitBreakerConfig:
     max_daily_loss_ratio: float = 0.05    # 单日最大亏损占本金比
     max_weekly_loss_ratio: float = 0.12   # 单周最大亏损占本金比
 
+    # 2026-10-11 新增：回撤触发。
+    # 原设计只有「连败数」触发 + 「连赢2场恢复」。在胜负混杂序列里连败3次
+    # 极少发生，而真实暴跌（07-27 之后 349,134→85,488）是回撤驱动的、
+    # 不是连败驱动的 —— 熔断器对此完全无感。补上回撤维度。
+    drawdown_warn_ratio: float = 0.20     # 回撤 20% → 降注到 50%
+    drawdown_halt_ratio: float = 0.40     # 回撤 40% → 停注
+
     # 恢复
     recovery_streak: int = 2    # 连赢N场后恢复上一档
     auto_reset_days: int = 7    # 停注N天后自动重置
@@ -59,6 +66,7 @@ class BreakerState:
     daily_date: str = ""
     weekly_pnl: float = 0.0
     weekly_start: str = ""
+    peak_bankroll: float = 0.0     # 2026-10-11 新增：用于回撤计算
     history: list[dict] = field(default_factory=list)
 
 
@@ -120,6 +128,24 @@ class CircuitBreaker:
             if abs(s.weekly_pnl) >= bankroll * self.cfg.max_weekly_loss_ratio:
                 return 0.0
 
+        # 2026-10-11 新增：回撤熔断，作用在连败阶梯算出的乘数之上（只降不升）。
+        # peak_bankroll 由本函数自行维护（只增不减），重置时归零。
+        if bankroll > 0:
+            if s.peak_bankroll <= 0 or bankroll > s.peak_bankroll:
+                s.peak_bankroll = bankroll
+                self.save()
+        cur_mult = 1.0
+        if s.peak_bankroll > 0 and bankroll > 0:
+            dd = (s.peak_bankroll - bankroll) / s.peak_bankroll
+            if dd >= self.cfg.drawdown_halt_ratio:
+                if not s.halted:
+                    s.halted = True
+                    s.halt_date = today
+                    self.save()
+                return 0.0
+            if dd >= self.cfg.drawdown_warn_ratio:
+                cur_mult = 0.5
+
         # 连败阶梯 + 渐进恢复
         # 取 streak 隐含档位 和 记录档位 的较大值（恢复需要连赢才能降档）
         streak = abs(min(s.current_streak, 0))
@@ -135,12 +161,15 @@ class CircuitBreaker:
 
         effective_tier = max(streak_tier, s.tier)
         if effective_tier >= 3:
-            return self.cfg.tier3_ratio
-        if effective_tier == 2:
-            return self.cfg.tier2_ratio
-        if effective_tier == 1:
-            return self.cfg.tier1_ratio
-        return 1.0
+            streak_mult = self.cfg.tier3_ratio
+        elif effective_tier == 2:
+            streak_mult = self.cfg.tier2_ratio
+        elif effective_tier == 1:
+            streak_mult = self.cfg.tier1_ratio
+        else:
+            streak_mult = 1.0
+        # 回撤封顶只降不升：回撤 20%+ 时无论连败阶梯给多少，最多只能到 50%
+        return min(streak_mult, cur_mult)
 
     def get_tier(self) -> int:
         """当前档位 0=正常 1/2/3=降注 4=停注"""
@@ -272,6 +301,8 @@ class CircuitBreaker:
         s.tier = 0
         s.daily_pnl = 0.0
         s.weekly_pnl = 0.0
+        s.peak_bankroll = 0.0   # 2026-10-11：资金重置时峰值必须一并归零，
+                               # 否则回撤比例会拿旧峰值算出假信号
         self.save()
 
     def force_reset(self) -> None:

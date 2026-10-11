@@ -1,0 +1,219 @@
+{
+  "date": "2026-10-10",
+  "n_matches": 29,
+  "hit_rate": 0.5862,
+  "hits": 17,
+  "source_brier": {
+    "model": 0.5939,
+    "market": 0.5042,
+    "djyy": 0.4078,
+    "final": 0.5133
+  },
+  "by_league": {
+    "日职": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.5954
+    },
+    "K1联赛": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.5233
+    },
+    "英超": {
+      "n": 5,
+      "hit_rate": 0.4,
+      "wilson_lower": 0.1176,
+      "avg_brier": 0.5831
+    },
+    "意甲": {
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.377
+    },
+    "德甲": {
+      "n": 6,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.3,
+      "avg_brier": 0.5982
+    },
+    "西甲": {
+      "n": 3,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.4385,
+      "avg_brier": 0.1855
+    },
+    "法甲": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.6087
+    },
+    "瑞典超": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8739
+    },
+    "荷甲": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.7234
+    },
+    "葡超": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.162
+    },
+    "沙职": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.1099
+    },
+    "巴甲": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.6472
+    }
+  },
+  "by_confidence_tier": {
+    "mid": {
+      "n": 9,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.1206,
+      "avg_brier": 0.6713
+    },
+    "high": {
+      "n": 19,
+      "hit_rate": 0.7368,
+      "wilson_lower": 0.5121,
+      "avg_brier": 0.4217
+    },
+    "low": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8327
+    }
+  },
+  "by_odds_band": {
+    "2.0-3.0": {
+      "n": 5,
+      "hit_rate": 0.2,
+      "wilson_lower": 0.0362,
+      "avg_brier": 0.7404
+    },
+    "1.0-1.5": {
+      "n": 14,
+      "hit_rate": 0.7857,
+      "wilson_lower": 0.5241,
+      "avg_brier": 0.3742
+    },
+    "1.5-2.0": {
+      "n": 9,
+      "hit_rate": 0.5556,
+      "wilson_lower": 0.2666,
+      "avg_brier": 0.5887
+    },
+    "3.0+": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.6472
+    }
+  },
+  "score_stats": {
+    "top1": 2,
+    "top3": 7,
+    "top5": 14,
+    "top8": 19,
+    "any": 19
+  },
+  "score_rank_hist": {
+    "1": 2,
+    "8": 3,
+    "3": 3,
+    "4": 3,
+    "7": 2,
+    "2": 2,
+    "5": 4
+  },
+  "score_source_stats": {
+    "djyy": {
+      "n": 0,
+      "hits": 0
+    },
+    "mc": {
+      "n": 19,
+      "hits": 14
+    }
+  },
+  "market_signal_stats": {
+    "n": 29,
+    "hits": 9
+  },
+  "layered": {
+    "log_loss_final": 0.8797,
+    "rps_final": 0.1632,
+    "rps_market": 0.1651,
+    "goal_framework": {
+      "n": 29,
+      "hits": 17
+    },
+    "prob_bands": {
+      "40-50%": {
+        "n": 6,
+        "hit_rate": 0.3333
+      },
+      "50-60%": {
+        "n": 8,
+        "hit_rate": 0.5
+      },
+      "60%+": {
+        "n": 14,
+        "hit_rate": 0.7857
+      },
+      "<40%": {
+        "n": 1,
+        "hit_rate": 0.0
+      }
+    },
+    "freshness_groups": {
+      "alert": {
+        "n": 1,
+        "hit_rate": 0.0
+      },
+      "ok": {
+        "n": 10,
+        "hit_rate": 0.5
+      },
+      "watch": {
+        "n": 18,
+        "hit_rate": 0.6667
+      }
+    }
+  },
+  "biases": [
+    {
+      "dimension": "league",
+      "key": "英超",
+      "outcome": "home",
+      "predicted_avg": 0.4999,
+      "actual_rate": 0.6,
+      "gap": -0.1001,
+      "n": 5,
+      "severity": "warn",
+      "suggested_action": "increase home_adv_weight"
+    }
+  ],
+  "total_pnl": 0.0,
+  "generated_at": "2026-10-11T11:46:52.299677",
+  "sha256": "2c66250915e4a0db1b4fc1b5b48d8967"
+}

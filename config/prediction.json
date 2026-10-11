@@ -9,7 +9,7 @@
     "rest_weight": 0.035,
     "home_adv_weight": 1.0,
     "market_blend_weight": 0.28,
-    "rho": -0.0897,
+    "rho": -0.0826,
     "max_goals": 10,
     "simulations": 50000,
     "time_decay_anchors": [
@@ -41,7 +41,8 @@
         730,
         0.258
       ]
-    ]
+    ],
+    "handicap_smoothing": 0.274
   },
   "ensemble": {
     "dixon_coles_weight": 0.6,
@@ -60,15 +61,15 @@
     "djyy_disagree_penalty": 0.5,
     "post_fusion": {
       "same_odds_bias": true,
-      "combo_boost": true,
+      "combo_boost": false,
       "lgbm_blend": false,
-      "market_draw_pull": true,
-      "league_draw_baseline": true,
+      "market_draw_pull": false,
+      "league_draw_baseline": false,
       "sina_odds_movement": false,
       "isotonic": false,
       "temperature": false,
       "freshness": false,
-      "league_draw_anchor": true
+      "league_draw_anchor": false
     }
   },
   "lgbm": {

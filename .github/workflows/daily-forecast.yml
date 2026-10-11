@@ -58,6 +58,8 @@ jobs:
           fi
 
       - name: Fetch DJYY SSR odds
+        env:
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           python scripts/fetch_djyy_ssr.py || echo "⚠ DJYY SSR 抓取失败（辅助数据源，继续）"
 
@@ -66,10 +68,15 @@ jobs:
           python scripts/fetch_sina_results.py || echo "⚠ 新浪赛果抓取失败（继续，结算时再补抓）"
           python scripts/fetch_sina_odds.py || echo "⚠ 新浪赔率抓取失败（辅助数据源，继续）"
 
+      # 2026-10-11：赔率时序采集覆盖率体检（health-check 用 gh api 读这个结果）
+      - name: Odds series coverage
+        run: python -m engine.odds_series_coverage
+
       - name: Settlement only (manual trigger)
         if: ${{ github.event.inputs.settle_only != '' }}
         env:
           SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           echo "→ 仅结算模式: ${{ github.event.inputs.settle_only }}"
           python scripts/fetch_sina_results.py --date "${{ github.event.inputs.settle_only }}" || echo "  ⚠ 新浪赛果刷新失败"
@@ -80,6 +87,7 @@ jobs:
         if: ${{ github.event.inputs.settle_only == '' }}
         env:
           SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           DATE="${{ github.event.inputs.date || '' }}"
           if [ -z "$DATE" ]; then
@@ -92,6 +100,7 @@ jobs:
         if: ${{ github.event.inputs.settle_only == '' }}
         env:
           SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           # 每次运行都结算最近 N 天（默认4天）：先刷新该日新浪赛果（幂等合并），再结算。
           # 引擎侧幂等：已结算场次自动跳过（Elo/熔断/权重不重复更新），
@@ -140,6 +149,23 @@ jobs:
           except Exception:
               pass
           EOF
+
+      # 2026-10-11：刷新评估类报告。
+      #
+      # 此前 upgrade_tracker / edge_calibration / config_audit **没有任何 workflow
+      # 调用**，全是人工跑一次提交到仓库，然后就永远不再更新。实测后果：
+      #   upgrade_tracker.json 在 main 上仍是 PR#6 之前的旧 schema
+      #     → 网页至今显示旧的误导性「进化生效」，而修复后的 Q1/Q2 拆分从未生效
+      #   edge_calibration.json 陈旧 11 天
+      #
+      # 三个生成器都在 2 秒内，放进 30 分钟的 job 无负担。
+      # 耗时实验类（historical_replay / gate_test / residual_market，15-40 分钟）
+      # **不放这里**，应由 backtest-weekly 或手动触发。
+      - name: Refresh evaluation reports
+        run: |
+          python scripts/upgrade_tracker.py || echo "::warning::upgrade_tracker 失败（网页判定将停留在旧值）"
+          python scripts/edge_calibration.py || echo "::warning::edge_calibration 失败"
+          python -m engine.config_audit --strict || echo "::warning::config 审计失败"
 
       - name: Build site
         run: python engine/build_site.py

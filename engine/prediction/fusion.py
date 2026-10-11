@@ -35,14 +35,33 @@ DEFAULT_POST_FUSION: dict[str, bool] = {
     "league_draw_anchor": True,
 }
 
-# 联赛平局率锚定表（2026-08-12 账本实证，n>=5；随 ablation_replay 复评）
+# 联赛平局率锚定表
+#
+# 【修正 2026-10-09】旧表标注「账本实证 n>=5」，但 n>=5 的样本量根本不能
+# 支撑一个常数平局率锚。经 matches.csv 全量赛果核验，实际平局率为：
+#     美职联 0.234 (league_matrix n=269)   旧值 0.55 → 误差 +0.316
+#     葡超   0.245 (matches.csv  n=3685)  旧值 0.50 → 误差 +0.255
+#     巴甲   0.266 (matches.csv  n=4652)  旧值 0.46 → 误差 +0.194
+#     芬超   无权威样本                     旧值 0.30 → 不可信
+# 且这张表以 w=0.3 混入平局概率，等于每场人为抬高约 0.095。
+#
+# 现全部改为权威实测值；无权威样本的联赛直接不列（不猜）。
+# 注：本表与 league_params.draw_baseline 是两套独立机制（前者混向市场概率，
+#     后者混向模型平局概率），不要合并，以免一处错误污染两处。
 LEAGUE_DRAW_ANCHOR: dict[str, float] = {
-    "美职联": 0.55,
-    "葡超": 0.50,
-    "巴甲": 0.46,
-    "芬超": 0.30,
+    "美职联": 0.234,
+    "葡超": 0.245,
+    "巴甲": 0.266,
+    "英超": 0.238,
+    "西甲": 0.259,
+    "意甲": 0.259,
+    "德甲": 0.250,
+    "法甲": 0.255,
+    "荷甲": 0.235,
+    "阿甲": 0.298,
 }
-DRAW_ANCHOR_W = 0.3
+# 锚定权重上限：单靠一个常数不应主导平局概率（实测 w=0.3 可抬高 ~0.095）
+DRAW_ANCHOR_W = 0.15
 
 
 @dataclass
@@ -200,13 +219,25 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
         _trace(trace, "market_draw_pull", (b, bd, ba), (h, d, a))
 
     # --- 7. 联赛平局基线抬升（draw_strength 反馈驱动强度） ---
+    # 【安全阀 2026-10-09】三重防护，防止把平局概率抬到荒谬位置：
+    #   (1) baseline 必须是**真实平局率**（由 get_effective_draw_baseline 门控，
+    #       样本不足时返回 0.0）；
+    #   (2) 历史上界 0.45 —— 真实联赛平局率极少超过 0.35（意甲历史区间
+    #       0.20-0.29，matches.csv 全量 0.22-0.33）；
+    #   (3) 抬升后的 draw 不得超过 0.45，否则整体概率分布失真。
+    # 旧实现三项全无：巴甲 baseline=0.60（实为判平精度）+ strength=0.85
+    # → target_d=0.51 → 巴甲平局概率恒为 0.5025，而真实平局率仅 0.266。
+    _DRAW_REALISTIC_MAX = 0.45
     if (
         switches["league_draw_baseline"]
-        and inp.league_draw_baseline >= 0.35
+        and 0.0 < inp.league_draw_baseline <= _DRAW_REALISTIC_MAX
         and inp.league_draw_strength >= 0.3
     ):
         b, bd, ba = h, d, a
-        target_d = max(d, inp.league_draw_baseline * inp.league_draw_strength)
+        target_d = min(
+            _DRAW_REALISTIC_MAX,
+            max(d, inp.league_draw_baseline * inp.league_draw_strength),
+        )
         gap = target_d - d
         if gap > 0.01:
             d += gap

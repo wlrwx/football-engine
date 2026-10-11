@@ -1,0 +1,63 @@
+{
+  "stable": [],
+  "value": [],
+  "lottery": [],
+  "total_stake": 0,
+  "expected_roi": 0.0,
+  "bankroll": 3945.8711000000003,
+  "breaker_multiplier": 0.5,
+  "parlay": [],
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-10-11_周日009",
+          "home": "兹沃勒",
+          "away": "坎布尔",
+          "league": "荷甲",
+          "score": "1-0",
+          "prob": 0.164,
+          "cal_prob": 0.0951,
+          "odds": 12.5
+        },
+        {
+          "match": "2026-10-11_周日028",
+          "home": "圣路易斯城",
+          "away": "洛城银河",
+          "league": "美职",
+          "score": "1-0",
+          "prob": 0.323,
+          "cal_prob": 0.0951,
+          "odds": 12.5
+        }
+      ],
+      "total_odds": 156.25,
+      "hit_prob": 0.009,
+      "stake": 2.0,
+      "potential": 312.5,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.9% × 赔率 156 倍 = EV +41%）"
+    }
+  ],
+  "parlay_stake": 2.0,
+  "total_exposure": 2.0,
+  "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
+  "parlay_calibration": {
+    "overall": 0.5386,
+    "n": 984,
+    "table": {
+      "0.35": 0.4203,
+      "0.4": 0.4925,
+      "0.45": 0.4857,
+      "0.5": 0.5035,
+      "0.55": 0.4845,
+      "0.6": 0.6757,
+      "0.65": 0.7385,
+      "0.7": 0.809
+    },
+    "note": "串关 EV 用账本校准命中率（模型概率高估，0.55-0.60 段仅 31.6% 命中）；推荐=校准EV>0"
+  }
+}

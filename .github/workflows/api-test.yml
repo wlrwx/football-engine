@@ -12,11 +12,14 @@ permissions:
 jobs:
   connectivity:
     runs-on: ubuntu-latest
+    env:
+      DJYY_KEY: ${{ secrets.DJYY_KEY }}
+      DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
     steps:
       - name: Test all APIs
         run: |
           python3 << 'PYEOF'
-          import subprocess, json, re
+          import subprocess, json, re, os
 
           def curl(url, headers=None, timeout=15):
               cmd = ["curl", "-s", "-o", "/tmp/resp.bin", "-w", "%{http_code}", "--max-time", str(timeout), url]
@@ -100,10 +103,22 @@ jobs:
           print("=" * 50)
           print("4. DJYY (djyylive.com)")
           print("=" * 50)
+          # 2026-10-11：原先硬编码 2026-07-20/21（三个月前），
+          # 于是即使 DJYY 正常也只报 "0 fixtures" —— 与"被拦截"无法区分。
+          # 改用当天起两天窗口，保证探针真的在探一个有意义的时间点。
+          import datetime as _dt
+          _d0 = _dt.date.today().isoformat()
+          _d1 = (_dt.date.today() + _dt.timedelta(days=1)).isoformat()
+          _hdr = {"User-Agent": UA}
+          if os.environ.get("DJYY_KEY"):
+              _hdr["X-DJYY-Key"] = os.environ["DJYY_KEY"]
+          # DJYY_PROXY 指向自建 Worker（Cloudflare→Cloudflare 绕开第三方 Bot Fight）
+          _djyy = (os.environ.get("DJYY_PROXY") or "https://djyylive.com").rstrip("/")
           code, body = curl(
-              "https://djyylive.com/api/leagues/fixtures?date_from=2026-07-20&date_to=2026-07-21&category=all",
-              {"User-Agent": UA}
+              f"{_djyy}/api/leagues/fixtures?date_from={_d0}&date_to={_d1}&category=all",
+              _hdr
           )
+          print(f"window: {_d0} .. {_d1}")
           print(f"HTTP: {code}")
           if code == "200":
               try:
@@ -116,6 +131,16 @@ jobs:
                       print(f"OK - type: {type(d).__name__}")
               except Exception as e:
                   print(f"Parse error: {e}")
+          elif code == "403":
+              # 2026-10-11：CI 侧长期 403 的根因是 Cloudflare 拦 GitHub Actions IP。
+              # 这里把修复指引直接打出来，避免下一个人再花三周查同一件事。
+              print("BLOCKED by edge (HTTP 403)")
+              print("  DJYY_KEY 已配置:" , bool(os.environ.get("DJYY_KEY")))
+              print("  修复二选一:")
+              print("   A. Worker 校验 X-DJYY-Key + 仓库 Secret DJYY_KEY（推荐，IP 段会变）")
+              print("   B. Cloudflare WAF: ip.src in <GitHub IP 段> AND path starts_with /api/ → Skip")
+              print("  GitHub IP 段: https://api.github.com/meta 的 actions 字段")
+              print(f"  Body: {body[:200]}")
           else:
               print(f"BLOCKED! Body: {body[:300]}")
 

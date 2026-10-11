@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 
@@ -65,6 +66,8 @@ class CPPIStrategy:
         self.cfg = config or CPPIConfig()
         self.state_path = Path(state_path)
         self.state = self._load(initial_bankroll)
+        # 最近一次棘轮重置（仅内存 + history 落盘，不进 CPPIState 序列化结构）
+        self.last_reset = None
 
     def _load(self, initial: float) -> CPPIState:
         if self.state_path.exists():
@@ -122,15 +125,35 @@ class CPPIStrategy:
         """
         更新资产并调整底线（棘轮）。
         每轮结算后调用。
+
+        2026-10-11：破产保护触发时**记录重置事件**。
+        此前 CPPI 的 history 只有 {bankroll, peak, floor} 三个值，
+        重置在曲线上只表现为一次突然下跌，没有任何标记 ——
+        2026-08-04 那次重置（current=66462/peak=377156 崩坏后归到基准 5000）
+        就因此完全查不到是谁触发的、何时触发的。
         """
         s = self.state
+        prev_bankroll = s.current_bankroll
+        prev_peak = s.peak_bankroll
+        prev_floor = s.floor
         s.current_bankroll = new_bankroll
 
-        # 破产保护：资产跌破底线时重置棘轮（否则 floor 只升不降会永久锁死投注）
+        reset_reason = None
         if new_bankroll < s.floor * 0.5:
+            reset_reason = (f"破产保护：{new_bankroll:.2f} < floor({prev_floor:.2f}) × 0.5")
             s.peak_bankroll = new_bankroll
             s.floor = new_bankroll * self.cfg.floor_ratio
             s.total_risk_exposure = 0.0
+            self.last_reset = {
+                "at": datetime.now().isoformat(timespec="seconds"),
+                "reason": reset_reason,
+                "from_bankroll": round(prev_bankroll, 2),
+                "from_peak": round(prev_peak, 2),
+                "from_floor": round(prev_floor, 2),
+                "to_bankroll": round(new_bankroll, 2),
+                "to_floor": round(s.floor, 2),
+            }
+            print(f"  ⚠ CPPI 棘轮重置: {reset_reason} → {new_bankroll:.0f} (floor {prev_floor:.0f}→{s.floor:.0f})")
 
         # 更新峰值
         if new_bankroll > s.peak_bankroll:
@@ -144,12 +167,21 @@ class CPPIStrategy:
             s.floor = new_floor
 
         # 记录历史（仅在状态有变化时记录，避免定时结算空转刷屏）
+        # 重置发生的那一条必须带标记，否则曲线上只是一次无法解释的突降
         _last = s.history[-1] if s.history else None
         _snap = {
             "bankroll": round(new_bankroll, 2),
             "peak": round(s.peak_bankroll, 2),
             "floor": round(s.floor, 2),
         }
+        if reset_reason:
+            _snap["reset"] = True
+            _snap["reset_reason"] = reset_reason
+            _snap["reset_from"] = {
+                "bankroll": round(prev_bankroll, 2),
+                "peak": round(prev_peak, 2),
+                "floor": round(prev_floor, 2),
+            }
         if _last != _snap:
             s.history.append(_snap)
         if len(s.history) > 365:
@@ -172,4 +204,5 @@ class CPPIStrategy:
             "drawdown_from_peak": round(
                 1 - self.state.current_bankroll / max(self.state.peak_bankroll, 1), 4
             ),
+            "last_reset": self.last_reset,
         }

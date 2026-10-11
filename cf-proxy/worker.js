@@ -20,6 +20,13 @@
  */
 
 const SPORTTERY_UPSTREAM = 'https://webapi.sporttery.cn';
+// 2026-10-11 新增：DJYY 代理。
+// djyylive.com 是第三方服务，其 Cloudflare 对 GitHub Actions 的数据中心 IP
+// 返回 403（"Just a moment..." 挑战页 = Bot Fight Mode）；本地网络 200。
+// 本 Worker 跑在 Cloudflare 边缘 → Cloudflare 到 Cloudflare 不触发同样的挑战，
+// 于是成为 CI 侧的绕行路径。
+// 客户端用法：DJYY_PROXY=https://<worker>/api/djyy
+const DJYY_UPSTREAM = 'https://djyylive.com';
 
 export default {
   async fetch(request, env, ctx) {
@@ -39,6 +46,39 @@ export default {
     // 健康检查
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok', timestamp: Date.now() });
+    }
+
+    // 代理 DJYY: /api/djyy/... → djyylive.com/...
+    // 存在的唯一理由：djyylive.com 的 Cloudflare 对 GitHub Actions IP 返回 403
+    // （Bot Fight Mode 挑战页），而 Cloudflare→Cloudflare 不触发。
+    if (url.pathname.startsWith('/api/djyy/')) {
+      const targetPath = url.pathname.replace('/api/djyy', '');
+      const targetUrl = `${DJYY_UPSTREAM}${targetPath}${url.search}`;
+
+      try {
+        const upstreamResp = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+              + 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+          },
+        });
+        const body = await upstreamResp.text();
+        return new Response(body, {
+          status: upstreamResp.status,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=60',
+            'X-Proxy': 'cf-worker-djyy',
+          },
+        });
+      } catch (err) {
+        return Response.json(
+          { error: 'upstream_failed', detail: err.message },
+          { status: 502 }
+        );
+      }
     }
 
     // 代理竞彩API: /api/sporttery/gateway/... → webapi.sporttery.cn/gateway/...

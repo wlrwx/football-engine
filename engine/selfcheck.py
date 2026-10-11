@@ -11,6 +11,7 @@
 3. 串关选腿赔率分布：1.5 以下大热占比（价值选腿纪律）
 4. 比分串：是否用了官方赔率（模拟赔率 = 数据断裂征兆）
 5. 概率分布健康度：高置信段（≥70%）样本占比（融合稀释检测）
+6. DJYY 通道存活率：djyy_enriched 近 3 天中 2 天 <50% 报警（防第三通道静默死亡重演）
 
 用法：python3 engine/selfcheck.py [--date YYYY-MM-DD]
 """
@@ -115,6 +116,18 @@ def check_day(day_str: str) -> list[str]:
     else:
         alerts.append(f"⚠ {day_str}: market_fair 覆盖率不足（{len(mkt_maxs)}/{n}）——市场源缺失")
 
+    # 5. 合成赔率裸奔（2026-10-09）：当数据源缺真实赔率时会合成赔率，
+    #    合成赔率是从 final 概率反推的（1/(final*1.05)），去水后≈final 本身，
+    #    等于把模型自己的输出佯装成市场。此类场次 market_fair=None 时融合
+    #    走 fuse_model_only，概率 100% 来自裸模型，无任何市场锚。
+    #    单独列告警，不让它被笼统的「覆盖率不足」淹没。
+    _synthetic_bare = [p for p in preds
+                       if p.get("odds_synthetic") and not p.get("market_fair")]
+    if _synthetic_bare:
+        alerts.append(
+            f"⚠ {day_str}: {len(_synthetic_bare)}/{n} 场合成赔率且 market_fair=None，"
+            "完全绕过市场融合（裸模型概率）")
+
     return alerts
 
 
@@ -144,6 +157,32 @@ def main() -> int:
     all_alerts: list[str] = []
     for d in days:
         all_alerts.extend(check_day(d))
+
+    # 6. DJYY 通道存活率（2026-10-11）：djyy_prob 曾静默死亡 6 周——CI 被
+    #    Cloudflare 屏蔽期间生成的预测无 DJYY 数据，结算入账全 null，融合
+    #    优化器把 DJYY 权重压到 0 而无人察觉。近 3 天中 2 天存活率 <50% 即
+    #    报警；单日 <5 场视为小样本噪声跳过。
+    djyy_rates: list[tuple[str, float]] = []
+    for d in days:
+        _pf = DAILY / d / "predictions.json"
+        if not _pf.exists():
+            continue
+        try:
+            _preds = json.loads(_pf.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(_preds, dict):
+            _preds = _preds.get("predictions", _preds)
+        if not _preds or len(_preds) < 5:
+            continue
+        _cnt = sum(1 for p in _preds if p.get("djyy_enriched"))
+        djyy_rates.append((d, _cnt / len(_preds)))
+    _low_days = [d for d, r in djyy_rates if r < 0.5]
+    if len(_low_days) >= 2:
+        all_alerts.append(
+            "⚠ DJYY 通道存活率 " + "、".join(f"{d}:{r:.0%}" for d, r in djyy_rates)
+            + f" ——{len(_low_days)} 天低于 50%，融合优化器将失去第三通道样本"
+            "（检查 DJYY 接口/Worker 或本地富化是否失效）")
 
     out = STATE / "selfcheck_report.json"
     out.write_text(json.dumps({

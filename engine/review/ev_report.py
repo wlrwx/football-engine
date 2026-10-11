@@ -22,6 +22,30 @@ ROOT = Path(__file__).parent.parent.parent
 # 定性——小样本 ROI 是噪声（changelog 2026-08-14 遗留项），禁投/推荐需实打实证据。
 MIN_VERDICT_SAMPLES = 50
 
+STRAT_CFG = ROOT / "config" / "strategy.json"
+
+
+def _favorite_band_cfg() -> dict:
+    try:
+        return json.loads(STRAT_CFG.read_text(encoding="utf-8")).get("favorite_band", {})
+    except Exception:
+        return {}
+
+
+def gate_passes(odds: float, band_cfg: dict) -> bool:
+    """该赔率是否会真的被下注。
+
+    2026-10-11 修正口径脱节：本报告原口径对**全部预测**算 ROI，而
+    下注口径（main.py:1029 的 favorite_band_factor）会直接乘 0 掉热门区。
+    两套口径不一致 → "L1/L2 送钱区"是**反事实**结论，系统实际并不下这些注。
+    这里复用与执行层同一个闸门函数，把反事实口径和可下注口径分开呈现。
+    """
+    try:
+        from engine.strategy.kelly import favorite_band_factor
+        return favorite_band_factor(odds, band_cfg) > 0
+    except Exception:
+        return True
+
 
 def layer_of(odds: float) -> str:
     """老系统 L1-L5 赔率分层口径（与竞彩实战一致）"""
@@ -78,6 +102,11 @@ def build_report(daily_root: Path | None = None, out_path: Path | None = None) -
     leagues = defaultdict(lambda: {"n": 0, "hits": 0, "pnl": 0.0})
     total = {"n": 0, "hits": 0, "pnl": 0.0}
 
+    # 2026-10-11：闸门口径分流。反事实（全部预测）与实际可下注分两套统计。
+    _band_cfg = _favorite_band_cfg()
+    stakable = {k: {"n": 0, "hits": 0, "pnl": 0.0} for k in layers}
+    stakable_total = {"n": 0, "hits": 0, "pnl": 0.0}
+
     for r in rows:
         won = r["direction"] == r["actual"]
         pnl = (r["odds"] - 1) if won else -1.0
@@ -90,6 +119,14 @@ def build_report(daily_root: Path | None = None, out_path: Path | None = None) -
         total["n"] += 1
         total["hits"] += won
         total["pnl"] += pnl
+        if gate_passes(r["odds"], _band_cfg):
+            _L = stakable[layer_of(r["odds"])]
+            _L["n"] += 1
+            _L["hits"] += won
+            _L["pnl"] += pnl
+            stakable_total["n"] += 1
+            stakable_total["hits"] += won
+            stakable_total["pnl"] += pnl
 
     def _finalize(d: dict) -> dict:
         d["hit_rate"] = d["hits"] / d["n"] if d["n"] else 0
@@ -111,6 +148,16 @@ def build_report(daily_root: Path | None = None, out_path: Path | None = None) -
         "layers": {k: _finalize(v) for k, v in layers.items() if v["n"] > 0},
         "leagues": {k: _finalize(v) for k, v in sorted(
             leagues.items(), key=lambda x: x[1]["pnl"] / max(x[1]["n"], 1)) if v["n"] >= 3},
+        # 2026-10-11：闸门口径分流。counterfactual_* 对全部预测算（历史口径），
+        # stakable_* 只统计过了 favorite_band 闸门、系统真会下注的场次。
+        # 两者必须分开看：反事实口径的"送钱区"若本身已被闸门禁投，就不是活的问题。
+        "stakable": {
+            "total": _finalize(dict(stakable_total)),
+            "layers": {k: _finalize(v) for k, v in stakable.items() if v["n"] > 0},
+            "gate": _band_cfg,
+            "note": ("favorite_band 闸门生效后系统实际可下注的口径。"
+                     "与 layers 的差异 = 被闸门禁投的场次（反事实口径）。"),
+        },
         "takeaways": [],
     }
 

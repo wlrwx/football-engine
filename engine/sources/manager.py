@@ -2,6 +2,7 @@ from __future__ import annotations
 """数据源管理器 - fallback 链调度 + DJYY增强"""
 import hashlib
 import json
+import os
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -16,7 +17,27 @@ from .team_match import match_pair
 
 
 # DJYY 增强是可选信号，不能因为第三方接口慢而拖垮整个预测流水线。
-DJYY_ENRICH_TIME_BUDGET = 60.0  # 秒
+#
+# 2026-10-11 修正：原注释写"30场×4接口, 180s 足够"，这个假设是错的。
+# 实测（本地跑 enrich_from_djyy 6 场）= 130.5s → 约 21.8s/场 ≈ 5.4s/接口，
+# 隐含每接口仅 1.5s。实际按 180s 只够 8 场，而账本实测日均 12.1 场、峰值 30 场
+# → 典型日有 1/3、峰值日有 73% 的场次永远拿不到 enrichment（静默 break）。
+#
+# 改为按场次自适应，可用环境变量覆盖：
+#   DJYY_ENRICH_MIN_BUDGET_S   预算下限（默认 180）
+#   DJYY_ENRICH_SEC_PER_MATCH  每场预估耗时（默认 24，实测 21.8 留余量）
+#   DJYY_ENRICH_MAX_BUDGET_S   预算上限（默认 900，防止第三方卡死拖垮流水线）
+#   DJYY_FETCH_LINEUPS=0       关闭阵容抓取（store-only，不参与融合，省 1/4 接口）
+DJYY_ENRICH_MIN_BUDGET = float(os.environ.get("DJYY_ENRICH_MIN_BUDGET_S", "180"))
+DJYY_ENRICH_SECONDS_PER_MATCH = float(os.environ.get("DJYY_ENRICH_SEC_PER_MATCH", "24"))
+DJYY_ENRICH_MAX_BUDGET = float(os.environ.get("DJYY_ENRICH_MAX_BUDGET_S", "900"))
+DJYY_FETCH_LINEUPS = os.environ.get("DJYY_FETCH_LINEUPS", "0") not in ("0", "false", "False")
+
+
+def djyy_time_budget(n_matches: int) -> float:
+    """按场次自适应 DJYY 抓取预算，避免固定常量在大场次日截断 enrichment。"""
+    need = max(0, n_matches) * DJYY_ENRICH_SECONDS_PER_MATCH
+    return min(DJYY_ENRICH_MAX_BUDGET, max(DJYY_ENRICH_MIN_BUDGET, need))
 
 
 
@@ -391,20 +412,39 @@ class SourceManager:
         返回: {match_id: {model_probs, pinnacle_odds, xg, opening_odds}}
         """
         enrichment: dict[str, dict] = {}
-        deadline = time.monotonic() + DJYY_ENRICH_TIME_BUDGET
+        _budget = djyy_time_budget(len(fixtures))
+        deadline = time.monotonic() + _budget
+        _stats = {"fixtures": 0, "matched": 0, "enriched": 0, "failed": 0,
+                  "cache_hit": 0, "budget_exhausted": False}
 
         try:
             djyy_fixtures = self._djyy.fetch_fixtures(target_date)
         except Exception as e:
             # 2026-10-10 诊断: CI 侧 DJYY 无匹配根因定位（本地正常/CI 为0）
             print(f"    [djyy诊断] fetch_fixtures 异常: {type(e).__name__}: {e}")
+            _stats["error"] = f"fetch_fixtures:{type(e).__name__}: {e}"
+            self._write_djyy_status(target_date, _stats, len(fixtures), _budget)
             return enrichment
 
         if not djyy_fixtures:
-            print("    [djyy诊断] fetch_fixtures 返回 0 场（DJYY 对该网络不可达或无数据）")
+            # 2026-10-11：区分"被边缘拦截"与"当天真的没数据"。
+            # 此前一律记 fetch_fixtures_empty，导致 CI 侧被 Cloudflare 403
+            # 拦了 3.5 周，日志里与"当天无赛程"完全无法区分。
+            from engine.sources import djyy as _djyy_mod
+            _err = dict(getattr(_djyy_mod, "LAST_ERROR", {}) or {})
+            if _err.get("kind") == "blocked_by_edge":
+                _stats["error"] = _err.get("detail") or "blocked_by_edge"
+                print(f"    [djyy诊断] ⚠ 被边缘拦截: {_err.get('detail')}")
+            else:
+                _stats["error"] = _err.get("detail") or "fetch_fixtures_empty"
+                print("    [djyy诊断] fetch_fixtures 返回 0 场"
+                      + (f"（{_err.get('detail')}）" if _err else "（当天无赛程）"))
+            self._write_djyy_status(target_date, _stats, len(fixtures), _budget)
             return enrichment
+        _stats["fixtures"] = len(djyy_fixtures)
         print(f"    [djyy诊断] fetch_fixtures {len(djyy_fixtures)} 场, "
-              f"有ID样本: {sum(1 for f in djyy_fixtures if getattr(f, '_djyy_id', None))}")
+              f"有ID样本: {sum(1 for f in djyy_fixtures if getattr(f, '_djyy_id', None))}, "
+              f"预算 {_budget:.0f}s（{len(fixtures)} 场）")
 
         # 建立队名→DJYY ID映射（多级匹配，解决跨源译名不一致）
         djyy_map: dict[str, int] = {}
@@ -418,6 +458,9 @@ class SourceManager:
         # 逐场匹配并获取 comparison
         for fixture in fixtures:
             if time.monotonic() > deadline:
+                # 2026-10-11: 不再静默 break —— 截断本身就是需要被看见的故障
+                _stats["budget_exhausted"] = True
+                _stats["truncated_at"] = fixture.match_id
                 break
 
             key = f"{fixture.home_team}_vs_{fixture.away_team}"
@@ -436,6 +479,7 @@ class SourceManager:
 
             if not djyy_id:
                 continue
+            _stats["matched"] += 1
 
             # 2026-10-05 限流根治: 每场每日只调一次 DJYY（缓存命中直接用）。
             # 此前 48 轮/天 × 17 场 × 3 接口 ≈ 2400+ 调用/天 → 被限流后
@@ -444,13 +488,17 @@ class SourceManager:
             _ck = f"enrich_{djyy_id}"
             if _cc.get(_ck):
                 enrichment[fixture.match_id] = _cc[_ck]
+                _stats["cache_hit"] += 1
                 continue
 
             try:
                 if time.monotonic() > deadline:
+                    _stats["budget_exhausted"] = True
+                    _stats["truncated_at"] = fixture.match_id
                     break
                 comparison = self._djyy.fetch_match_comparison(djyy_id)
                 if not comparison:
+                    _stats["failed"] += 1
                     continue
 
                 model = comparison.get("model", {})
@@ -492,6 +540,11 @@ class SourceManager:
                         pass
 
                 # 伤停: 提取缺阵球员 (影响攻击力评估)
+                # 2026-10-11 修复: info/lineups/form_xg 等原先只在"预算未耗尽"分支内赋值，
+                # 但函数末尾 _extract_context(comparison, info, _lineups) 无条件引用 info。
+                # 预算一旦耗尽就是 NameError → 被 except Exception 吞掉 → 该场静默丢失。
+                # 统一预初始化为 None。
+                info = None
                 injuries = None
                 if time.monotonic() <= deadline:
                     try:
@@ -524,8 +577,10 @@ class SourceManager:
                 # 首发阵容（2026-08-30 新增, store-only）：阵型+首发攻击手数。
                 # 每场每日只抓一次（context_cache 以 djyy_id 为键, 由 main 持久化）,
                 # 失败也记 tried_at 防止每 30 分钟重试打爆接口。
+                # 2026-10-11: 阵容是 store-only，不参与任何概率/融合计算，却占掉每场
+                # 4 个接口里的 1 个（实测 ~5.4s）。改为默认关闭，DJYY_FETCH_LINEUPS=1 可开。
                 _lineups = None
-                if time.monotonic() <= deadline:
+                if DJYY_FETCH_LINEUPS and time.monotonic() <= deadline:
                     _cc = context_cache if context_cache is not None else {}
                     _cached = _cc.get(str(djyy_id)) or {}
                     if "lineups" in _cached or "lineups_tried_at" in _cached:
@@ -544,6 +599,9 @@ class SourceManager:
 
                 enrichment[fixture.match_id] = {
                     "djyy_id": djyy_id,
+                    # 结算回填用（2026-10-11）：CI 生成的预测可能没有 _djyy_id
+                    # （其富化失败时），缓存条目带上 match_id 让 post_match 可按比赛反查。
+                    "match_id": fixture.match_id,
                     "model_probs": {
                         "home": model.get("p_home"),
                         "draw": model.get("p_draw"),
@@ -560,10 +618,59 @@ class SourceManager:
                 }
                 if context_cache is not None:
                     _cc[f"enrich_{djyy_id}"] = enrichment[fixture.match_id]
-            except Exception:
-                continue
+                _stats["enriched"] += 1
+            except Exception as e:
+                # 2026-10-11: 原来这里静默 continue，会把逐场失败全部吞掉。
+                _stats["failed"] += 1
+                if _stats["failed"] <= 3:
+                    print(f"    [djyy诊断] 单场失败 {fixture.match_id}: "
+                          f"{type(e).__name__}: {e}")
 
+        _coverage = (f"{_stats['enriched']}/{len(fixtures)}"
+                     if fixtures else "0/0")
+        print(f"    [djyy诊断] 增强覆盖 {_coverage}"
+              f"（匹配 {_stats['matched']}, 缓存命中 {_stats['cache_hit']}, "
+              f"失败 {_stats['failed']}）")
+        if _stats["budget_exhausted"]:
+            print(f"    [djyy诊断] ⚠ 预算耗尽，剩余场次未增强（截断于 "
+                  f"{_stats.get('truncated_at')}）。调大 DJYY_ENRICH_MIN_BUDGET_S "
+                  f"或设 DJYY_FETCH_LINEUPS=0 可缓解。")
+        self._write_djyy_status(target_date, _stats, len(fixtures), _budget)
         return enrichment
+
+    def _write_djyy_status(self, target_date, stats: dict, n_fixtures: int,
+                           budget: float) -> None:
+        """落盘 DJYY 健康状态。
+
+        2026-10-11 新增。此前 DJYY 完全失效时（fetch_fixtures 返回 0、
+        或预算耗尽提前 break），系统会静默地用「名义 0.2 权重、实际 0 贡献」
+        继续跑，账本里 djyy_prob 长期为 null 而没有任何告警——
+        实测 v2 链 529 场 djyy 命中率为 0 却无人察觉。
+        """
+        try:
+            covered = int(stats.get("enriched", 0)) + int(stats.get("cache_hit", 0))
+            coverage = (covered / n_fixtures) if n_fixtures else 0.0
+            healthy = coverage >= 0.8 and not stats.get("budget_exhausted")
+            payload = {
+                "date": target_date.isoformat(),
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+                "healthy": healthy,
+                "coverage": round(coverage, 4),
+                "covered": covered,
+                "fixtures": n_fixtures,
+                "budget_s": round(budget, 1),
+                "budget_exhausted": bool(stats.get("budget_exhausted")),
+                "error": stats.get("error"),
+                "detail": stats,
+                "note": ("coverage < 0.8 或预算耗尽 → fusion 的 djyy 名义权重"
+                         "不产生任何贡献，等价于模型权重被摊薄"),
+            }
+            out = self.data_dir / "djyy_status.json"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                           encoding="utf-8")
+        except Exception:
+            pass
 
     def get_league_params(self) -> dict:
         """获取联赛场均数据（支持联赛独立参数）"""

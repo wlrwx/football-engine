@@ -106,6 +106,9 @@ class MatchReview:
     rps_final: float | None = None
     rps_market: float | None = None
     rps_model: float | None = None
+    # DJYY 回填标记（2026-10-11）：djyy_prob 非预测记录自带、而是结算时从
+    # context_cache 找回时为 True。区分数据来源，评估时可知 CI 屏蔽期的影响面。
+    djyy_backfilled: bool = False
 
 
 @dataclass
@@ -230,6 +233,45 @@ def wilson_lower(hits: int, n: int, z: float = 1.96) -> float:
     return max(0.0, center - spread)
 
 
+def build_djyy_cache_map(cache: dict) -> dict:
+    """从 context_cache.json 构建回填索引（djyy_id 与 match_id 双键 → model_probs）。
+
+    双键原因：本地生成的预测带 _djyy_id，CI 生成的可能只有 match_id
+    （其富化失败时 _djyy_id 缺失），两条路都要能反查到缓存（2026-10-11）。
+    """
+    out: dict = {}
+    for v in (cache or {}).values():
+        if (isinstance(v, dict) and isinstance(v.get("model_probs"), dict)
+                and v["model_probs"].get("home")):
+            mp = v["model_probs"]
+            if v.get("djyy_id"):
+                out[str(v["djyy_id"])] = mp
+            if v.get("match_id"):
+                out[v["match_id"]] = mp
+    return out
+
+
+def resolve_djyy_prob(pred: dict, cache_map: dict) -> tuple[list | None, bool]:
+    """结算行的 DJYY 概率解析：预测记录自带优先，缺失时按 _djyy_id/match_id 从缓存回填。
+
+    背景（2026-10-11）：CI 被 Cloudflare 屏蔽期间生成的 predictions.json 没有
+    djyy_model_prob，结算入账后 djyy_prob 全 null，融合优化器看不到第三通道
+    样本、把 DJYY 权重压到 0——通道静默死亡 6 周。本地按天缓存里有完整数据，
+    按 djyy_id/match_id 找回即可，无需改动预测记录本身（它保持生成时的真实面貌）。
+
+    返回 (prob_or_None, backfilled)。缓存条目缺 home（富化失败）不得回填，
+    否则会造出 [0, x, y] 伪分布污染优化器。
+    """
+    d = pred.get("djyy_model_prob")
+    if d and d.get("home"):
+        return [d.get("home", 0), d.get("draw", 0), d.get("away", 0)], False
+    mp = (cache_map.get(str(pred.get("_djyy_id", "")))
+          or cache_map.get(pred.get("match_id", "")))
+    if mp and mp.get("home"):
+        return [mp.get("home", 0), mp.get("draw", 0), mp.get("away", 0)], True
+    return None, False
+
+
 class ReviewLedger:
     """append-only 滚动账本 data/state/review_ledger.jsonl"""
 
@@ -322,6 +364,11 @@ class PostMatchReviewer:
         if not predictions or not results:
             return {"date": date_str, "n_matches": 0, "status": "no_data"}
 
+        # DJYY 回填索引（2026-10-11）：CI 屏蔽期生成的预测缺 djyy_model_prob，
+        # 结算时按 _djyy_id 从本地按天缓存找回，保证第三通道样本持续入账本。
+        djyy_cache_map = build_djyy_cache_map(
+            self._load_json(daily_dir / "context_cache.json", {}))
+
         # 建立 match_id → prediction 索引 (含 fixture fallback)
         pred_map = {}
         for p in predictions:
@@ -408,12 +455,7 @@ class PostMatchReviewer:
 
             market_fair = pred.get("market_fair")  # [h, d, a] or None
 
-            djyy_dict = pred.get("djyy_model_prob")
-            djyy_prob = [
-                djyy_dict.get("home", 0),
-                djyy_dict.get("draw", 0),
-                djyy_dict.get("away", 0),
-            ] if djyy_dict and djyy_dict.get("home") else None
+            djyy_prob, djyy_backfilled = resolve_djyy_prob(pred, djyy_cache_map)
 
             final_prob = [
                 pred.get("home_win_prob", 0),
@@ -464,6 +506,7 @@ class PostMatchReviewer:
                 model_raw=model_raw,
                 market_fair=market_fair,
                 djyy_prob=djyy_prob,
+                djyy_backfilled=djyy_backfilled,
                 final_prob=final_prob,
                 confidence_tier=tier,
                 odds_band=band,

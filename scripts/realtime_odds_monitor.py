@@ -214,12 +214,20 @@ def git_push_with_retry(max_retries: int = 5, retry_delay: int = 10) -> bool:
             subprocess.run(["git", "config", "http.postBuffer", "524288000"], cwd=PROJECT_ROOT)
             
             # 先拉取远程变更（自动解决数据冲突）
-            subprocess.run(
+            pull = subprocess.run(
                 ["git", "pull", "--rebase", "-X", "ours"],
                 cwd=PROJECT_ROOT,
                 capture_output=True,
+                text=True,
                 timeout=60
             )
+            if pull.returncode != 0:
+                # pull --rebase 停在空提交/冲突上会残留 rebase-merge、HEAD 游离
+                # （2026-10-11 卡死根因），quit 后强制回 main 对齐远端；
+                # 本轮数据下个整点会重新生成，远端为准。
+                subprocess.run(["git", "rebase", "--quit"], cwd=PROJECT_ROOT, capture_output=True)
+                subprocess.run(["git", "checkout", "-B", "main"], cwd=PROJECT_ROOT, capture_output=True)
+                subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=PROJECT_ROOT, capture_output=True)
             
             result = subprocess.run(
                 ["git", "push"],

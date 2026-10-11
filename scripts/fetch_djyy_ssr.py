@@ -10,6 +10,7 @@ DJYY 网站改版，不再用 SSR RSC Flight Data，改为公开 JSON API。
 用法: python scripts/fetch_djyy_ssr.py
 输出: data/djyy_matches.json
 """
+import os
 import json
 import sys
 import urllib.parse
@@ -19,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
-BASE = "https://djyylive.com"
+BASE = os.environ.get("DJYY_PROXY", "https://djyylive.com").rstrip("/")
 OUTPUT = ROOT / "data" / "djyy_matches.json"
 
 _SSL_CTX = ssl.create_default_context()
