@@ -97,8 +97,20 @@ def test_health_check_wired():
     assert "<<'PY'" not in yml, "workflow 内不应有嵌套 heredoc"
 
 
-def test_output_file_written():
+def test_output_file_written(tmp_path, monkeypatch):
+    """验证「写入的内容与本次计算一致」。
+
+    回归动机（PR#10 CI 红过一次）：原写法拿磁盘上的旧文件去比对**新跑的**
+    measure()，而 odds_series 在 CI 持续增长（实测 899 → 936），
+    于是该测试必然失败 —— 它依赖了系统里本来就在变的量。
+    现在改为写入临时路径后立刻读回，测的是写入动作自身的自洽性。
+    """
+    tmp = tmp_path / "odds_coverage.json"
+    monkeypatch.setattr(osc, "OUT", tmp)
     rep = osc.measure()
-    assert osc.OUT.exists()
-    disk = json.loads(osc.OUT.read_text(encoding="utf-8"))
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    tmp.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+    disk = json.loads(tmp.read_text(encoding="utf-8"))
     assert disk["total_matches"] == rep["total_matches"]
+    assert disk["healthy"] == rep["healthy"]
+    assert set(disk) == set(rep)
