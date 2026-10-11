@@ -109,6 +109,21 @@ class MatchReview:
     # DJYY 回填标记（2026-10-11）：djyy_prob 非预测记录自带、而是结算时从
     # context_cache 找回时为 True。区分数据来源，评估时可知 CI 屏蔽期的影响面。
     djyy_backfilled: bool = False
+    # 有效权重（2026-10-11）：归一化后真正参与运算的 model/market/djyy 比例
+    # + 实际走的融合分支。名义权重在源缺失时与实际比例不一致
+    # （0.05/0.75/0.20 在 djyy 缺失时 → 0.0625/0.9375/0），落盘后账本才能
+    # 逐场反推"这条预测当时模型到底占多少"。老账本无此字段 → None。
+    fusion_effective_weights: dict | None = None
+    fusion_source: str = ""
+    # 下注决策记录（2026-10-11）：让"为什么这一注没出/出了"可审计。
+    # 此前账本只有 pnl=0.0 + hit=False，无法区分「下了注但亏了」和
+    # 「压根没下注」——而这两种在评估里含义完全不同。
+    odds_used: float | None = None      # 主推方向的赔率
+    odds_layer: str = ""                # 闸门对齐的 L1-L5 层（engine/odds_bands）
+    bet_sel: str = ""                   # 实际所下注的玩法（无出注=1X2主推方向）
+    stake_planned: float = 0.0          # 该场实际计划注额（0 = 未出注）
+    gate_blocked: bool = False          # 是否被 favorite_band 闸门禁投
+    gate_reason: str = ""               # 禁投原因（可为空）
 
 
 @dataclass
@@ -360,6 +375,59 @@ class PostMatchReviewer:
         daily_dir = self.data_dir / "daily" / date_str
         predictions = self._load_json(daily_dir / "predictions.json", [])
         results = self._load_json(daily_dir / "results.json", [])
+        # 2026-10-11：载入 ticket_plan 以记录"这一注出没出、出了多少"。
+        # 此前账本只有 pnl=0.0，无法区分「下了注但亏了」和「压根没下注」。
+        ticket_plan = self._load_json(daily_dir / "ticket_plan.json", {}) or {}
+
+        # match_id → 该场所有计划的注额合计 + 实际所下注的方向/赔率
+        stake_by_mid: dict[str, float] = {}
+        actual_bet: dict[str, dict] = {}
+        for _grp in ("stable", "value", "lottery"):
+            for _t in (ticket_plan.get(_grp) or []):
+                _mid = str(_t.get("match", "")).split("#")[0]
+                if not _mid:
+                    continue
+                _stake = float(_t.get("stake") or 0.0)
+                stake_by_mid[_mid] = stake_by_mid.get(_mid, 0.0) + _stake
+                # 实际所下注的那一条（玩法+赔率），可能与 1X2 主推方向不同：
+                # 例如 1X2 主推主胜 1.46（L1 禁投），但实际出的是让球客胜 2.28（L4 放行）。
+                # 闸门判定必须按**实际注**算，否则会把"已放行"记成"禁投"。
+                if _stake > 0 and _mid not in actual_bet:
+                    actual_bet[_mid] = {
+                        "sel": str(_t.get("sel") or ""),
+                        "odds": float(_t.get("odds") or 0.0),
+                        "stake": _stake,
+                        "group": _grp,
+                    }
+        for _grp in ("parlay", "score_parlay"):
+            for _t in (ticket_plan.get(_grp) or []):
+                _stake = float(_t.get("stake") or 0.0)
+                for _leg in (_t.get("legs") or []):
+                    _mid = str(_leg.get("match") or "")
+                    if not _mid:
+                        continue
+                    # 串关注额按腿数摊到每条腿，账本层面口径一致
+                    _n_legs = len(_t.get("legs") or []) or 1
+                    stake_by_mid[_mid] = stake_by_mid.get(_mid, 0.0) + _stake / _n_legs
+                    _lg = _leg.get("odds")
+                    if _mid not in actual_bet and _lg:
+                        actual_bet[_mid] = {
+                            "sel": str(_leg.get("sel") or _leg.get("score") or ""),
+                            "odds": float(_lg),
+                            "stake": _stake / _n_legs,
+                            "group": _grp,
+                        }
+
+        # favorite_band 闸门配置（下注层口径，与 main.py 执行层同一个函数）
+        _band_cfg = {}
+        try:
+            _sc = self.data_dir.parent / "config" / "strategy.json"
+            if _sc.exists():
+                _band_cfg = json.loads(_sc.read_text(encoding="utf-8")).get(
+                    "favorite_band", {}
+                )
+        except Exception:
+            _band_cfg = {}
 
         if not predictions or not results:
             return {"date": date_str, "n_matches": 0, "status": "no_data"}
@@ -480,6 +548,31 @@ class PostMatchReviewer:
             sel_odds = pred.get(_sel_odds_key) or 2.0
             band = self._odds_band(sel_odds)
 
+            # 下注决策可审计（2026-10-11）：
+            #   odds_layer   闸门对齐的 L1-L5（engine/odds_bands 单一真源）
+            #   gate_blocked 是否被 favorite_band 禁投（复用执行层同一函数）
+            #   stake_planned 该场实际计划注额（0 = 未出注）
+            # 三者合起来才能把 pnl=0.0 解释成「正确地没下注」或「下了但没中」。
+            from engine.odds_bands import layer_of
+            _mid = pred.get("match_id", "")
+            _stake_planned = float(stake_by_mid.get(_mid, 0.0))
+            _bet = actual_bet.get(_mid)
+            if _bet:
+                # 有实际出注 → 按**实际注的赔率**分层与判闸门
+                _odds_used = _bet["odds"]
+                _bet_sel = _bet["sel"]
+            else:
+                # 未出注 → 记录 1X2 主推方向（反事实：这注若出会落在哪一层）
+                _odds_used = sel_odds
+                _bet_sel = ["home", "draw", "away"][best_sel]
+            _odds_layer = layer_of(_odds_used)
+            _gate_blocked = False
+            try:
+                from engine.strategy.kelly import favorite_band_factor
+                _gate_blocked = favorite_band_factor(_odds_used, _band_cfg) <= 0
+            except Exception:
+                _gate_blocked = False
+
             # 命中
             hit = best_sel == actual_idx
 
@@ -539,6 +632,18 @@ class PostMatchReviewer:
                 freshness_risk=(pred.get("freshness") or {}).get("risk", ""),
                 as_of=pred.get("as_of", ""),
                 kickoff=pred.get("kickoff", ""),
+                # 有效权重 + 融合分支（2026-10-11）：审计链闭合的关键一环。
+                # 无此字段时只能看到 model_raw/market_fair/djyy_prob 三路原始值，
+                # 但"最终概率 = 三路按什么比例混合"完全不可反推——而名义权重
+                # 与实际比例在源缺失时并不相同。
+                fusion_effective_weights=pred.get("fusion_effective_weights"),
+                fusion_source=pred.get("fusion_source", ""),
+                # 下注决策记录（2026-10-11）：让 pnl=0.0 可解释
+                odds_used=_odds_used,
+                odds_layer=_odds_layer,
+                bet_sel=_bet_sel,
+                stake_planned=round(_stake_planned, 2),
+                gate_blocked=_gate_blocked,
             )
             reviews.append(review)
 
@@ -755,14 +860,13 @@ class PostMatchReviewer:
 
     @staticmethod
     def _odds_band(odds: float) -> str:
-        if odds < 1.5:
-            return "1.0-1.5"
-        elif odds < 2.0:
-            return "1.5-2.0"
-        elif odds < 3.0:
-            return "2.0-3.0"
-        else:
-            return "3.0+"
+        # 2026-10-11：口径统一到 engine/odds_bands.py（单一真源）。
+        # 旧实现分 1.5-2.0 / 2.0-3.0，与下注闸门边界 1.8 和 ev_report 的
+        # L1-L5 都不一致 —— 账本的 1.5-2.0 桶横跨闸门边界，导致
+        # "odds 1.8-2.2 系统性亏损" 这类结论在账本里结构性不可见。
+        # 保留本方法名与返回类型语义，仅改分层边界。
+        from engine.odds_bands import layer_of
+        return layer_of(odds)
 
     @staticmethod
     def _load_json(path: Path, default):
