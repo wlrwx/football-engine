@@ -4,6 +4,7 @@ from __future__ import annotations
 展示: 预测概率/赔率对比/价值检测/xG/置信度/冷门风险/三票方案/熔断状态/决策链完整性
 交互式: 点击展开比赛详情, 多Tab分析面板, 响应式布局
 """
+import os
 import json
 import sys
 from datetime import datetime
@@ -100,7 +101,8 @@ def build_site():
         try:
             import urllib.request
             req = urllib.request.Request(
-                "https://djyylive.com/data/league-matrix.json",
+                os.environ.get("DJYY_PROXY", "https://djyylive.com").rstrip("/")
+                + "/data/league-matrix.json",
                 headers={"User-Agent": "football-engine/1.0"}
             )
             with urllib.request.urlopen(req, timeout=15) as resp:

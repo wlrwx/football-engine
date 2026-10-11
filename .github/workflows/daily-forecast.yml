@@ -58,6 +58,8 @@ jobs:
           fi
 
       - name: Fetch DJYY SSR odds
+        env:
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           python scripts/fetch_djyy_ssr.py || echo "⚠ DJYY SSR 抓取失败（辅助数据源，继续）"
 
@@ -74,6 +76,7 @@ jobs:
         if: ${{ github.event.inputs.settle_only != '' }}
         env:
           SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           echo "→ 仅结算模式: ${{ github.event.inputs.settle_only }}"
           python scripts/fetch_sina_results.py --date "${{ github.event.inputs.settle_only }}" || echo "  ⚠ 新浪赛果刷新失败"
@@ -84,6 +87,7 @@ jobs:
         if: ${{ github.event.inputs.settle_only == '' }}
         env:
           SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           DATE="${{ github.event.inputs.date || '' }}"
           if [ -z "$DATE" ]; then
@@ -96,6 +100,7 @@ jobs:
         if: ${{ github.event.inputs.settle_only == '' }}
         env:
           SPORTTERY_PROXY: ${{ secrets.SPORTTERY_PROXY }}
+          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
         run: |
           # 每次运行都结算最近 N 天（默认4天）：先刷新该日新浪赛果（幂等合并），再结算。
           # 引擎侧幂等：已结算场次自动跳过（Elo/熔断/权重不重复更新），

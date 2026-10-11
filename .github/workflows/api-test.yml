@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DJYY_KEY: ${{ secrets.DJYY_KEY }}
+      DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
     steps:
       - name: Test all APIs
         run: |
@@ -111,8 +112,10 @@ jobs:
           _hdr = {"User-Agent": UA}
           if os.environ.get("DJYY_KEY"):
               _hdr["X-DJYY-Key"] = os.environ["DJYY_KEY"]
+          # DJYY_PROXY 指向自建 Worker（Cloudflare→Cloudflare 绕开第三方 Bot Fight）
+          _djyy = (os.environ.get("DJYY_PROXY") or "https://djyylive.com").rstrip("/")
           code, body = curl(
-              f"https://djyylive.com/api/leagues/fixtures?date_from={_d0}&date_to={_d1}&category=all",
+              f"{_djyy}/api/leagues/fixtures?date_from={_d0}&date_to={_d1}&category=all",
               _hdr
           )
           print(f"window: {_d0} .. {_d1}")

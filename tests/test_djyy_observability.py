@@ -202,3 +202,52 @@ def test_api_test_probe_script_is_valid_python():
     for l in lines[start + 1:end]:
         body.append(l[10:] if l.startswith(" " * 10) else l)
     ast.parse("\n".join(body))
+
+
+# ---------- DJYY_PROXY 绕行路径（PR#15） ----------
+
+def test_djyy_base_is_env_overridable():
+    """djyylive 是第三方服务，其 Cloudflare 拦 GitHub Actions IP。
+
+    403 的响应体是 "Just a moment..." 挑战页（Bot Fight Mode），
+    **不在本项目的控制范围内** —— 改不了对方的 WAF。
+    唯一可行路径：CI 侧走自建 Worker 中转（Cloudflare→Cloudflare 不触发挑战），
+    与既有的 SPORTTERY_PROXY 完全同一模式。
+    """
+    import importlib
+    import os
+    for mod, env, default in (("engine.sources.djyy", "DJYY_PROXY", "https://djyylive.com"),):
+        os.environ.pop(env, None)
+        m = importlib.import_module(mod)
+        importlib.reload(m)
+        try:
+            assert m.DJYY_BASE == default, "未配置时必须保持直连（便于灰度与回滚）"
+            os.environ[env] = "https://proxy.example.com/api/djyy"
+            m = importlib.reload(m)
+            assert m.DJYY_BASE == "https://proxy.example.com/api/djyy"
+        finally:
+            os.environ.pop(env, None)
+            importlib.reload(m)
+
+
+def test_all_djyy_call_sites_honour_proxy():
+    """三处直连点必须全部可配，否则只改一处会出现口径分裂。"""
+    import pathlib
+    for f in ("engine/sources/djyy.py", "scripts/fetch_djyy_ssr.py",
+              "engine/build_site.py"):
+        txt = (ROOT / f).read_text(encoding="utf-8")
+        assert 'DJYY_PROXY' in txt, f"{f} 仍在硬编码 djyylive.com"
+
+
+def test_worker_has_djyy_route():
+    js = (ROOT / "cf-proxy" / "worker.js").read_text(encoding="utf-8")
+    assert "/api/djyy/" in js, "Worker 缺少 DJYY 代理路由"
+    assert "djyylive.com" in js
+    assert "X-Proxy" in js, "应带 X-Proxy 头以便日志区分来源"
+
+
+def test_workflows_inject_djyy_proxy():
+    for f in (".github/workflows/daily-forecast.yml",
+              ".github/workflows/api-test.yml"):
+        txt = (ROOT / f).read_text(encoding="utf-8")
+        assert "secrets.DJYY_PROXY" in txt, f"{f} 未注入 DJYY_PROXY secret"

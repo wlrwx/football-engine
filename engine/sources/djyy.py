@@ -23,7 +23,13 @@ import requests
 from .base import DataSource, Fixture, MatchResult, OddsSnapshot
 
 
-DJYY_BASE = "https://djyylive.com"
+# 2026-10-11：DJYY 是第三方服务（djyylive.com，不是本项目自有域名），
+# 其 Cloudflare 对 GitHub Actions 的数据中心 IP 返回 403（Bot Fight Mode）。
+# 本地/桌面网络 200，因此问题只在 CI 侧。
+#
+# 与 SPORTTERY_PROXY 同一模式：设 DJYY_PROXY 指向自建 Worker 的代理路径即可绕开；
+# 未设置时行为与从前完全一致（直连 djyylive.com），便于灰度与回滚。
+DJYY_BASE = os.environ.get("DJYY_PROXY", "https://djyylive.com").rstrip("/")
 
 HEADERS = {
     "User-Agent": (
