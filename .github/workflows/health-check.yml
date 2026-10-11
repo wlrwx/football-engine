@@ -2,9 +2,20 @@ name: Health Check
 
 on:
   schedule:
-    # 2026-08-14：5min→15min（每天 288 次→96 次，省 Actions 分钟）。
-    # daily-forecast 每 30 分钟跑一次，15 分钟探测完全来得及发现"超1小时没跑"。
-    - cron: '*/15 * * * *'
+    # 2026-10-11：*/15 → 0 * * * *（每小时一次）
+    #
+    # 实测（2026-10-11，以 git 提交为地面真值）：
+    #   本 workflow 声明 */15（96 次/天），24 小时内实际只跑了 5 次
+    #   Daily Forecast 声明 15,45（48 次/天），24 小时内实际跑了 8 次，最大空档 6 小时
+    #
+    # 这是 GitHub 对**公开仓库高频定时任务**的排队限流（官方文档："Due to high
+    # load, scheduled workflows may run with some delay"）。改成每小时后，
+    # 实际频率才可能接近声明频率。
+    #
+    # 注意：阈值必须匹配真实频率。旧的 "超过60分钟未运行就触发" 假设 15 分钟探测，
+    # 而实际 4-5 小时才跑一次 —— 那意味着 1 小时的故障它根本发现不了，
+    # 60 分钟这个阈值在当时是**永不生效的死逻辑**。现在按每小时一轮设定。
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -44,8 +55,11 @@ jobs:
             exit 0
           fi
 
-          if [ "$ELAPSED_MIN" -gt 60 ]; then
-            echo "→ 超过60分钟未运行，触发 Daily Forecast..."
+          # 阈值按"本 job 约每小时跑一轮"设定：超过 90 分钟未运行意味着
+          # Daily Forecast 连一轮都没出，触发补跑。旧值 60 是在 */15 的假设下
+          # 设的，实际 4-5 小时才跑一次时它永不生效。
+          if [ "$ELAPSED_MIN" -gt 90 ]; then
+            echo "→ 超过90分钟未运行，触发 Daily Forecast..."
             # 用 gh api 触发，不需要 git checkout
             gh api repos/${{ github.repository }}/actions/workflows/daily-forecast.yml/dispatches \
               -X POST \
