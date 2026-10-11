@@ -1991,8 +1991,16 @@ def run_settlement(target_date: date):
         except Exception:
             continue
 
+    # 幂等守卫（2026-10-11 修正）：
+    #   本块遍历 ticket_plan 而非 new_items，若无守卫，每次重跑结算都会把
+    #   同一批串关重复计入 breaker 与 running_bankroll。
+    #   规则：全部腿都已出赛果，且**至少有一腿是本轮新结算**，才结算本注。
+    #   → 重跑时无新腿，直接跳过；跨天分腿的串关在最后一腿结算时才落地。
+    _new_mids = {n["match_id"] for n in new_items}
     parlay_n = parlay_settled = parlay_stake = 0
     parlay_pnl = 0.0
+    parlay_skipped_unresolved = 0
+    parlay_skipped_already = 0
     for _grp in ("parlay", "score_parlay"):
         for _e in (ticket_data.get(_grp) or []):
             legs = _e.get("legs") or []
@@ -2002,13 +2010,22 @@ def run_settlement(target_date: date):
             _tot = float(_e.get("total_odds") or 1.0)
             if _stake <= 0:
                 continue
-            all_hit = True
+            # 腿还没全部出赛果 → 不判定，也**不计盈亏**（缺腿判负会凭空造亏损）
+            _scored = []
             for _leg in legs:
                 _sc = _res_by_mid.get(_leg.get("match", ""))
                 if _sc is None:
-                    all_hit = False       # 该腿还没结算，不下结论
                     break
-                _hs, _as_ = _sc
+                _scored.append((_leg, _sc))
+            if len(_scored) != len(legs):
+                parlay_skipped_unresolved += 1
+                continue
+            # 本轮无新腿 → 之前已结算过，跳过（幂等）
+            if not any(lg.get("match") in _new_mids for lg, _ in _scored):
+                parlay_skipped_already += 1
+                continue
+            all_hit = True
+            for _leg, (_hs, _as_) in _scored:
                 _pick = _leg.get("sel") or _leg.get("score")
                 if _leg.get("sel"):
                     _act = "home" if _hs > _as_ else ("draw" if _hs == _as_ else "away")
@@ -2028,9 +2045,10 @@ def run_settlement(target_date: date):
             breaker.record_result(won=_won, pnl=_p, bankroll=running_bankroll)
             running_bankroll += _p
 
-    if parlay_n:
+    if parlay_n or parlay_skipped_unresolved or parlay_skipped_already:
         print(f"  ✓ 串关 {parlay_settled}/{parlay_n} 中，注额 {parlay_stake:.0f}，"
-              f"PnL {parlay_pnl:+.2f}")
+              f"PnL {parlay_pnl:+.2f}"
+              f"（腿未齐跳过 {parlay_skipped_unresolved}，已结算跳过 {parlay_skipped_already}）")
         total_pnl += parlay_pnl
         wins += parlay_settled
         losses += parlay_n - parlay_settled
