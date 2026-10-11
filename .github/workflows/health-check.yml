@@ -55,11 +55,32 @@ jobs:
             echo "→ 正常运行中，无需触发"
           fi
 
-      # 2026-10-11 新增：赔率时序采集覆盖率体检。
-      # 背景：实测 899 场里只有 3.6% 有开赛前 2 小时内的快照 ——
-      # 我们记的"收盘价"大多不是收盘价。此前没有任何指标能发现这件事，
-      # CLV 类实验在覆盖率修复前一律不可用。
-      # --warn-only：先只告警不阻断，等覆盖率真实改善后再改成硬门禁。
-      - name: Odds series coverage
+      # 2026-10-11：赔率时序采集覆盖率告警。
+      #
+      # 修正：初版在这里直接跑 `python -m engine.odds_series_coverage`，
+      # 但本 job **刻意不 checkout**（原注释："用 gh api 触发，不需要 git checkout"），
+      # 于是该步骤以
+      #     ModuleNotFoundError: No module named 'engine'
+      # 失败（2026-10-11 01:33 实测）。
+      #
+      # 改法：覆盖率由 daily-forecast（有 checkout、且会提交 data/）计算并落盘，
+      # 这里只用 gh api 读结果判断，不引入 checkout。
+      - name: Odds series coverage (read-only)
         if: ${{ github.event_name == 'schedule' }}
-        run: python -m engine.odds_series_coverage --warn-only
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          URL="repos/${{ github.repository }}/contents/data/state/odds_coverage.json"
+          CONTENT=$(gh api "$URL" --jq '.content' 2>/dev/null | base64 -d) || CONTENT=""
+          if [ -z "$CONTENT" ]; then
+            echo "→ 尚无覆盖率数据，跳过"
+            exit 0
+          fi
+          echo "$CONTENT" | jq -r '
+            (.closing_coverage.ratio * 1000 | round / 10) as $pct
+            | "→ 开赛前 \(.closing_coverage.window_h)h 内有快照: \(.closing_coverage.n)/\(.total_matches) 场 (\($pct)% )",
+              "→ 健康判定: \(if .healthy then "健康" else "不健康 —— CLV 类实验不可用" end)"
+          '
+          if ! echo "$CONTENT" | jq -e '.healthy' >/dev/null; then
+            echo "::warning::赔率时序覆盖率低于 50% 门槛 —— CLV 类实验当前不可用"
+          fi

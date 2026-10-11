@@ -66,6 +66,10 @@ jobs:
           python scripts/fetch_sina_results.py || echo "⚠ 新浪赛果抓取失败（继续，结算时再补抓）"
           python scripts/fetch_sina_odds.py || echo "⚠ 新浪赔率抓取失败（辅助数据源，继续）"
 
+      # 2026-10-11：赔率时序采集覆盖率体检（health-check 用 gh api 读这个结果）
+      - name: Odds series coverage
+        run: python -m engine.odds_series_coverage
+
       - name: Settlement only (manual trigger)
         if: ${{ github.event.inputs.settle_only != '' }}
         env:
