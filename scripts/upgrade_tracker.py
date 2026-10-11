@@ -210,7 +210,15 @@ def effective_weights(v2_recs):
 
 def main():
     recs = load_records()
-    v2 = [r for r in recs if r.get("chain") == "v2"]
+    # 污染样本隔离（2026-10-11）：v2 链里有 20 场 league_draw_baseline 越界样本
+    # （巴甲平局概率被钉在 0.5025，真实率 0.266）。它们不是"新融合链的产物"，
+    # 混进 Q1/Q2 判定会让升级效果被一个已修 bug 的残留污染。
+    # 详见 engine/integrity/quarantine.py
+    try:
+        from engine.integrity.quarantine import clean_records as _qfilter
+        v2 = _qfilter([r for r in recs if r.get("chain") == "v2"])
+    except Exception:
+        v2 = [r for r in recs if r.get("chain") == "v2"]
     legacy = [r for r in recs if r.get("chain") != "v2"]
 
     v2s = summarize(v2)

@@ -105,9 +105,21 @@ def shadow_train(all_records: list[dict], clean_records: list[dict],
         "reason": "", "trained_at": None,
     }
 
-    rows = build_training_rows(all_records, daily_root)
+    # 污染样本隔离（2026-10-11）：训练集来自 all_records，其中混着 20 场
+    # 已修 bug 的残留（league_draw_baseline 把巴甲平局概率抬到 0.5025）。
+    # 污染样本若进训练集会教 LGBM "平局给 0.5"，而真实巴甲平局率是 0.266。
+    # clean_records 已由调用方过滤，这里按同样口径再挡一次训练集。
+    try:
+        from engine.integrity.quarantine import contaminated_ids as _qids
+        _bad_ids = _qids(all_records, daily_root.parent.parent)
+    except Exception:
+        _bad_ids = set()
+    _rows_all = build_training_rows(all_records, daily_root)
+    rows = [r for r in _rows_all if r["match_id"] not in _bad_ids]
     for r in rows:
         r["_v2"] = r["match_id"] in clean_ids
+    if _bad_ids:
+        status["quarantined_rows"] = len(_bad_ids)
     status["usable_rows"] = len(rows)
     min_n = int(cfg["min_train_samples"])
     if len(rows) < min_n:

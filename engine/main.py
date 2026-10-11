@@ -2321,9 +2321,22 @@ def run_settlement(target_date: date):
                     all_records.append(json.loads(line))
                 except Exception:
                     continue
+    # 污染样本隔离（2026-10-11）：v2 链里混进了 20 场 league_draw_baseline
+    # 越界样本（巴甲平局概率被钉在 0.5025，真实率 0.266），会系统性带偏
+    # 校准曲线。剔除而不升 chain 版本——污染只占 3.6%，不该让 538 条
+    # 干净样本陪葬。详见 engine/integrity/quarantine.py。
+    _v2_raw = [r for r in all_records if r.get("chain") == "v2"
+               and r.get("final_prob") and r.get("actual_idx") is not None]
+    try:
+        from engine.integrity.quarantine import clean_records as _quarantine_filter
+        _v2_clean = _quarantine_filter(_v2_raw, ROOT)
+    except Exception:
+        _v2_clean = _v2_raw
+    if len(_v2_clean) < len(_v2_raw):
+        print(f"  ⚠ 剔除污染样本 {len(_v2_raw) - len(_v2_clean)} 场"
+              f"（{len(_v2_raw)} → {len(_v2_clean)}，不参与校准/LGBM 学习）")
     clean_records = sorted(
-        [r for r in all_records if r.get("chain") == "v2"
-         and r.get("final_prob") and r.get("actual_idx") is not None],
+        _v2_clean,
         key=lambda r: (r.get("date", ""), r.get("match_id", "")),
     )
     _cal_status_path = ROOT / "data" / "state" / "calibration_status.json"

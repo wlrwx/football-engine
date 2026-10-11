@@ -66,10 +66,22 @@ def load_ledger():
     #   仅 v2                                      0.0001
     # 旧代码不按 chain 过滤，把 6% 的测量误差混进每次消融的配对检验。
     # 现在只留当前链，缺失 chain 的旧行不再参与重放（数据已成历史，不可回头）。
-    chain_records = [r for r in recs if r.get("chain") == "v2"]
-    n_old = len(recs) - len(chain_records)
+    _v2 = [r for r in recs if r.get("chain") == "v2"]
+    # 污染样本隔离（2026-10-11）：v2 链里有 20 场已修 bug 的残留
+    #（league_draw_baseline 把巴甲平局概率抬到 0.5025）。回放的目的是
+    # "每个开关贡献多少"，带着被污染的样本回放等于在测一个假基线。
+    try:
+        from engine.integrity.quarantine import clean_records as _qfilter
+        chain_records = _qfilter(_v2)
+    except Exception:
+        chain_records = _v2
+    n_old = len(recs) - len(_v2)
     if n_old:
         print(f"[ablation_replay] 已排除 {n_old}/{len(recs)} 场旧链（chain!=v2）行，避免重放偏差")
+    n_bad = len(_v2) - len(chain_records)
+    if n_bad:
+        print(f"[ablation_replay] 已排除 {n_bad} 场污染样本（融合链平局概率越界），"
+              f"剩余 {len(chain_records)} 场")
     return chain_records
 
 

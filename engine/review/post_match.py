@@ -124,6 +124,11 @@ class MatchReview:
     stake_planned: float = 0.0          # 该场实际计划注额（0 = 未出注）
     gate_blocked: bool = False          # 是否被 favorite_band 闸门禁投
     gate_reason: str = ""               # 禁投原因（可为空）
+    # 污染标记（2026-10-11）：融合链把联赛平局概率抬到不合理区间
+    # （巴甲曾被钉在 0.5025，真实率 0.266）。这类样本不得进校准/LGBM 学习。
+    # 判定依据是 fusion_trace（权威），历史样本另有 quarantine.json 兜底。
+    contaminated: bool = False
+    contaminated_reason: str = ""
 
 
 @dataclass
@@ -573,6 +578,30 @@ class PostMatchReviewer:
             except Exception:
                 _gate_blocked = False
 
+            # 污染判定（2026-10-11）：融合链把联赛平局概率抬到不合理区间。
+            # 巴甲曾被 league_draw_baseline 钉在 0.5025（真实平局率 0.266），
+            # 这类样本会系统性带偏校准曲线，必须在结算时就标记出来，
+            # 而不是等评估层回头猜。权威来源是 fusion_trace。
+            _contaminated = False
+            _contaminated_reason = ""
+            try:
+                from engine.integrity.quarantine import BAD_STEPS
+                for _st in (pred.get("fusion_trace") or []):
+                    _nm = _st.get("step")
+                    _af = _st.get("after")
+                    for _bad, _cap in BAD_STEPS:
+                        if _nm == _bad and _af and len(_af) == 3:
+                            if float(_af[1]) > _cap:
+                                _contaminated = True
+                                _contaminated_reason = (
+                                    f"{_nm} 平局概率 {_af[1]:.4f} > 上限 {_cap}"
+                                )
+                                break
+                    if _contaminated:
+                        break
+            except Exception:
+                _contaminated = False
+
             # 命中
             hit = best_sel == actual_idx
 
@@ -644,6 +673,10 @@ class PostMatchReviewer:
                 bet_sel=_bet_sel,
                 stake_planned=round(_stake_planned, 2),
                 gate_blocked=_gate_blocked,
+                # 污染判定：融合链把平局概率抬到不合理区间（2026-10-11）。
+                # 权威来源是 fusion_trace —— 它记录了每一步对概率的实际改动。
+                contaminated=_contaminated,
+                contaminated_reason=_contaminated_reason,
             )
             reviews.append(review)
 
