@@ -96,6 +96,13 @@ class FusionInput:
 class FusionResult:
     probs: tuple[float, float, float]
     trace: list[dict[str, Any]] = field(default_factory=list)
+    # 【2026-10-11】归一化后**真正参与运算**的权重。config 里写的
+    # model/market/djyy 不是最终值：源缺失 + 重新归一化会改变实际比例
+    # （champion 0.05/0.75/0.20 在 djyy 缺失时 → model 6.25%/market 93.75%）。
+    # 不落盘这个字段，账本就无法反推某条预测当时是被什么权重算出来的。
+    # source=="fuse_model_only"（裸模型单源）时 weights 为 None。
+    effective_weights: dict[str, float] | None = None
+    source: str = "fuse_model_only"
 
 
 def _trace(res_trace: list, step: str, before: tuple, after: tuple) -> None:
@@ -126,6 +133,17 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
     switches = dict(DEFAULT_POST_FUSION)
     switches.update(inp.post_fusion or {})
 
+    def _eff(mw_: float, kw_: float, dw_: float) -> dict[str, float]:
+        """把三路权重归一化成实际比例（四舍五入后落盘）。"""
+        tot = mw_ + kw_ + dw_
+        if tot <= 0:
+            return {"model": 0.0, "market": 0.0, "djyy": 0.0}
+        return {
+            "model": round(mw_ / tot, 4),
+            "market": round(kw_ / tot, 4),
+            "djyy": round(dw_ / tot, 4),
+        }
+
     trace: list[dict[str, Any]] = []
     h, d, a = inp.model_probs
     trace.append({"step": "base_model", "after": [round(h, 4), round(d, 4), round(a, 4)]})
@@ -135,6 +153,7 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
     kw = float(cfg.get("market_weight", 0.60))
     dw = float(cfg.get("djyy_weight", 0.30))
     fused_step = "fuse_model_only"
+    eff_w: dict[str, float] | None = None
     if inp.market_probs and inp.djyy_probs and inp.djyy_probs.get("home"):
         _djyy_conf = max(inp.djyy_probs.values())
         if _djyy_conf < float(cfg.get("djyy_min_confidence", 0.50)):
@@ -152,6 +171,7 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
         d = mw * inp.model_probs[1] + kw * inp.market_probs[1] + dw * inp.djyy_probs["draw"]
         a = mw * inp.model_probs[2] + kw * inp.market_probs[2] + dw * inp.djyy_probs["away"]
         fused_step = "fuse_three_way"
+        eff_w = _eff(mw, kw, dw)
     elif inp.market_probs:
         total_w = mw + kw
         mw, kw = mw / total_w, kw / total_w
@@ -159,12 +179,14 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
         d = mw * inp.model_probs[1] + kw * inp.market_probs[1]
         a = mw * inp.model_probs[2] + kw * inp.market_probs[2]
         fused_step = "fuse_two_way"
+        eff_w = _eff(mw, kw, 0.0)
     elif inp.djyy_probs and inp.djyy_probs.get("home"):
         _mw = 1.0 - dw
         h = _mw * inp.model_probs[0] + dw * inp.djyy_probs["home"]
         d = _mw * inp.model_probs[1] + dw * inp.djyy_probs["draw"]
         a = _mw * inp.model_probs[2] + dw * inp.djyy_probs["away"]
         fused_step = "fuse_djyy_only"
+        eff_w = _eff(_mw, 0.0, dw)
     _trace(trace, fused_step, inp.model_probs, (h, d, a))
 
     # --- 2. 同赔偏差微调 ---
@@ -289,4 +311,9 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
         h, d, a = _normalize(h, d, a)
         _trace(trace, "league_draw_anchor", (b, bd, ba), (h, d, a))
 
-    return FusionResult(probs=(h, d, a), trace=trace)
+    return FusionResult(
+        probs=(h, d, a),
+        trace=trace,
+        effective_weights=eff_w,
+        source=fused_step,
+    )

@@ -334,6 +334,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         print("  校准层: isotonic 已由洁净样本验证自动启用")
 
     predictions = []
+    # 融合分支命中计数（2026-10-11）：用于每日运行日志暴露"实际走了哪条分支"。
+    # 死源（如 DJYY 断供）此前无任何运行时信号，只体现在账本的空字段里。
+    _fused_source_counts: dict[str, int] = {}
     for fixture in fixtures:
         home_rating = elo_updater.get_rating(fixture.home_team)
         away_rating = elo_updater.get_rating(fixture.away_team)
@@ -580,6 +583,22 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         ))
         final_h, final_d, final_a = _fusion_out.probs
         fusion_trace = _fusion_out.trace
+        # 【2026-10-11】落盘**归一化后的有效权重**。config/champion 写的
+        # model/market/djyy 是名义值，源缺失时 fusion.py 会重新归一化，
+        # 实际比例与名义值不同（0.05/0.75/0.20 在 djyy 缺失时 →
+        # model 6.25% / market 93.75%）。不落这个字段，账本无法反推
+        # 某条预测当时究竟被什么权重算出来，审计链断在这里。
+        _eff_w = _fusion_out.effective_weights
+        if _eff_w is not None:
+            _eff_model = _eff_w["model"]
+            _eff_market = _eff_w["market"]
+            _eff_djyy = _eff_w["djyy"]
+        else:
+            # 裸模型分支：单源，无需权重（等效 model=1.0）
+            _eff_model, _eff_market, _eff_djyy = 1.0, 0.0, 0.0
+        _fused_source_counts[_fusion_out.source] = (
+            _fused_source_counts.get(_fusion_out.source, 0) + 1
+        )
 
         # --- 平局预警分类 ---
         # 冷门平局: 一方被市场看好但模型+市场证据显示存在平局风险
@@ -735,6 +754,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_is_synthetic": bool(_odds_synthetic) or (calibrated_probs is None and bool(_odds_synthetic)),
             # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
             "fusion_trace": fusion_trace,
+            # 【2026-10-11】归一化后的**有效权重** + 实际走的融合分支。
+            # 名义权重（config / fusion_weights.json 的 champion）与实际比例
+            # 在源缺失时不一致，账本要能逐场反推当时真正参与运算的比例，
+            # 否则"模型贡献了多少"永远只能靠外部推算。djyy 断供期正是
+            # 靠这个字段才看得出 model 实际只有 6.25%。
+            "fusion_effective_weights": {
+                "model": _eff_model,
+                "market": _eff_market,
+                "djyy": _eff_djyy,
+            },
+            "fusion_source": _fusion_out.source,
             # 双源融合比分候选（DJYY+MC）+ 盘口信号（2026-08-05）
             "top_scores": _fused,
             "score_sources": _score_src,
@@ -1308,6 +1338,18 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     print(f"  预测: {len(predictions)} 场")
     if freshness_active:
         print(f"  ⚠ 新鲜度护栏触发: {freshness_active} 场（概率向均势收缩）")
+    # 【2026-10-11】死源显式化：DJYY 断供期（2026-08 中旬起）在日志里完全
+    # 无痕迹——融合层靠重新归一化兜住了，名义 djyy 权重 0.20 实际变成 0，
+    # 但没人知道。把分支命中数与有效权重打出来，断供当天就能看出来。
+    _n_djyy = _fused_source_counts.get("fuse_three_way", 0)
+    if _n_djyy == 0 and predictions:
+        print(f"  ⚠ DJYY 死源：{len(predictions)} 场全部未取到 DJYY 概率，"
+              f"该源实际贡献 0（名义权重 {_champion.djyy:.2f} 未生效）")
+    elif _n_djyy:
+        print(f"  DJYY 生效: {_n_djyy}/{len(predictions)} 场走三路融合")
+    if _fused_source_counts:
+        print("  融合分支: " + " / ".join(
+            f"{k}={v}" for k, v in sorted(_fused_source_counts.items())))
     print(f"  投注: {ticket_plan.total_stake} 元 (乘数={effective_mult:.2f})")
     print(f"{'='*60}")
 

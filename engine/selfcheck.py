@@ -127,6 +127,72 @@ def check_day(day_str: str) -> list[str]:
             f"⚠ {day_str}: {len(_synthetic_bare)}/{n} 场合成赔率且 market_fair=None，"
             "完全绕过市场融合（裸模型概率）")
 
+    # 6. 融合源存活与有效权重（2026-10-11）
+    #    背景：DJYY 断供两个月期间，config 一直挂着 djyy_weight=0.20，
+    #    融合层靠重新归一化兜住（实际贡献 0），日志/配置/账本三处都看不出
+    #    异常——直到人工翻账本才发现 529 场 djyy_prob 全空。
+    #    融合层现在逐场落盘 fusion_effective_weights / fusion_source，
+    #    这里把它变成**自动告警**：名义权重非零但实际贡献 0 = 死源。
+    _have_w = [p for p in preds if p.get("fusion_effective_weights")]
+    if not _have_w:
+        alerts.append(
+            f"⚠ {day_str}: predictions 无 fusion_effective_weights 字段"
+            "（旧版本引擎产出，或融合层未记录）——权重不可审计"
+        )
+        return alerts
+
+    from collections import Counter
+    srcs = Counter(p.get("fusion_source", "?") for p in _have_w)
+    m = len(_have_w)
+
+    # 名义值从 config 读，读不到就不告警（不猜）
+    _nominal = {}
+    try:
+        _nominal = json.loads(
+            (ROOT / "config" / "prediction.json").read_text(encoding="utf-8")
+        ).get("fusion", {})
+    except Exception:
+        _nominal = {}
+
+    # 6a. 死源：某源实际贡献恒为 0 但名义权重不为 0
+    for _key, _label in (("djyy", "DJYY"), ("market", "市场"), ("model", "模型")):
+        if not _nominal.get(f"{_key}_weight"):
+            continue                     # 名义权重本来就是 0，不是死源
+        _alive = sum(
+            1 for p in _have_w
+            if (p.get("fusion_effective_weights") or {}).get(_key, 0) > 0
+        )
+        if _alive == 0:
+            alerts.append(
+                f"⚠ {day_str}: {_label} 是死源——名义权重 "
+                f"{_nominal[f'{_key}_weight']:.2f} 但实际贡献 0（{m} 场全部为 0）"
+            )
+        elif _alive < m * 0.5:
+            alerts.append(
+                f"⚠ {day_str}: {_label} 覆盖率偏低 {_alive}/{m}——该源大面积失效"
+            )
+
+    # 6b. 模型有效权重过低：融合名义上在做"模型+市场"，实际模型占比却
+    #     小到几乎等于纯市场。这不是错误，但值得每天可见——它决定了
+    #     "系统到底在干什么"。当前实测约 6.25%。
+    _mw = [
+        (p.get("fusion_effective_weights") or {}).get("model")
+        for p in _have_w
+    ]
+    _mw = [x for x in _mw if x is not None]
+    if _mw:
+        _avg_mw = sum(_mw) / len(_mw)
+        if _avg_mw < 0.10:
+            alerts.append(
+                f"⚠ {day_str}: 模型有效权重均值仅 {_avg_mw:.1%}"
+                f"（名义 {_nominal.get('model_weight', '?')}）"
+                "——系统实质接近纯市场基准"
+            )
+
+    # 6c. 融合分支分布
+    print(f"  融合分支({day_str}): "
+          + " / ".join(f"{k}={v}" for k, v in sorted(srcs.items())))
+
     return alerts
 
 
