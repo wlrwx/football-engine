@@ -1,15 +1,17 @@
 # PROJECT.md — football-engine（竞彩足球概率引擎）
 
 > [!IMPORTANT] 交接卡（收工必更新；冷启动只读这块）
-> 状态: done　更新: 2026-10-13 01:50（主线 agent / 统一入口轮）
-> 在干什么: 已收口 PR 乱局并建立统一入口 —— 三个有效 PR 全部合入 main，open PR 清零，分支只剩 main + gh-pages
-> 下一步: ① 合并后观察 2~3 个结算日：巴甲平局概率是否回升（原 31.6% vs 市场 63.2%）、总进球类指标是否短期偏高
->          ② 若连续 3 个结算日 Brier 相对基线恶化 >0.002，整体 revert（#29 或 #28 可独立 revert）
->          ③ 下一轮优先处理 issue #1（未开盘却出 1X2 推荐）
-> 已知坑: ① 分支带上 `data/`+`web/` 全量产物 = 几千行 diff 噪音（主因是分支落后 main 6~16 笔自动提交）→ 开 PR 前必先 rebase
->          ② STATUS.md 记录的本地管线（`~/football-engine`、deploy key、cron）在本机均不存在，已按"全在 GitHub Actions"重写锚点
-> 待验证: ① 推送方式实测（HTTPS token 可用；STATUS.md 说的 SSH deploy key 本机未验证）
->          ② evolution-loop.yml 已挂上每日 01:30 UTC schedule（#28 合入后才存在），首轮自动产物待观察
+> 状态: doing　更新: 2026-10-13 02:15（主线 agent / Air 收口轮）
+> 在干什么: 把 Mac Air 从"黑工"变成有档案的协作者——它的唯一职责（预测挑战提交）已重建进仓库
+> 下一步: ① 在 Air 上执行：停掉除预测挑战外的所有本地 cron（auto_run.sh / run_realtime_monitor.sh / launchd）
+>          ② 在 Air 上导出 NJStats cookie 到 ~/.football-engine/njstats_cookies.json（README 有步骤）
+>          ③ 抓包核对 submit.js 的 API_BASE 与 /challenge/predict 端点（标了【易变】，未真实验证）
+>          ④ 观察 Air 停止 hourly 推送后，ci-sync 是否成为 data/state/ 的唯一写入方
+> 已知坑: ① Air 每小时与 ci-sync 同时写 data/state/，互相覆盖不可追溯（10-12 晚~10-13 凌晨的 hourly 提交即来自 Air，彼时 Actions 无调度）
+>          ② weekKey() 必须按北京时间算周界——用 getDay() 会让北京周一 07:00 记到上周配额
+>          ③ submit.js 的 ROOT 基准用 process.argv[1] 而非 __dirname（后者在被载入的上下文里失效）
+> 待验证: ① 预测挑战 API 端点（按站点结构推断，未经真实验证）
+>          ② 让球票"真实给分"机制（STATUS.md：待 10-13 结算校准），此前让球 EV 排序可能高估
 
 - 更新: 2026-10-13（主线 agent 统一入口轮）
 
@@ -43,6 +45,9 @@
 - [ ] `evolution/` 每轮在 main 上直接跑 `python -m evolution.cycle`，产物进 `evolution/out*`（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-10-13 Air 收口：预测挑战提交器（`_vault/njstats_challenge_submit.js`）从未入仓库，只在 Air 本地磁盘，Air 一出问题这个唯一无法上云的任务就断了且仓库无记录 → 根因：`_vault/` 被 gitignore，关键任务成了"黑工" → 修法：按 STATUS.md 记录的实测规则重建为 `scripts/njstats_challenge/submit.js` + README，补 7 条回归测试锁住周界/择优/幂等/让球符号
+- 2026-10-13 `weekKey()` 时区坑：用 `getDay()` 算周界，北京周一 07:00 = UTC 周日 23:00 → 被算成上一个周一，周一早上的提交记到上周配额（部分重复计算、部分凭空消失）→ 修法：shift 到 +08:00 再取 UTC 字段（submit.js）
+- 2026-10-13 `submit.js` 的 ROOT 基准：`path.resolve(__dirname,'..','..')` 在源码被载入的上下文里 `__dirname` 失效，ROOT 静默跑偏 → loadCandidates 报「无预测文件」而真实原因是路径基准丢了，错误信息毫无指向性 → 修法：优先用 `process.argv[1]` 推导，并加 `test_root_points_at_repo_root` 锁住（已验证能抓住该 bug）
 - 2026-10-13 PR 乱局收口：6 个 open PR 中 3 个是重复/悬空重建版（分支落后 main 68 笔后 CONFLICTING，只能开新分支重放）→ 根因是 `data/`+`web/` 有每小时自动提交，分支不及时 rebase 就必然悬空 → 修法：三有效 PR 按 #29→#28→#27 合入（merge-tree 预验证互不冲突），4 个悬空 PR 关闭+注释去向，8 个遗留分支删除，开 PR 前必先 rebase 写进 AGENTS.md
 - 2026-10-13 `evolution/` 16 处 ruff F 级告警 CI 完全不可见 → 根因：#28 把 `evolution/**` 挂上触发路径但 lint 步骤没跟着扩（"跑了"不等于"查了"）→ 修法：test.yml ruff 范围加 `evolution`，含 F601 重复 dict 键（`known_issues.py` 的 detect_by/invariant_id/candidate 被静默覆盖）、F821 缺 `import random`
 - 2026-10-12 CI 重试循环从不 abort → Daily Forecast 永久失败；`|| echo` 吞掉失败把毒状态传给下游 → 失败必须 abort + 显式告警（daily-forecast.yml）

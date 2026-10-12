@@ -1,6 +1,9 @@
 # 云端同步与研究管线（2026-10-12）：把可搬迁的本地 cron 搬上 GitHub Actions
 # 项目本身在 GitHub——数据/研究类任务不依赖用户的 Mac 开机。
-# 浏览器会话类（预测挑战提交、NJStats 前端）无法上云：需要登录态，保留本地。
+# 浏览器会话类（NJStats 预测挑战提交）无法上云：需要登录态，保留在 Mac Air 上。
+# 2026-10-13：Air 上除预测挑战外的本地 hourly cron 必须全部停掉——
+# 它与本 workflow 同时写 data/state/，每小时必有一次 non-fast-forward 冲突，
+# 两边互相覆盖，产物以谁最后推上为准，不可追溯。
 name: Sync & Research
 on:
   schedule:
@@ -19,11 +22,12 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install -r requirements.txt --quiet
-      - name: 盘口监控（odds_series 收盘序列采集——CLV 生命线）
-        env:
-          DJYY_PROXY: ${{ secrets.DJYY_PROXY }}
-          DJYY_KEY: ${{ secrets.DJYY_KEY }}
-        run: python scripts/realtime_odds_monitor.py || true
+      # 2026-10-13：删掉原来这里的「盘口监控（realtime_odds_monitor.py）」步骤。
+      # 该脚本文件头自述「已弃用 2026-08-05，从未被 GitHub Actions 调度」——
+      # 它在 CI 里跑的是一个空转函数，不产出任何 odds_series 数据，
+      # 但步骤名让后来者以为「盘口采集在这里」。odds_series 的真实来源是
+      # daily-forecast 里的 fetch_sina_odds.py（快照序列累积），归它管。
+      # 每小时一次无用的仓库写入也由此减少（少一次 rebase 竞态窗口）。
       - name: SportMonks 采集（免费档/试用通用，token 门控）
         env:
           SPORTMONKS_TOKEN: ${{ secrets.SPORTMONKS_TOKEN }}
@@ -54,7 +58,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # runner 上没有本地那份 SSH deploy key，用 workflow token 走 HTTPS
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/wlrwx/football-engine.git"
-          # 先本地提交（含 monitor 步骤留下的工作区变更），再 rebase 拉齐，最后推送
+          # 先本地提交（各采集步骤留在工作区的变更），再 rebase 拉齐，最后推送
           git add data/ web/ || true
           git diff --cached --quiet || git commit -m "ci-sync: $(TZ=Asia/Shanghai date +%F\ %H:%M)"
           git pull --rebase origin main || (git rebase --abort 2>/dev/null; true)

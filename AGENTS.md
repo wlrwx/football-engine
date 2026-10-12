@@ -12,7 +12,7 @@
    - 本机裸 `python3` 是 3.13，**不许**用来跑本项目（依赖矩阵按 3.12 锁）
 3. **改完必须过门禁**（全绿才算可交付）：
    ```
-   cd /Users/jason/Downloads/football-engine && python3.12 -m pytest tests/ -q && python3.12 -m ruff check --select F engine scripts tests
+   cd /Users/jason/Downloads/football-engine && python3.12 -m pytest tests/ -q && python3.12 -m ruff check --select F engine scripts tests evolution
    ```
 
 ## 硬规则（本项目语境）
@@ -31,9 +31,22 @@
 ## 交付（只走这一条路）
 
 日常改动：本目录建分支 → 推 origin → 开 PR → 人工/闭环 review 后合入 main。
-**不开本地定时任务、不用本机 cron/launchd 跑预测**（那正是历史上"两台机器各跑各的"乱源）；
+**本机不开定时任务、不用 cron/launchd 跑预测**（那正是历史上"两台机器各跑各的"乱源）；
 日常预测/结算/采集已全部在 GitHub Actions（daily-forecast / ci-sync / health-check）。
-推送走 SSH deploy key（`~/.ssh/football-engine_deploy`，经 `ssh.github.com:443` + 代理 7897）。
+推送走 **HTTPS + gh token**（account `wlrwx`，已配置）。
+
+## 两台机器的分工（硬规则，2026-10-13 定）
+
+| 机器 | 只负责 | 推送方式 |
+|---|---|---|
+| **主线 Mac**（本目录 `~/Downloads/football-engine`） | 所有代码改动、PR、实验、合并 | HTTPS + gh token |
+| **Mac Air**（7×24 挂机） | **仅** NJStats 预测挑战每日 11:30 提交（需浏览器登录态，无法上云） | 它自己的 SSH deploy key |
+
+- **Air 上除预测挑战外的本地 hourly cron 必须全部停掉。** 它与 ci-sync 每小时同时写
+  `data/state/`，必有一次 non-fast-forward，两边互相覆盖且不可追溯。
+- **不要互相照抄推送配置**：两台方式不同（HTTPS vs SSH），各自的 `git remote` 各自维护。
+- 预测挑战提交器代码/状态机在 `scripts/njstats_challenge/`（原在 Air 本地 `_vault/`，未入仓库）；
+  Air 重装后按该目录重建，不要凭记忆重写。
 
 ## 收工后（必做）
 

@@ -184,9 +184,18 @@ DJYY 从 2026-08 中旬断供（v2 链 558 场里仅 4 场有数据，全在 10-
 - **仓库专属 .venv（2026-10-11 起）**：py3.12 + requirements 全量（sklearn/lightgbm 可用，
   lightgbm 需 brew libomp）。auto_run 探测顺序 .venv 优先——本地进化决策不再依赖
   hermes venv 的残缺环境；本地现在也能跑 LGBM 训练/校准拟合（与 CI 同基线）
-- **推送走 SSH deploy key（2026-10-11 起）**：远端 = `git@github-football-engine:...`，
-  密钥 `~/.ssh/football-engine_deploy`（只授权本仓库，经 ssh.github.com:443 + Clash 代理）。
-  cron 后台会话拿不到 keychain 凭据，别把推送改回 HTTPS+osxkeychain
+- **推送方式（2026-10-13 更正）**：主线工作副本在 Mac（`~/Downloads/football-engine`），
+  推送走 **HTTPS + gh token**（`gh auth login` 已配置 account wlrwx）。
+  ⚠ 此前这里写的是「SSH deploy key `~/.ssh/football-engine_deploy` + `git@github-football-engine:`」，
+  **该 key 与 ssh config 条目在主线 Mac 上均不存在**，是 Mac Air 那台的本地配置。
+  两台机器推送方式不同，别再互相照抄：Air 保留它自己的 key，主线用 HTTPS。
+  原 SSH 方案要解决的问题（launchd/cron 会话 osxkeychain 静默返回空）在 Actions 侧不存在，
+  CI 一律用 `github.token` 走 HTTPS（见 ci-sync.yml 提交步骤）。
+- **Mac Air 的唯一职责（2026-10-13 起）**：只跑 **NJStats 预测挑战每日 11:30 提交**
+  （需浏览器登录态，无法上云）。**Air 上其他本地 hourly cron 必须全部停掉**——
+  它与 ci-sync 每小时同时写 `data/state/`，必有一次 non-fast-forward，
+  两边互相覆盖且不可追溯（10-12 晚 ~10-13 凌晨的 hourly 提交即来自 Air，彼时 Actions 无调度）。
+  提交器代码与状态机说明见 `scripts/njstats_challenge/`（原在 Air 本地 `_vault/`，未入仓库）。
 
 ## 自进化机制现状（数据纪律，勿手动干预）
 
@@ -254,12 +263,13 @@ njstats_exports/sample.xlsx（Excel schema）、close_calibration_notes.md（研
 ## 云端化与凭证现状（2026-10-12 下午补录）
 
 - **GitHub Actions 三条管线**：daily-forecast（预测+结算，原有）、njstats-archive（试用窗口归档）、
-  **ci-sync.yml（新）**：盘口监控/SportMonks 采集/NJStats 归档/每日 fdc+纸面+DJYY 审计/CLV/体检
-  ——Mac 关机不断采（预测挑战除外：需浏览器登录态，留本地）
+  **ci-sync.yml（新）**：SportMonks 采集/NJStats 归档/每日 fdc+纸面+DJYY 审计/CLV/体检
+  （2026-10-13 删掉了原来那步「盘口监控」——跑的 realtime_odds_monitor.py 自述已弃用且空转）
+  ——Mac 关机不断采（预测挑战除外：需浏览器登录态，留 Mac Air）
 - **CI Secrets**：NJSTATS_KEY ✓、SPORTMONKS_TOKEN ✓（均 API 端加密注入）；
   ⚠ **DJYY_PROXY 从未设置**——daily-forecast 引用它但 secret 不存在，CI 侧 DJYY 富化
   一直静默直连被 403（Worker URL 在用户 Cloudflare 账号，待用户提供后一条命令补上）
-- **SSH deploy key**：本地推送走 git@github-football-engine:（密钥仓库外，勿改回 HTTPS+keychain）
+- **推送方式**：主线 Mac 走 HTTPS+gh token；Mac Air 用它自己的 SSH deploy key。两台不要互相照抄。
 
 ## 预测挑战状态（2026-10-12 晚）
 
