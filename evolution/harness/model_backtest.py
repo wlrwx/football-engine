@@ -162,7 +162,6 @@ def predict_probs_with(params: dict, home: str, away: str, base: float = 1.35,
             elif i == 1 and j == 1:
                 tau = 1 - rho
             mat[i][j] = max(0.0, pi * pj * tau)
-    tot = sum(sum(row) for row in mat)
     hw = sum(mat[i][j] for i in range(n) for j in range(n) if i > j)
     dw = sum(mat[i][i] for i in range(n))
     aw = sum(mat[i][j] for i in range(n) for j in range(n) if i < j)

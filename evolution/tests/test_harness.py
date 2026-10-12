@@ -145,7 +145,6 @@ class TestFusionInvariants(unittest.TestCase):
 
     def test_probabilities_sum_to_one_for_all_configs(self):
         rows, cfg, post = _load()
-        from itertools import product
         r = rows[0]
         for combo in [True, False]:
             for step in DEFAULT_STEPS:

@@ -16,7 +16,6 @@ from __future__ import annotations
 import copy
 import json
 from dataclasses import dataclass, field, asdict
-from typing import Any
 
 from . import evaluator as E
 from . import fusion_core as S

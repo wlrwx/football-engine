@@ -172,13 +172,6 @@ KNOWN_ISSUES: list[dict] = [
             "changes": {"fusion.post_fusion.league_draw_anchor": False},
             "note": "改为从 league_matrix 动态读取 draw_pct/100，并要求 n>=100",
         },
-        "detect_by": "invariant",
-        "invariant_id": "DI-DRAW-BASELINE-SEMANTICS",
-        "candidate": {
-            "type": "config",
-            "changes": {"fusion.post_fusion.league_draw_anchor": False},
-            "note": "改为从 league_matrix 动态读取 draw_pct/100，并要求 n>=100",
-        },
         "evidence": {
             "美职联_anchor": 0.55, "美职联_actual": 0.234, "美职联_n": 269,
             "葡超_anchor": 0.50, "葡超_actual": 0.556, "葡超_n": 9,

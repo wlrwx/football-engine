@@ -56,7 +56,12 @@ jobs:
         run: pip install ruff --quiet
 
       - name: Ruff (F-level regressions)
-        run: ruff check --select F engine scripts tests
+        # 2026-10-13：补 `evolution`。本 PR 把 evolution/** 挂上了触发路径
+        # （不挂的话改了三道锁 CI 根本不跑），但 lint 步骤没跟着扩 ——
+        # 实测该目录有 16 处 F 级告警（未用变量/未用 import）在 CI 里
+        # 完全不可见。触发路径和 lint 范围必须同步，否则"跑了"不等于"查了"。
+        # pytest 仍只跑 tests/：evolution/tests/ 自己跑（本 workflow 只保回归）。
+        run: ruff check --select F engine scripts tests evolution
 
       - name: Run pytest
         run: python -m pytest tests/ -v

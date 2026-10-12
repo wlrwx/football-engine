@@ -30,8 +30,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # --------------------------------------------------------------- 路径白名单

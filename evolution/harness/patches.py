@@ -18,8 +18,7 @@
 
 from __future__ import annotations
 
-from .patch_engine import (Edit, Patch, compiles, extract_class_methods,
-                           run_extracted)
+from .patch_engine import (Edit, Patch, run_extracted)
 
 
 # --------------------------------------------------------------- 桩件

@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import dataclass
 
 # 与上游 config/prediction.json["prediction"] 保持一致

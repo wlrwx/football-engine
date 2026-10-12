@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import math
 
 
 def _res(issue_id: str, violated: bool, detail: str = "", observed=None,
@@ -53,7 +52,6 @@ def check_unit_dimension(model_core_module=None, sample_rating: dict | None = No
     """
     smp = sample_rating or {"elo": 1500.0, "attack": 1.0, "defense": 1.0,
                            "form": 0.0, "injury": 0.0, "rest_days": 3}
-    import importlib
     from . import model_core as M
     mod = model_core_module or M
     h = type("R", (), {"elo": smp["elo"], "attack": 1.0,

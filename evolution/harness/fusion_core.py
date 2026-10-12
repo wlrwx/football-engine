@@ -106,7 +106,8 @@ def fuse(m: MatchInput, cfg: dict, post: dict) -> FusionResult:
 
     mw = float(cfg.get("model_weight", 0.10))
     kw = float(cfg.get("market_weight", 0.60))
-    dw = float(cfg.get("djyy_weight", 0.30))
+    # djyy_weight 只在生产三路融合里有意义；闭环回放只有 model/market 两路，
+    # 故不读取（留一份与生产 fusion.py 的差异说明：KNOWN_DIVERGENCES）。
 
     fused_step = "fuse_model_only"
     if m.market_fair:
