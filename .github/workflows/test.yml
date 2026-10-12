@@ -20,7 +20,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: sporttery-tests
+  # 2026-10-12 修复：原来 group 是全局的 `sporttery-tests` + cancel-in-progress，
+  # 导致**并行的多个 PR 互相取消对方的 CI**：一次开 4 个 PR，只有最后一个的
+  # run 是 completed，其余全被标记成 failure/cancelled，看起来像挂了。
+  # （实测 PR#22 的 push run 与 pull_request run 两次都被取消。）
+  # 按 PR 号（回退到 ref）分组后，各 PR 独立，重复提交同一 PR 才互相取消。
+  group: sporttery-tests-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

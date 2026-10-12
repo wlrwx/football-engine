@@ -49,11 +49,19 @@ jobs:
         # 提交在 commit 后 pull --rebase 时冲突，冲突标记会写进 web/*.html
         # （8/7 Pages 页面出现 <<<<<<< HEAD 的根因）。
         run: |
-          git pull --rebase origin main || echo "⚠ 同步失败（继续，commit 步骤有冲突检测兜底）"
-          # 防御：若上一步 rebase 失败残留冲突标记，立即清理重建
+          # 2026-10-12 修复：原来这里是 `|| echo "⚠ 同步失败（继续）"` ——
+          # rebase 失败后仓库停在「有未合并文件」状态，而后面的生成步骤
+          # 照常跑、commit 步骤再 pull --rebase 时必然报
+          # "Pulling is not possible because you have unmerged files"。
+          # 静默吞掉失败等于把毒状态传给下游。失败必须 abort 并显式告警。
+          if ! git pull --rebase origin main; then
+            echo "::warning::同步远端失败，放弃本地 rebase 并回到远端状态"
+            git rebase --abort || true
+            git reset --hard origin/main || true
+          fi
+          # 防御：若上一步仍残留冲突标记，立即清理
           if grep -rl '<<<<<<< HEAD' web/ data/ 2>/dev/null | grep -q .; then
-            echo "⚠ 检测到冲突标记残留，强制恢复远端版本"
-            git checkout --theirs -- web/ data/ 2>/dev/null || true
+            echo "::warning::检测到冲突标记残留，强制恢复远端版本"
             git checkout -- web/ data/ 2>/dev/null || true
           fi
 
@@ -183,11 +191,59 @@ jobs:
             exit 1
           fi
           git add data/ web/
-          git diff --cached --quiet || git commit -m "daily: forecast $(date +%Y-%m-%d)"
+          if git diff --cached --quiet; then
+            echo "无变更，跳过提交"
+            exit 0
+          fi
+          git commit -m "daily: forecast $(date +%Y-%m-%d)"
+
+          # 把本次提交 rebase 到最新 main 再 push。
+          #
+          # 2026-10-12 修复：原重试循环 `for i in 1 2 3; do git pull --rebase
+          # && git push && break; sleep 5; done` **从不 abort 失败的 rebase**。
+          # 第一次冲突后仓库停在「rebase 进行中 + 有未合并文件」状态，
+          # 第二轮 `git pull --rebase` 直接报
+          #   error: Pulling is not possible because you have unmerged files
+          # 于是**一次瞬时冲突必然升级成永久失败** —— 实测 10-12 02:24 的
+          # schedule run 就是这样挂的（data/ 与 web/ 每一个生成文件都冲突）。
+          #
+          # 生成物（data/ web/）的冲突是**结构性**的：Actions、本地
+          # auto_run.sh、以及其它 workflow 都在写同一批路径，同一天的数据被
+          # 两个写入方各自重新生成，rebase 必然冲突。因此冲突时不再重试，
+          # 而是直接判定：本次重新生成的版本胜出。
+          #
+          # rebase 语义下的 ours/theirs 是反直觉的（已实测验证）：
+          #   --theirs = 正在重放的提交 = 本次新生成的数据（要保留的）
+          #   --ours   = 上游 main
+          pushed=0
           for i in 1 2 3; do
-            git pull --rebase --autostash origin main && git push && break
+            if git pull --rebase --autostash origin main; then
+              if git push; then pushed=1; break; fi
+              # push 被拒说明又有人抢先推了，继续下一轮 rebase
+              continue
+            fi
+            conflicts=$(git diff --name-only --diff-filter=U)
+            if [ -n "$conflicts" ]; then
+              echo "::warning::rebase 冲突（本次生成版本胜出）: $(echo $conflicts | tr '\n' ' ')"
+              for f in $conflicts; do
+                git checkout --theirs -- "$f" || true
+                git add "$f" || true
+              done
+              # 继续 rebase；若无剩余提交 git 会提示 nothing to commit，属正常
+              GIT_EDITOR=true git rebase --continue || true
+            else
+              git rebase --abort || true
+            fi
+            # 防御：rebase 过程可能残留标记或半合并状态，强制回到本次提交
+            git checkout -- web/ data/ 2>/dev/null || true
             sleep 5
           done
+
+          if [ "$pushed" -ne 1 ]; then
+            echo "::error::重试 3 轮仍未能 push（生成物冲突或并发写入持续）"
+            exit 1
+          fi
+
           # 兜底：rebase 若产生冲突标记（理论已由上面检测拦截），再次检测
           if grep -rl '<<<<<<< HEAD' web/ data/ 2>/dev/null | grep -q .; then
             echo "::error::push 后仍检测到冲突标记残留，请人工检查"
