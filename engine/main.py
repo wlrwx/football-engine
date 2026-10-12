@@ -38,6 +38,8 @@ from engine.prediction.fusion import (
     DRAW_ANCHOR_W,
 )
 from engine.prediction.reverse_odds import ReverseOddsEngine, ReverseOddsInput
+from engine.prediction.score_candidates import merge_score_candidates
+from engine.prediction.signals import classify_draw_alert, detect_market_disagreement
 from engine.strategy.kelly import KellyStrategy, favorite_band_factor, market_signal_gate
 from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
@@ -334,6 +336,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         print("  校准层: isotonic 已由洁净样本验证自动启用")
 
     predictions = []
+    # 融合分支命中计数（2026-10-11）：用于每日运行日志暴露"实际走了哪条分支"。
+    # 死源（如 DJYY 断供）此前无任何运行时信号，只体现在账本的空字段里。
+    _fused_source_counts: dict[str, int] = {}
     for fixture in fixtures:
         home_rating = elo_updater.get_rating(fixture.home_team)
         away_rating = elo_updater.get_rating(fixture.away_team)
@@ -580,24 +585,29 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         ))
         final_h, final_d, final_a = _fusion_out.probs
         fusion_trace = _fusion_out.trace
+        # 【2026-10-11】落盘**归一化后的有效权重**。config/champion 写的
+        # model/market/djyy 是名义值，源缺失时 fusion.py 会重新归一化，
+        # 实际比例与名义值不同（0.05/0.75/0.20 在 djyy 缺失时 →
+        # model 6.25% / market 93.75%）。不落这个字段，账本无法反推
+        # 某条预测当时究竟被什么权重算出来，审计链断在这里。
+        _eff_w = _fusion_out.effective_weights
+        if _eff_w is not None:
+            _eff_model = _eff_w["model"]
+            _eff_market = _eff_w["market"]
+            _eff_djyy = _eff_w["djyy"]
+        else:
+            # 裸模型分支：单源，无需权重（等效 model=1.0）
+            _eff_model, _eff_market, _eff_djyy = 1.0, 0.0, 0.0
+        _fused_source_counts[_fusion_out.source] = (
+            _fused_source_counts.get(_fusion_out.source, 0) + 1
+        )
 
         # --- 平局预警分类 ---
-        # 冷门平局: 一方被市场看好但模型+市场证据显示存在平局风险
-        # 均势平局: 双方实力接近、平局被市场低估
-        # 联赛平局(R1, 2026-08-12): 高平联赛 + 市场平局P∈[0.20,0.30) 无脑改判
-        draw_alert = None
-        if calibrated_probs:
-            market_h, market_d, market_a = calibrated_probs
-            max_market = max(market_h, market_d, market_a)
-            # R1: 高平联赛且市场平局概率处于低估区间（回测 +2.9pp，切半稳健）
-            if _canon_league(fixture.competition) in HIGH_DRAW_LEAGUES and 0.20 <= market_d < 0.30:
-                draw_alert = "league_draw"  # 联赛平局（数据驱动 R1）
-            # 冷门平局: 市场强烈看好一方(>50%)，但平局概率>=25%
-            elif max_market > 0.50 and market_d >= 0.25:
-                draw_alert = "cold_draw"  # 冷门平局
-            # 均势平局: 双方接近(差距<15%)，平局概率>=26%
-            elif abs(market_h - market_a) < 0.15 and market_d >= 0.26:
-                draw_alert = "balanced_draw"  # 均势平局
+        # 2026-10-11 抽出到 engine/prediction/signals.py（纯函数，可测）。
+        # 口径与判定顺序不变，详见该函数 docstring。
+        draw_alert = classify_draw_alert(
+            _canon_league(fixture.competition), calibrated_probs, HIGH_DRAW_LEAGUES
+        )
 
         # 半全场概率 (基于最终xG)
         _htft = htft_probabilities(pred.home_xg, pred.away_xg)
@@ -633,51 +643,13 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         #   每源原始候选保留(djyy_top_scores/mc_top_scores)，结算记录各源命中率，数据说话调权重
         _djyy_ts = (djyy_data.get("top_scores") if djyy_data and djyy_data.get("top_scores") else None)
         _mc_ts = getattr(pred, "top_scores", None)
-
-        def _norm_scores(ts):
-            """归一化比分候选: [(h,a,p),...] → [(h,a,p_norm),...]; 无概率则按排名衰减"""
-            if not ts:
-                return []
-            out = []
-            for i, it in enumerate(ts):
-                if isinstance(it, (list, tuple)) and len(it) >= 3:
-                    try:
-                        p = float(it[2])
-                    except (TypeError, ValueError):
-                        p = 0.0
-                    if p <= 0:
-                        p = 1.0 / (i + 1)
-                    out.append((int(it[0]), int(it[1]), p))
-                elif isinstance(it, (list, tuple)) and len(it) >= 2:
-                    out.append((int(it[0]), int(it[1]), 1.0 / (i + 1)))
-            s = sum(x[2] for x in out) or 1.0
-            return [(h, a, p / s) for h, a, p in out]
-
-        _djyy_norm = _norm_scores(_djyy_ts)
-        _mc_norm = _norm_scores(_mc_ts)
-        # 比分候选：DJYY 优先 + xG差温和重排（2026-08-05 实证，替代 0.55/0.45 双源融合）
-        # 发现：双源融合稀释命中率（top5 52.2%→48.7%），DJYY 纯源最优；
-        #       DJYY 分布对强弱不敏感（碾压局 xG差>1.5 实际 59% 高比分, top1 只给 12%）
-        # 温和重排（xG差≥0.8: 高比分×1.3、1-1/0-0×0.85）：
-        #   walk-forward 113 场: top1 9.7%→13.3%, top5 52.2%→54.9%, top1≥3球 7.1%→31.0%
         _xdiff = abs(float(pred.home_xg) - float(pred.away_xg)) if pred.home_xg and pred.away_xg else 0.0
-        _reranked = None
-        if _djyy_norm:
-            _reranked = list(_djyy_norm)
-            if _xdiff >= 0.8:
-                _reranked = [
-                    (h, a, round(p * (1.3 if h + a >= 3 else (0.85 if (h, a) in ((1, 1), (0, 0)) else 1.0)), 6))
-                    for h, a, p in _reranked
-                ]
-                _reranked.sort(key=lambda x: -x[2])
-            _fused = [(h, a, round(p, 4)) for h, a, p in _reranked[:8]]
-            _score_src = "djyy"
-        elif _mc_norm:
-            _fused = [(h, a, round(p, 4)) for h, a, p in _mc_norm[:8]]
-            _score_src = "mc"
-        else:
-            _fused = None
-            _score_src = None
+        # 归一化 + 双源合并（2026-10-11 抽出到 engine/prediction/score_candidates.py）：
+        # DJYY 优先 + xG差温和重排，口径与数值逐位不变，只是从 1200 行的
+        # 编排函数里搬出来变成可测纯函数。详见该模块 docstring。
+        _fused, _score_src, _djyy_norm, _mc_norm = merge_score_candidates(
+            _djyy_ts, _mc_ts, _xdiff, limit=8
+        )
 
         # 盘口信号（2026-08-05 结构化，替代装饰性 ±0.02）：
         #   sina 欧赔压缩比 → 方向分: 压缩(资金涌入)=+, 抬升=-
@@ -735,6 +707,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_is_synthetic": bool(_odds_synthetic) or (calibrated_probs is None and bool(_odds_synthetic)),
             # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
             "fusion_trace": fusion_trace,
+            # 【2026-10-11】归一化后的**有效权重** + 实际走的融合分支。
+            # 名义权重（config / fusion_weights.json 的 champion）与实际比例
+            # 在源缺失时不一致，账本要能逐场反推当时真正参与运算的比例，
+            # 否则"模型贡献了多少"永远只能靠外部推算。djyy 断供期正是
+            # 靠这个字段才看得出 model 实际只有 6.25%。
+            "fusion_effective_weights": {
+                "model": _eff_model,
+                "market": _eff_market,
+                "djyy": _eff_djyy,
+            },
+            "fusion_source": _fusion_out.source,
             # 双源融合比分候选（DJYY+MC）+ 盘口信号（2026-08-05）
             "top_scores": _fused,
             "score_sources": _score_src,
@@ -933,22 +916,11 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # 8/5 实证：周三002/003 客胜 EV +38%/+115% 被方向纪律拦下且无提示；
         # 低置信度场次（margin<0.08）尤其容易发生——模型概率接近时市场赔率信息量大。
         # 存 predictions 供复盘验证"市场分歧方向是否值得破纪律"（数据说话，不预设）。
-        _dir = p.get("direction")
-        if not _dir:
-            _probs0 = (p.get("home_win_prob", 0), p.get("draw_prob", 0), p.get("away_win_prob", 0))
-            _dir = ["home", "draw", "away"][_probs0.index(max(_probs0))]
-        for _sel0, _prob0, _ok0 in (
-            ("home", p.get("home_win_prob", 0), "home_odds"),
-            ("draw", p.get("draw_prob", 0), "draw_odds"),
-            ("away", p.get("away_win_prob", 0), "away_odds"),
-        ):
-            if _sel0 == _dir:
-                continue
-            _od0 = p.get(_ok0)
-            if _od0 and _prob0 * _od0 - 1 > 0.05:
-                p.setdefault("market_disagreement", {})[_sel0] = {
-                    "prob": round(_prob0, 3), "odds": _od0, "ev": round(_prob0 * _od0 - 1, 3)
-                }
+        # 检测本体在 engine/prediction/signals.py（2026-10-11 抽出的纯函数）。
+        # 语义保持 setdefault 合并：同一 prediction 可能被走到多次。
+        _mkt_dis = detect_market_disagreement(p, ev_threshold=0.05)
+        if _mkt_dis:
+            p.setdefault("market_disagreement", {}).update(_mkt_dis)
         # 让球 EV 全量落盘（2026-08-06）：独立于置信/禁投过滤，任何有让球盘的场次都记录
         # 三方向 edges 都存——argmax 只显示概率最高方向，但让球平/让球主常有正 EV
         # 藏在窄区间+高赔率里（让球平赔率 3.5-4.5，概率 15% 就可能 +EV）。
@@ -1308,6 +1280,18 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     print(f"  预测: {len(predictions)} 场")
     if freshness_active:
         print(f"  ⚠ 新鲜度护栏触发: {freshness_active} 场（概率向均势收缩）")
+    # 【2026-10-11】死源显式化：DJYY 断供期（2026-08 中旬起）在日志里完全
+    # 无痕迹——融合层靠重新归一化兜住了，名义 djyy 权重 0.20 实际变成 0，
+    # 但没人知道。把分支命中数与有效权重打出来，断供当天就能看出来。
+    _n_djyy = _fused_source_counts.get("fuse_three_way", 0)
+    if _n_djyy == 0 and predictions:
+        print(f"  ⚠ DJYY 死源：{len(predictions)} 场全部未取到 DJYY 概率，"
+              f"该源实际贡献 0（名义权重 {_champion.djyy:.2f} 未生效）")
+    elif _n_djyy:
+        print(f"  DJYY 生效: {_n_djyy}/{len(predictions)} 场走三路融合")
+    if _fused_source_counts:
+        print("  融合分支: " + " / ".join(
+            f"{k}={v}" for k, v in sorted(_fused_source_counts.items())))
     print(f"  投注: {ticket_plan.total_stake} 元 (乘数={effective_mult:.2f})")
     print(f"{'='*60}")
 
@@ -2279,9 +2263,22 @@ def run_settlement(target_date: date):
                     all_records.append(json.loads(line))
                 except Exception:
                     continue
+    # 污染样本隔离（2026-10-11）：v2 链里混进了 20 场 league_draw_baseline
+    # 越界样本（巴甲平局概率被钉在 0.5025，真实率 0.266），会系统性带偏
+    # 校准曲线。剔除而不升 chain 版本——污染只占 3.6%，不该让 538 条
+    # 干净样本陪葬。详见 engine/integrity/quarantine.py。
+    _v2_raw = [r for r in all_records if r.get("chain") == "v2"
+               and r.get("final_prob") and r.get("actual_idx") is not None]
+    try:
+        from engine.integrity.quarantine import clean_records as _quarantine_filter
+        _v2_clean = _quarantine_filter(_v2_raw, ROOT)
+    except Exception:
+        _v2_clean = _v2_raw
+    if len(_v2_clean) < len(_v2_raw):
+        print(f"  ⚠ 剔除污染样本 {len(_v2_raw) - len(_v2_clean)} 场"
+              f"（{len(_v2_raw)} → {len(_v2_clean)}，不参与校准/LGBM 学习）")
     clean_records = sorted(
-        [r for r in all_records if r.get("chain") == "v2"
-         and r.get("final_prob") and r.get("actual_idx") is not None],
+        _v2_clean,
         key=lambda r: (r.get("date", ""), r.get("match_id", "")),
     )
     _cal_status_path = ROOT / "data" / "state" / "calibration_status.json"
