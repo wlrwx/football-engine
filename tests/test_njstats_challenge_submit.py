@@ -5,9 +5,10 @@
 它出问题不会让 CI 变红——只会让 Air 每天静默少提几场，
 等周日看榜才发现。所以它的纯函数部分必须在主线 CI 里锁住。
 
-测的是 Node 脚本里的两个纯函数，用 node 子进程跑真实文件（不是重写一份 Python 副本）：
+测的是 Node 脚本里的纯函数，用 node 子进程跑真实文件（不是重写一份 Python 副本）：
   - weekKey()：周界必须按北京时间（见下方时区用例）
   - pickBest()/validateHandicapSign()：EV 择优 + 让球符号校验 + 幂等
+  - protobuf 编解码：v3.1 起的协议层，wire format 细节最容易静默腐烂
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ def _node(script: str) -> str:
     // ROOT 的基准：submit.js 优先用 process.argv[1]，被 new Function 载入时
     // argv[1] 是 node -e 的占位符，所以这里显式喂真实路径进去。
     process.argv[1] = {str(SUBMIT_JS)!r};
-    const mod = new Function(body + '; return {{weekKey, pickBest, validateHandicapSign, loadCandidates, ROOT}};')();
+    const mod = new Function(body + '; return {{weekKey, pickBest, validateHandicapSign, loadCandidates, ROOT, encodeSubmitReq, encodeEnvelope, decodeEnvelope, PLAY_TYPE}};')();
     {script}
     """
     p = subprocess.run(["node", "-e", src], capture_output=True, text=True, timeout=60)
@@ -155,3 +156,87 @@ def test_root_points_at_repo_root():
     """)
     d = json.loads(out)
     assert d["has_daily"], f"ROOT={d['root']} 下没有 data/daily，路径基准错了"
+
+
+# ---------------------------------------------------------------- protobuf 协议层（v3.1）
+
+def test_protobuf_submit_req_wire_format():
+    """ReqGuessingSubmit 的 wire format 必须与逆向出的 schema 逐字节一致。
+
+    schema（从 NJStats 前端 bundle 的 protobuf-es 生成代码读出）：
+      field 1: guessingId  string   (tag 0x0a)
+      field 2: playType    enum     (tag 0x10)
+      field 3: pick        int32    (tag 0x18)
+
+    协议层坏了不会报错——服务端只会回一个业务错误码，
+    而我们会以为是「模型选错了场次」。所以字节序必须锁死。
+    """
+    out = _node("""
+    const b = mod.encodeSubmitReq({guessingId: 'abc', playType: 5, pick: 3});
+    console.log(b.toString('hex'));
+    """)
+    # 0a 03 'abc' → 10 05 → 18 03
+    assert out == "0a0361626310051803"
+
+
+def test_protobuf_envelope_wraps_params():
+    """外层信封 {params(1), page(2)}，params 是内层消息的 bytes。"""
+    out = _node("""
+    const inner = mod.encodeSubmitReq({guessingId: 'x', playType: 4, pick: 1});
+    const env = mod.encodeEnvelope(inner);
+    console.log(JSON.stringify({hex: env.toString('hex'), len: env.length}));
+    """)
+    d = json.loads(out)
+    assert d["hex"].startswith("0a"), "外层第一个字段必须是 field1(params)"
+    assert d["hex"].endswith("1200"), "外层第二个字段必须是空 page(2)"
+
+
+def test_protobuf_decode_envelope_real_response():
+    """用真实抓到的响应字节解码：08 ff..01 12 0c「请先登录」。
+
+    这串字节是 2026-10-13 实测 curl 拿到的（合法 protobuf + 无 token）。
+    code 的 varint 是 ff ff ff ff ff ff ff ff 01 = -1（有符号 64 位）。
+    如果解码器把 code 解成无符号大数，调用方就永远判断不出未登录。
+    """
+    out = _node("""
+    const hex = '08ffffffffffffffffff01120ce8afb7e58588e799bbe5bd95';
+    const buf = Buffer.from(hex, 'hex');
+    const r = mod.decodeEnvelope(buf);
+    // out[1] 原始是 BigInt，JSON.stringify 不接受，先转字符串
+    console.log(JSON.stringify({code: r.code, msg: r.msg, raw1: String(r[1])}));
+    """)
+    d = json.loads(out)
+    assert d["code"] == -1, f"code 应为 -1（未登录），实得 {d['code']}"
+    assert d["msg"] == "请先登录"
+
+
+def test_play_type_enum_matches_frontend():
+    """GuessingPlayType 枚举必须与前端一致（JC_SPF=4 / JC_RQ=5）。
+
+    竞彩只有这两个口（前端 Yn() 只对 jingcaiSpf/jingcaiRq 生成提交），
+    大小球 GPT_DX=3 存在但不用于竞彩——STATUS.md「大小球观察不提交」对上了。
+    """
+    out = _node("console.log(JSON.stringify(mod.PLAY_TYPE))")
+    d = json.loads(out)
+    assert d["JC_SPF"] == 4
+    assert d["JC_RQ"] == 5
+    assert d["DX"] == 3, "大小球枚举存在但不用（只观察不提交）"
+
+
+def test_pick_encoding_is_index_plus_one():
+    """pick 必须是 1-based（逆向自前端 Yn(): pick = index + 1）。
+
+    写成 0-based 不会报错，只会静默提交到错误的方向。
+    """
+    daily = ROOT / "data" / "daily"
+    if not daily.exists():
+        pytest.skip("无 data/daily")
+    day = sorted(p.name for p in daily.iterdir() if p.is_dir())[-1]
+    out = _node(f"""
+    const cands = mod.loadCandidates({day!r});
+    const bad = cands.filter(c => c.pick < 1 || c.pick > 3);
+    console.log(JSON.stringify({{n: cands.length, bad: bad.length}}));
+    """)
+    d = json.loads(out)
+    assert d["n"] > 0
+    assert d["bad"] == 0, f"{d['bad']} 个候选的 pick 越界（应为 1..3）"
