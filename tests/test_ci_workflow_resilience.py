@@ -38,9 +38,18 @@ def sh(cmd: str, cwd: Path) -> subprocess.CompletedProcess:
 
 
 def make_env() -> tuple[Path, Path, Path]:
-    """建 remote + 写入方 A（落后，模拟 Actions checkout）+ 写入方 B（抢先推）。"""
+    """建 remote + 写入方 A（落后，模拟 Actions checkout）+ 写入方 B（抢先推）。
+
+    注意必须**显式**把裸库的 HEAD 指到 refs/heads/main。
+    `git init --bare` 的默认分支取决于本机 `init.defaultBranch`：本地是 main、
+    GitHub Actions runner 上是 master。若不显式设置，CI 上 clone 出来的是空树，
+    测试会报 FileNotFoundError —— 本地全绿、CI 全红的那种坑。
+    """
     tmp = Path(tempfile.mkdtemp(prefix="wf-"))
     sh("git init -q --bare remote.git", tmp)
+    sh("git -C remote.git symbolic-ref HEAD refs/heads/main", tmp)
+    # 首次 clone 面对的是空仓库，不能带 -b（会因目标分支不存在而失败）；
+    # 裸库 HEAD 已显式指向 refs/heads/main，后续 clone 才会正确检出 main。
     sh("git clone -q remote.git a", tmp)
 
     a = tmp / "a"
