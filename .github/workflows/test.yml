@@ -8,12 +8,18 @@ on:
   push:
     paths:
       - 'engine/**'
+      # 2026-10-12：三道锁（白名单/反事实/CODEOWNERS）落在 evolution/ 下，
+      # 不挂触发路径的话改了它们 CI 根本不跑，锁等于没有回归保护。
+      - 'evolution/**'
+      - '.github/CODEOWNERS'
       - 'tests/**'
       - 'scripts/**'
       - 'requirements*.txt'
   pull_request:
     paths:
       - 'engine/**'
+      - 'evolution/**'
+      - '.github/CODEOWNERS'
       - 'tests/**'
 
 permissions:
