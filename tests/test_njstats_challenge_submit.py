@@ -39,7 +39,7 @@ def _node(script: str) -> str:
     // ROOT 的基准：submit.js 优先用 process.argv[1]，被 new Function 载入时
     // argv[1] 是 node -e 的占位符，所以这里显式喂真实路径进去。
     process.argv[1] = {str(SUBMIT_JS)!r};
-    const mod = new Function(body + '; return {{weekKey, pickBest, validateHandicapSign, loadCandidates, ROOT, encodeSubmitReq, encodeEnvelope, decodeEnvelope, PLAY_TYPE}};')();
+    const mod = new Function(body + '; return {{weekKey, pickBest, validateHandicapSign, loadCandidates, ROOT, encodeSubmitReq, encodeMatchListReq, encodeWeekQuotaReq, encodeEnvelope, decodeEnvelope, decodeName, readFields, firstField, allFields, num, str, normName, matchPool, fetchPool, fetchQuota, weekIdOf, PLAY_TYPE, LIST_TYPE}};')();
     {script}
     """
     p = subprocess.run(["node", "-e", src], capture_output=True, text=True, timeout=60)
@@ -240,3 +240,150 @@ def test_pick_encoding_is_index_plus_one():
     d = json.loads(out)
     assert d["n"] > 0
     assert d["bad"] == 0, f"{d['bad']} 个候选的 pick 越界（应为 1..3）"
+
+
+# ---------------------------------------------------------------- 池匹配与盘口口径（v3.2）
+
+def _pool_fixture():
+    """构造一个含竞彩盘口和不含竞彩盘口的池子样例。"""
+    return [
+        {   # 带竞彩盘口（欧冠）
+            'guessingId': 'p1AU', 'weekId': 202642, 'league': '欧冠',
+            'home': '比利亚雷亚尔', 'away': '那不勒斯', 'kickoff': '',
+            'odds': {'4': {'1': '2.04', '2': '3.40', '3': '2.90'},
+                     '5': {'1': '4.05', '2': '3.95', '3': '1.59', '4': '-1'},
+                     '1': {'1': '2.10', '2': '3.30', '3': '3.00'}},
+        },
+        {   # 只有欧赔口径
+            'guessingId': 'Pb7j', 'weekId': 202642, 'league': '加拿职',
+            'home': 'HFX流浪者', 'away': '骑兵', 'kickoff': '',
+            'odds': {'1': {'1': '3.5', '2': '3.70', '3': '1.85'},
+                     '2': {'1': '0.90', '2': '+0.5', '3': '0.90'},
+                     '3': {'1': '0.95', '2': '3', '3': '0.85'}},
+        },
+    ]
+
+
+def test_matchpool_prefers_jc_caliber():
+    """有竞彩盘口的场次必须选竞彩口径（JC_SPF/JC_RQ），否则 EV 算错对象。
+
+    竞彩口径的赔率才是竞彩实际开盘价；拿欧赔价算 EV 再按竞彩口径提交，
+    等于用另一个市场的价格决定下注。
+    """
+    out = _node("""
+    const pool = %s;
+    const cands = [
+      {match_id:'M1', market:'1x2', sel:'home', odds:2.04, model_prob:0.5,
+       line:null, home:'比利亚雷亚尔', away:'那不勒斯', competition:'欧冠'},
+      {match_id:'M2', market:'handicap', sel:'home', odds:1.92, model_prob:0.55,
+       line:1.0, home:'HFX流浪者', away:'骑兵', competition:'加拿职'},
+    ];
+    const r = mod.matchPool(cands, pool);
+    console.log(JSON.stringify(r.matched.map(m => ({
+      mid: m.match_id, gid: m.guessingId, pt: m.play_type, jc: m.jc_available,
+    }))));
+    """ % json.dumps(_pool_fixture(), ensure_ascii=False))
+    rows = json.loads(out)
+    by_mid = {r['mid']: r for r in rows}
+    assert by_mid['M1']['gid'] == 'p1AU'
+    assert by_mid['M1']['pt'] == 4, "有 jcSpf 必须用 JC_SPF(4)"
+    assert by_mid['M1']['jc'] is True
+    assert by_mid['M2']['pt'] == 2, "无竞彩盘口必须退回欧赔 RQ(2)"
+    assert by_mid['M2']['jc'] is False
+
+
+def test_matchpool_reports_unmatched_explicitly():
+    """未命中的场次必须显式报出来（联赛不重叠时不能静默）。"""
+    out = _node("""
+    const pool = %s;
+    const cands = [
+      {match_id:'X', market:'1x2', sel:'home', odds:2.0, model_prob:0.5,
+       line:null, home:'马尔默', away:'卡尔马', competition:'瑞典超'},
+    ];
+    const r = mod.matchPool(cands, pool);
+    console.log(JSON.stringify({m: r.matched.length, u: r.unmatched.length}));
+    """ % json.dumps(_pool_fixture(), ensure_ascii=False))
+    d = json.loads(out)
+    assert d == {"m": 0, "u": 1}
+
+
+def test_weekid_encoding_matches_real_value():
+    """weekId 编码必须与实测一致：2026-10-13 → 202642（YYYY+ISO周号）。"""
+    out = _node("""
+    console.log(JSON.stringify({
+      oct13: mod.weekIdOf(new Date('2026-10-13T10:00:00+08:00')),
+      oct12: mod.weekIdOf(new Date('2026-10-12T10:00:00+08:00')),
+      jan1:   mod.weekIdOf(new Date('2026-01-01T10:00:00+08:00')),
+    }));
+    """)
+    d = json.loads(out)
+    assert d["oct13"] == 202642
+    assert d["oct12"] == 202642   # 同一周
+    assert 202601 <= d["jan1"] <= 202653
+
+
+def test_num_treats_missing_field_as_zero_not_nan():
+    """protobuf 缺字段必须解成 0，不能是 NaN。
+
+    实测踩过：usedCount 字段未返回时 Number(undefined)=NaN，
+    配额显示成「已用 NaN/28」。缺字段的语义是 0。
+    """
+    out = _node("""
+    console.log(JSON.stringify({
+      undef: mod.num(undefined),
+      null: mod.num(null),
+      big: mod.num(123n),
+      neg: mod.num(BigInt.asIntN(64, 18446744073709551615n)),
+    }));
+    """)
+    d = json.loads(out)
+    assert d["undef"] == 0
+    assert d["null"] == 0
+    assert d["big"] == 123
+    assert d["neg"] == -1
+
+
+def test_quota_response_decoded_with_real_bytes():
+    """用实测的配额响应字节解码：maxCount=28, remainCount=28, usedCount 缺省=0。
+
+    实测 hex: 08 92af0c 10 1c 20 1c
+      field1 weekId=202642, field2 maxCount=28, field4 remainCount=28
+      （field3 usedCount 未返回 → 必须解成 0，不是 NaN）
+    """
+    out = _node("""
+    const buf = Buffer.from('0892af0c101c201c', 'hex');
+    console.log(JSON.stringify({
+      weekId: mod.num(mod.firstField(buf, 1)),
+      maxCount: mod.num(mod.firstField(buf, 2)),
+      usedCount: mod.num(mod.firstField(buf, 3)),
+      remainCount: mod.num(mod.firstField(buf, 4)),
+    }));
+    """)
+    d = json.loads(out)
+    assert d == {"weekId": 202642, "maxCount": 28, "usedCount": 0, "remainCount": 28}
+
+
+def test_pool_response_decodes_names_and_ids():
+    """用实测的开放池响应解出 222 场 + 中文队名 + guessingId。
+
+    这是整个链路的地基：guessingId 解错，提交就打到错误的场次
+    （protobuf 里它只是个字符串，写错不报错）。
+    """
+    # 用本机缓存（没有就跳过；池子由 --pool 拉取）
+    pool_cache = Path.home() / '.football-engine' / 'njstats_pool.json'
+    if not pool_cache.exists():
+        pytest.skip("无池缓存（先跑 --pool）")
+    out = _node("""
+    const rows = JSON.parse(fs.readFileSync(process.env.HOME + '/.football-engine/njstats_pool.json','utf-8')).rows;
+    console.log(JSON.stringify({
+      n: rows.length,
+      withGid: rows.filter(r => r.guessingId && r.guessingId.length > 0).length,
+      withCnName: rows.filter(r => r.home && r.away).length,
+      jcRows: rows.filter(r => r.odds && (r.odds['4'] || r.odds['5'])).length,
+    }));
+    """)
+    d = json.loads(out)
+    assert d['n'] > 100, f"池子只有 {d['n']} 场，接口可能变了"
+    assert d['withGid'] == d['n'], "有场次缺 guessingId"
+    assert d['withCnName'] == d['n'], "有场次缺中文队名（解码层级错了）"
+    assert d['jcRows'] > 0, "没有一场带竞彩盘口——口径择优逻辑失去意义"
