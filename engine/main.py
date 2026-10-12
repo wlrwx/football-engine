@@ -40,6 +40,7 @@ from engine.prediction.fusion import (
 from engine.prediction.reverse_odds import ReverseOddsEngine, ReverseOddsInput
 from engine.prediction.score_candidates import merge_score_candidates
 from engine.prediction.signals import classify_draw_alert, detect_market_disagreement
+from engine.review.settle_parlays import settle_ticket
 from engine.strategy.kelly import KellyStrategy, favorite_band_factor, market_signal_gate
 from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
@@ -1974,6 +1975,11 @@ def run_settlement(target_date: date):
             _res_by_mid[n["match_id"]] = (int(n["r"].home_score), int(n["r"].away_score))
         except Exception:
             continue
+    # settle_parlays 期望 {match_id: {home_score, away_score}}；建一次供整段复用。
+    _res_map_for_tickets = {
+        m: {"home_score": sc[0], "away_score": sc[1]}
+        for m, sc in _res_by_mid.items()
+    }
 
     # 幂等守卫（2026-10-11 修正）：
     #   本块遍历 ticket_plan 而非 new_items，若无守卫，每次重跑结算都会把
@@ -2008,20 +2014,38 @@ def run_settlement(target_date: date):
             if not any(lg.get("match") in _new_mids for lg, _ in _scored):
                 parlay_skipped_already += 1
                 continue
-            all_hit = True
-            for _leg, (_hs, _as_) in _scored:
-                _pick = _leg.get("sel") or _leg.get("score")
-                if _leg.get("sel"):
-                    _act = "home" if _hs > _as_ else ("draw" if _hs == _as_ else "away")
-                    _ok = (_pick == _act)
-                else:
-                    _ok = (str(_pick) == f"{_hs}-{_as_}")
-                if not _ok:
-                    all_hit = False
-                    break
+            # 2026-10-11 修复：此前用"全中才赢"(all_hit)判输赢，但 3串4 容错票
+            # 错 1 场仍中 1 注 2串1 —— 按 all_hit 判会把**盈利记成亏损**。
+            # 实测 19 张 3串4 里 11 张被错记：投入 51.22 元 / 正确回报 65.79 元，
+            # 正确 PnL +14.57 被记成 −51.22。受影响的是熔断器与资金池
+            #（复盘报告没受影响——settle_parlays.py 早就正确处理了容错票，
+            #  两套口径因此分叉，这正是根因）。
+            #
+            # 只对**容错票**委派 settle_ticket，普通票保持原口径
+            # stake*(total_odds-1)：settle_ticket 的普通分支读 potential 字段，
+            # 全量委派会在 potential 缺失时把中奖记成 −stake（实测会踩）。
+            # 组合运算（3串4 的 4 注拆法）由 settle_ticket 单一持有。
+            _is_fault = "串4" in str(_e.get("type") or "") and len(legs) == 3
             parlay_n += 1
-            _won = all_hit
-            _p = _stake * (_tot - 1.0) if all_hit else -_stake
+            if _is_fault:
+                _settled = settle_ticket(_e, _res_map_for_tickets)
+                _won = bool(_settled.get("won"))
+                # return 是总回报（容错票含部分回血），PnL = 回报 − 投入
+                _p = float(_settled.get("return") or 0.0) - _stake
+            else:
+                _all_hit = True
+                for _leg, (_hs, _as_) in _scored:
+                    _pick = _leg.get("sel") or _leg.get("score")
+                    if _leg.get("sel"):
+                        _act = "home" if _hs > _as_ else ("draw" if _hs == _as_ else "away")
+                        _ok = (_pick == _act)
+                    else:
+                        _ok = (str(_pick) == f"{_hs}-{_as_}")
+                    if not _ok:
+                        _all_hit = False
+                        break
+                _won = _all_hit
+                _p = _stake * (_tot - 1.0) if _all_hit else -_stake
             parlay_pnl += _p
             parlay_stake += _stake
             if _won:

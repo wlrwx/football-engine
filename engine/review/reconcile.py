@@ -185,6 +185,17 @@ def parlay_pnl(entries: list[dict], scores: dict[str, dict]) -> tuple[float, int
         legs = e.get("legs") or []
         if stake <= 0 or not legs:
             continue
+        # 2026-10-11 修复：原来"全中才赢"(all_hit)对 3串4 容错票判错——
+        # 错 1 场仍中 1 注 2串1，按 all_hit 判会把**盈利记成亏损**。
+        # 实测 19 张 3串4 里 11 张被错记（投入 51.22 / 正确回报 65.79）。
+        #
+        # 这里**只对容错票**委派 settle_ticket，普通票保持原路径：
+        # settle_ticket 的普通分支读 `potential` 字段，而本模块的票只有
+        # `total_odds`，两者口径不同（实测全量委派会让普通串关 PnL 归零）。
+        # 组合运算（3串4 的 4 注拆法）仍由 settle_ticket 单一持有。
+        is_fault_ticket = "串4" in str(e.get("type") or "") and len(legs) == 3
+        if is_fault_ticket:
+            leg_hits: list[bool] = []
         all_hit = True
         missing = False
         for leg in legs:
@@ -205,14 +216,31 @@ def parlay_pnl(entries: list[dict], scores: dict[str, dict]) -> tuple[float, int
                 ok = (pick == act)
             else:
                 ok = (str(pick) == f"{sc['home_score']}-{sc['away_score']}")
-            if not ok:
+            if is_fault_ticket:
+                leg_hits.append(bool(ok))
+            elif not ok:
                 all_hit = False
                 break
         if missing:
             unresolved.append(str(legs[0].get("match")))
             continue
         n += 1
-        if all_hit:
+        if is_fault_ticket:
+            from engine.review.settle_parlays import settle_ticket
+            res_map = {
+                str(leg.get("match") or ""): {
+                    "home_score": scores[str(leg.get("match") or "")]["home_score"],
+                    "away_score": scores[str(leg.get("match") or "")]["away_score"],
+                }
+                for leg in legs
+            }
+            st = settle_ticket(e, res_map)
+            if st.get("won"):
+                pnl += float(st.get("return") or 0.0)
+                won_n += 1
+            else:
+                pnl -= stake
+        elif all_hit:
             pnl += stake * (float(e.get("total_odds") or 1.0) - 1.0)
             won_n += 1
         else:
