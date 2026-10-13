@@ -33,11 +33,39 @@ OUT = ROOT / "data" / "state" / "njstats_archive"
 PROGRESS = Path(os.environ.get("NJSTATS_ARCHIVE_PROGRESS",
                                 str(Path.home() / ".football-engine" / "njstats_archive_progress.json")))
 KEY_FILE = Path.home() / ".football-engine" / "njstats_key"
-PROXY = {"https": "http://127.0.0.1:7897", "http": "http://127.0.0.1:7897"}
+
+# 2026-10-13：代理改为**可选探测**，不再硬编码。
+# 原实现写死 127.0.0.1:7897（Clash Verge）——那台机器不开 Clash 时，
+# 每次请求都静默返回 None，脚本看起来"跑过了"实际一条没存
+# （实测：本机直连 200，走代理全部 RequestException）。
+# 现在按 环境变量 > 探测端口 > 直连 的顺序决定，任何机器都能跑。
+def _resolve_proxy() -> dict | None:
+    import os
+    import socket
+    env = os.environ.get("NJSTATS_PROXY", "").strip()
+    if env:
+        return {"https": env, "http": env}
+    for port in (7897, 7890, 1080):     # Clash Verge / ClashX / v2ray 常见口
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return {"https": f"http://127.0.0.1:{port}", "http": f"http://127.0.0.1:{port}"}
+        except OSError:
+            continue
+    return None
+
+PROXY = _resolve_proxy()
 
 # 窗口: 10-09 起（实测 10-05 已被 1001 拒绝），至今天+2（预置未来日由后续运行填充）
 WINDOW_START = "2026-10-09"
 PROB_ENDPOINTS = ["draw", "over", "under", "btts", "home", "away", "ht-goal", "avg-goal"]
+
+# 2026-10-13 实测修正：prob 端点**没有 date 参数**，返回的是当前全市场快照。
+# pageSize=100 时 maxPage=6（total=571），而原实现只取了 2 页 → 丢了 65% 的数据。
+# 现在按「首页读 pager.maxPage，再补齐剩余页」的方式取全。
+# match/list 不带 date 时是全市场横截面（实测 total=654），另建 snapshot 任务。
+PROB_PAGE_SIZE = 100
+PROB_MAX_PAGES = 8          # 安全上限：实测 6 页，留余量
+SNAPSHOT_ENDPOINTS = ["match", "odds"]   # 无 date 的全市场横截面
 
 
 def load_key() -> str:
@@ -93,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
 
     dates = [(datetime.strptime(args.start, "%Y-%m-%d") + timedelta(days=i)).strftime("%Y-%m-%d")
              for i in range(args.days)]
-    # 任务顺序 = 优先级：每天 赛程+赛果 → 指数(含分页，CLV 基准最重) → 概率端点(含分页)
+    # 任务顺序 = 优先级：每天 赛程+赛果 → 指数(含分页，CLV 基准最重) → 概率端点(全分页)
     tasks = []
     for d in dates:
         tasks.append((d, "match", "/match/list", {"date": d, "page": 1, "pageSize": 100}))
@@ -102,10 +130,25 @@ def main(argv: list[str] | None = None) -> int:
         tasks.append((d, "odds", "/odds/list", {"date": d, "page": 1, "pageSize": 100}))
         for p in (2, 3):
             tasks.append((d, f"odds_p{p}", "/odds/list", {"date": d, "page": p, "pageSize": 100}))
+    # prob 端点全分页（2026-10-13 修正：原来只取 2 页，丢 65%）。
+    # prob 无 date 参数，返回当前全市场快照；这里仍按「当天一个快照」归档，
+    # 形成逐日快照序列（球队统计 + 开盘赔率随时间演化，这是它唯一的时序价值）。
     for d in dates:
         for ep in PROB_ENDPOINTS:
-            tasks.append((d, f"prob_{ep}", f"/prob/{ep}", {"page": 1, "pageSize": 100}))
-            tasks.append((d, f"prob_{ep}_p2", f"/prob/{ep}", {"page": 2, "pageSize": 100}))
+            for p in range(1, PROB_MAX_PAGES + 1):
+                name = f"prob_{ep}" if p == 1 else f"prob_{ep}_p{p}"
+                tasks.append((d, name, f"/prob/{ep}",
+                              {"page": p, "pageSize": PROB_PAGE_SIZE}))
+
+    # 全市场横截面快照（2026-10-13 新增）：match/odds 不带 date 参数 = 全部比赛
+    # （实测 match total=654）。与按日归档的区别：这是「此刻有哪些比赛在售」的
+    # 横截面，用来发现我们漏掉了哪些联赛（实测池子里有欧青联/土甲/德丙等）。
+    for ep in SNAPSHOT_ENDPOINTS:
+        tasks.append((dates[0], f"snapshot_{ep}", f"/{ep}/list",
+                      {"page": 1, "pageSize": 100}))
+        for p in (2, 3, 4, 5, 6, 7):
+            tasks.append((dates[0], f"snapshot_{ep}_p{p}", f"/{ep}/list",
+                          {"page": p, "pageSize": 100}))
 
     # team 系列（2026-10-12 补测全通）：seasonId/teamId 从当日 match 归档动态取
     for d in dates:
@@ -156,6 +199,19 @@ def main(argv: list[str] | None = None) -> int:
         done.add(keyid)
         saved += 1
         time.sleep(1.0)
+
+        # 分页上限自适应（2026-10-13）：prob 实测 maxPage=6，但配置了 8 页安全上限。
+        # 若这里读到的 maxPage 小于待办页数，把多出来的页直接标 done，
+        # 否则每轮都要为「不存在的页」白烧一次 API 调用（8 端点 × 2 页 × 6 天 = 96 次/轮）。
+        pager = resp.get("pager") or {}
+        try:
+            real_max = int(pager.get("maxPage") or 0)
+        except (TypeError, ValueError):
+            real_max = 0
+        if real_max > 0 and real_max < PROB_MAX_PAGES:
+            prefix = f"{d}:{name.split('_p')[0]}" if '_p' in name else f"{d}:{name}"
+            for extra in range(real_max + 1, PROB_MAX_PAGES + 1):
+                done.add(f"{prefix}_p{extra}")
 
     progress["done"] = sorted(done)
     progress["updated_at"] = datetime.now().strftime("%F %T")
