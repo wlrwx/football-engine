@@ -2383,22 +2383,38 @@ def _pred_pick(p):
 
     优先用 direction 字段（含 R1 平局改判），与结算/串关口径一致；
     否则回退 argmax。避免卡片显示"主胜"而数据里 direction=draw 的矛盾。
+
+    2026-10-13（issue #1）：合成赔率场次加「不可投注」标记。
+    外部用户报"竞彩未开盘但生成胜平负推荐"——下注层其实早就拦住合成赔率
+    （engine/main.py:1016，曾因此对 8 笔共 ¥67,353 押在模拟赔率上），
+    selfcheck 也有告警，但**卡片上看不出差别**：读者只看到"预测 主胜 75%"，
+    以为能照着买。合成赔率是 1/(final*1.05) 反推的，去水后≈模型自己的输出，
+    把它佯装成市场结论才是问题所在。
     """
     d = p.get("direction") or ""
     if d in ("home", "draw", "away"):
         prob = p.get(f"{'home_win_prob' if d == 'home' else ('draw_prob' if d == 'draw' else 'away_win_prob')}") or 0
         cls = "home" if d == "home" else ("draw" if d == "draw" else "away")
         label = {"home": "主胜", "draw": "平局", "away": "客胜"}[d]
-        return f'<span class="pick-label">预测</span> <span class="pick-val {cls}">{label} {prob:.0%}</span>'
-    ph = p.get("home_win_prob") or 0
-    pd = p.get("draw_prob") or 0
-    pa = p.get("away_win_prob") or 0
-    if ph >= pd and ph >= pa:
-        return f'<span class="pick-label">预测</span> <span class="pick-val home">主胜 {ph:.0%}</span>'
-    elif pd >= ph and pd >= pa:
-        return f'<span class="pick-label">预测</span> <span class="pick-val draw">平局 {pd:.0%}</span>'
+        base = f'<span class="pick-label">预测</span> <span class="pick-val {cls}">{label} {prob:.0%}</span>'
     else:
-        return f'<span class="pick-label">预测</span> <span class="pick-val away">客胜 {pa:.0%}</span>'
+        ph = p.get("home_win_prob") or 0
+        pd = p.get("draw_prob") or 0
+        pa = p.get("away_win_prob") or 0
+        if ph >= pd and ph >= pa:
+            base = f'<span class="pick-label">预测</span> <span class="pick-val home">主胜 {ph:.0%}</span>'
+        elif pd >= ph and pd >= pa:
+            base = f'<span class="pick-label">预测</span> <span class="pick-val draw">平局 {pd:.0%}</span>'
+        else:
+            base = f'<span class="pick-label">预测</span> <span class="pick-val away">客胜 {pa:.0%}</span>'
+
+    # 合成赔率（无真实盘口）：明确标注不可投注，避免被当成可执行建议
+    if p.get("odds_synthetic"):
+        base += (' <span class="pick-val" style="font-size:.75em;border-color:#e6a23c;color:#e6a23c"'
+                 ' title="该场无真实盘口，赔率由模型概率反推（1/(p×1.05)）。'
+                 '数学上必然负 EV，系统不会对其下注；此概率仅供算法参考，不构成投注建议">'
+                 '⚠ 无盘口·不可投注</span>')
+    return base
 
 
 def _handicap_pick(p):
