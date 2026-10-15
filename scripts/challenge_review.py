@@ -10,6 +10,8 @@
 用法: challenge_review.py [--week 2026-W42]
 """
 import json, sys
+from datetime import datetime
+from collections import defaultdict
 
 ROOT = "."
 
@@ -75,6 +77,34 @@ def main():
     json.dump({'week': st['week'], 'settled': settled},
               open(f'{ROOT}/data/state/challenge_review.json', 'w'), ensure_ascii=False, indent=1)
     print("→ data/state/challenge_review.json")
+
+    # ---------- 策略层建议（只调挑战门槛/市场偏好，永不回写模型参数） ----------
+    policy = {'generated_at': datetime.now().strftime("%F %T"), 'n_settled': n,
+              'model_hit': round(hits / n, 3) if n else None,
+              'notes': '样本 <80 时建议仅记录不改变门槛（防小样本抖动）；'
+                       '此文件只被挑战提交 cron 消费（策略层），模型引擎禁止读取'}
+    # 按声明 edge 分桶的实际兑现
+    mk_edge = defaultdict(list)
+    for rec in recs:
+        e = rec.get('edge')
+        if e is None: continue
+        b = '0-1pp' if e < 0.01 else ('1-2pp' if e < 0.02 else '2pp+')
+        mk_edge[b].append(rec)
+    realization = {}
+    for b, lst in mk_edge.items():
+        # 兑现判定：该桶声明场次若已结算，命中率 vs 声明均值
+        realized = [x for x in settled if x.get('edge') is not None and (
+            ('0-1pp' if x['edge'] < 0.01 else '1-2pp' if x['edge'] < 0.02 else '2pp+') == b)]
+        if realized:
+            realization[b] = {'n': len(realized)}
+    policy['edge_realization'] = realization
+    # 门槛建议（≥80 注才给方向；单调规则）
+    if n >= 80:
+        # 全体命中 vs 50% 粗基线（周中/周末分桶等 p 字段积累两周后细化）
+        policy['gate_hint'] = ('keep' if hits / n >= 0.5 else 'tighten')
+    json.dump(policy, open(f'{ROOT}/data/state/challenge_policy.json', 'w'),
+              ensure_ascii=False, indent=1)
+    print("→ data/state/challenge_policy.json（策略层建议，模型引擎禁止读取）")
 
 if __name__ == '__main__':
     main()
