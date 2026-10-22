@@ -12,9 +12,13 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .team_match import match_pair
+
+# duty 端按同一阈值决定是否补抓快照；这里只负责让过期在预测日志里可见。
+SNAPSHOT_MAX_AGE_H = 10.0
 
 
 class DJYYSSRSource:
@@ -23,6 +27,7 @@ class DJYYSSRSource:
     def __init__(self, cache_path: Path):
         self.cache_path = cache_path
         self._matches: list[dict] = []
+        self._extracted_at: str | None = None
         self._loaded = False
 
     def _load(self):
@@ -35,9 +40,29 @@ class DJYYSSRSource:
                     self._matches = data
                 elif isinstance(data, dict) and "matches" in data:
                     self._matches = data["matches"]
+                    self._extracted_at = data.get("extracted_at")
             except Exception:
                 pass
         self._loaded = True
+
+    @property
+    def extracted_at(self) -> str | None:
+        self._load()
+        return self._extracted_at
+
+    def age_hours(self, now: datetime | None = None) -> float | None:
+        """快照年龄（小时）；无 extracted_at 或解析失败返回 None。"""
+        raw = self.extracted_at
+        if not raw:
+            return None
+        try:
+            ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            now = now or datetime.now(timezone.utc)
+            return (now - ts).total_seconds() / 3600.0
+        except (ValueError, TypeError):
+            return None
 
     @property
     def matches(self) -> list[dict]:

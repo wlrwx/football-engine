@@ -507,8 +507,15 @@ BLOCKED! Body: <html>...
   传给 fusion（日志打 `DJYY 概率补位: n/N 场`），否则快照只能补 xG/赔率，
   `djyy_weight` 仍会被重新归一化掉。
 
-残留风险：笔记本连续 10h 以上不在线时快照会变旧；`data/djyy_status.json`
-的 403 告警仍会提示。**不需要再配 `DJYY_KEY`，也不需要给 Worker 加白名单。**
+残留风险：笔记本连续 10h 以上不在线时快照会变旧。预测日志会打「快照龄 Nh」，
+超阈值有 ⚠；`djyy_status.json` 在补位发生时写 `snapshot_probs/snapshot_age_h`，
+health-check 只在「实时被拦**且**无补位」时 error，补位生效降为 warning。
+自检的通道存活率也改看 `djyy_model_prob`（实时或快照），不再只看
+`djyy_enriched` 实时标志（后者在补位生效时仍会误报 <50%）。
+
+xG：API v2 的 fixtures 响应不含赛前 xG（2026-10-22 快照 0/200），
+`DJYYSSRSource` 的 xG 字段保留但恒空；第三通道靠 `djyy_model_prob`，
+xG 缺失不阻塞。**不需要再配 `DJYY_KEY`，也不需要给 Worker 加白名单。**
 
 ## 尚未解决的开放问题
 

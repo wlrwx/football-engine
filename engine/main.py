@@ -188,11 +188,16 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         print(f"  - DJYY增强跳过: {e}")
 
     # 2.5b DJYY SSR 真实数据源 (赛前xG + Pinnacle赔率)
-    from engine.sources.djyy_ssr import DJYYSSRSource
+    from engine.sources.djyy_ssr import DJYYSSRSource, SNAPSHOT_MAX_AGE_H
     djyy_ssr = DJYYSSRSource(ROOT / "data" / "djyy_matches.json")
     djyy_ssr_enriched = 0
     djyy_ssr_probs = 0
-    print(f"  DJYY SSR: {len(djyy_ssr.matches)} 场比赛数据可用")
+    _snap_age_h = djyy_ssr.age_hours()
+    print(f"  DJYY SSR: {len(djyy_ssr.matches)} 场比赛数据可用"
+          + (f"（快照龄 {_snap_age_h:.1f}h）" if _snap_age_h is not None else ""))
+    if _snap_age_h is not None and _snap_age_h > SNAPSHOT_MAX_AGE_H:
+        print(f"  ⚠ DJYY 快照已 {_snap_age_h:.1f}h 未更新（阈值 {SNAPSHOT_MAX_AGE_H:.0f}h）——"
+              f"本机 duty 可能离线；实时源若也被拦，第三通道会整体失效")
 
     # 3. 加载球队评级
     print("\n[2/8] 加载球队评级...")
@@ -847,6 +852,22 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     if djyy_ssr_probs:
         print(f"  DJYY 概率补位: {djyy_ssr_probs}/{len(predictions)} 场（实时源不可用，"
               f"用仓库快照，fusion 第三通道不再被归一化掉）")
+        # 实时源被 Cloudflare 系统性拦截期间，manager 写的 djyy_status.json
+        # 仍是 healthy=false/blocked_by_edge。不把补位事实带进状态文件，
+        # health-check 就会在第三通道实际健康时报「贡献 0」——又一种假告警。
+        _status_path = ROOT / "data" / "djyy_status.json"
+        try:
+            _status = (json.loads(_status_path.read_text(encoding="utf-8"))
+                       if _status_path.exists() else {})
+            _status["snapshot_probs"] = djyy_ssr_probs
+            _status["snapshot_total"] = len(predictions)
+            _status["snapshot_age_h"] = (round(_snap_age_h, 1)
+                                         if _snap_age_h is not None else None)
+            _status["snapshot_updated_at"] = datetime.now().isoformat(timespec="seconds")
+            _status_path.write_text(
+                json.dumps(_status, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as exc:
+            print(f"  ⚠ DJYY 状态回写失败: {exc}")
 
     # 6. 资金管理 + 投注计划
     print("\n[5/8] 资金管理与投注计划...")

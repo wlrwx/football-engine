@@ -120,10 +120,20 @@ jobs:
           echo "$CONTENT" | jq -r '
             "→ DJYY 状态: \(if .healthy then "健康" else "不健康" end)"
             + " | 生成于 \(.generated_at) | 覆盖 \(.covered)/\(.fixtures)"
+            + (if (.snapshot_probs // 0) > 0
+               then " | 快照补位 \(.snapshot_probs)/\(.snapshot_total // "?")（龄 \(.snapshot_age_h // "?")h）"
+               else "" end)
             + (if .error then "\n  原因: \(.error)" else "" end)
           '
-          # 不健康 + 状态文件是新鲜的（说明这一轮真的试过且失败），才值得单独点名
+          # 不健康 + 状态文件是新鲜的（说明这一轮真的试过且失败），才值得单独点名。
+          # 2026-10-22：实时源被系统性拦截，但快照补位已接管 fusion 第三通道；
+          # 只有「既被拦、又没补位」才是真故障，否则每轮都报 error = 狼来了。
           if echo "$CONTENT" | jq -e '.healthy == false and (.error // "" | test("blocked_by_edge"))' >/dev/null; then
-            echo "::error::DJYY 被 Cloudflare 边缘拦截（403），融合里 0.2 的 djyy 权重实际贡献 0" \
-                 "—— 修法见 docs/EXPERIMENTS.md「DJYY 在 CI 侧被 Cloudflare 拦截」节"
+            SNAP=$(echo "$CONTENT" | jq -r '.snapshot_probs // 0')
+            if [ "$SNAP" -gt 0 ]; then
+              echo "::warning::DJYY 实时源仍被边缘拦截（403），但快照补位 ${SNAP} 场生效——第三通道未死，无需人工修复"
+            else
+              echo "::error::DJYY 被 Cloudflare 边缘拦截（403）且无快照补位，融合里 0.2 的 djyy 权重实际贡献 0" \
+                   "—— 修法见 docs/EXPERIMENTS.md「DJYY 在 CI 侧被 Cloudflare 拦截」节"
+            fi
           fi

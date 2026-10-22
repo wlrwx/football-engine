@@ -46,6 +46,16 @@ FIELD_THRESHOLD = {
 LOW_ODDS_CAP = 0.30        # 串关腿 1.5 以下占比上限（价值选腿纪律）
 
 
+def _djyy_alive(pred: dict) -> bool:
+    """第三通道是否真的供上了概率。
+
+    2026-10-22：CI 实时源被 Cloudflare 拦、快照补位 10/13，而本检查只看
+    djyy_enriched（实时富化标志，5/13）→ 在通道已恢复时仍报「静默死亡」。
+    存活口径必须是「预测里有 djyy_model_prob」（实时或快照），不是「实时源通」。
+    """
+    return bool(pred.get("djyy_model_prob") or pred.get("djyy_enriched"))
+
+
 def check_day(day_str: str) -> list[str]:
     """检查单日 predictions.json，返回告警列表"""
     alerts: list[str] = []
@@ -241,7 +251,7 @@ def main() -> int:
             _preds = _preds.get("predictions", _preds)
         if not _preds or len(_preds) < 5:
             continue
-        _cnt = sum(1 for p in _preds if p.get("djyy_enriched"))
+        _cnt = sum(1 for p in _preds if _djyy_alive(p))
         djyy_rates.append((d, _cnt / len(_preds)))
     _low_days = [d for d, r in djyy_rates if r < 0.5]
     if len(_low_days) >= 2:
