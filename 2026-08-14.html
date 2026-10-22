@@ -880,7 +880,7 @@ a { color:var(--blue); }
     </div>
     <div class="header-right">
       <a href="track-record.html" class="nav-link">📈 Track Record</a>
-      <span class="badge ok" title="⚠ 2026-10-22: 1/11 场合成赔率且 market_fair=None，完全绕过市场融合（裸模型概率）; ⚠ 2026-10-22: DJYY 是死源——名义权重 0.30 但实际贡献 0（11 场全部为 0）">正常（2条提示）</span>
+      <span class="badge ok" title="⚠ 2026-10-22: DJYY 覆盖率偏低 5/13——该源大面积失效">正常（1条提示）</span>
     </div>
   </div>
 
@@ -4611,11 +4611,11 @@ a { color:var(--blue); }
 
     <!-- ACCURACY TREND -->
     
-  <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--green)">命中率提升 +4pt</span>）</div>
+  <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--green)">命中率提升 +3pt</span>）</div>
   <div style="overflow-x:auto">
   <table class="edge-table">
     <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th><th>Brier</th><th>累计命中率</th><th>盈亏</th></tr>
-    <tr><td>2026-10-21</td><td>12</td><td>6/12</td><td style="font-weight:700">50%</td><td>0.61</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-20</td><td>10</td><td>5/10</td><td style="font-weight:700">50%</td><td>0.60</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-19</td><td>8</td><td>6/8</td><td style="font-weight:700">75%</td><td>0.64</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-18</td><td>25</td><td>16/25</td><td style="font-weight:700">64%</td><td>0.54</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-17</td><td>30</td><td>19/30</td><td style="font-weight:700">63%</td><td>0.51</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-16</td><td>11</td><td>8/11</td><td style="font-weight:700">73%</td><td>0.49</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-15</td><td>13</td><td>7/13</td><td style="font-weight:700">54%</td><td>0.51</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-14</td><td>14</td><td>8/14</td><td style="font-weight:700">57%</td><td>0.46</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-13</td><td>12</td><td>8/12</td><td style="font-weight:700">67%</td><td>0.52</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-12</td><td>10</td><td>4/10</td><td style="font-weight:700">40%</td><td>0.60</td><td>54%</td><td style="color:var(--dim)">+0</td></tr>
+    <tr><td>2026-10-21</td><td>13</td><td>6/13</td><td style="font-weight:700">46%</td><td>0.65</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-20</td><td>10</td><td>5/10</td><td style="font-weight:700">50%</td><td>0.60</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-19</td><td>8</td><td>6/8</td><td style="font-weight:700">75%</td><td>0.64</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-18</td><td>25</td><td>16/25</td><td style="font-weight:700">64%</td><td>0.54</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-17</td><td>30</td><td>19/30</td><td style="font-weight:700">63%</td><td>0.51</td><td>55%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-16</td><td>11</td><td>8/11</td><td style="font-weight:700">73%</td><td>0.49</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-15</td><td>13</td><td>7/13</td><td style="font-weight:700">54%</td><td>0.51</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-14</td><td>14</td><td>8/14</td><td style="font-weight:700">57%</td><td>0.46</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-13</td><td>12</td><td>8/12</td><td style="font-weight:700">67%</td><td>0.52</td><td>54%</td><td style="color:var(--dim)">+0</td></tr><tr><td>2026-10-12</td><td>10</td><td>4/10</td><td style="font-weight:700">40%</td><td>0.60</td><td>54%</td><td style="color:var(--dim)">+0</td></tr>
   </table>
   </div>
   <div class="note" style="margin-top:6px">⚠ 置信度不预示盈亏：高置信 ≈ 低赔热门 ≈ 抽水最大。收益依赖<b>正 EV 门槛</b>与校准质量，实时状态见「🧬 进化仪表盘」。</div>
