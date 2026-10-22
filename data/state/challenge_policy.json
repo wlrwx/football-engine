@@ -1,6 +1,7 @@
 {
   "gate_mode": "ev_site",
   "ev_floor": 0.02,
-  "note": "E8 前瞻实验（2026-10-22 开启，判定标准见 docs/EXPERIMENTS.md E8 行，写死不许改）。edge 口径实测不可达：7 场对照里 P−market_fair 全为负（最大 −0.23pp），1.5pp 档从 10-19 起连续 131 轮零合格。ev_site 赌的是站点结算价比体彩价软约 11.6%（中位价差 1.1161），与模型能力无关。回退方式：删掉 gate_mode 或改回 \"edge\"，一行改完即停实验。",
+  "min_sporttery_odds": 0.0,
+  "note": "E10（低赔候选，2026-10-22 开启，判定见 docs/EXPERIMENTS.md E10 行）：min_sporttery_odds=0.0 放开体彩价<1.60 的候选；E10 只吃 E8 的剩余名额，E8 抽样不变；回退改回 1.60 一行即停。E8 前瞻实验（2026-10-22 开启，判定标准见 docs/EXPERIMENTS.md E8 行，写死不许改）。edge 口径实测不可达：7 场对照里 P−market_fair 全为负（最大 −0.23pp），1.5pp 档从 10-19 起连续 131 轮零合格。ev_site 赌的是站点结算价比体彩价软约 11.6%（中位价差 1.1161），与模型能力无关。回退方式：删掉 gate_mode 或改回 \"edge\"，一行改完即停实验。",
   "updated_at": "2026-10-22"
 }

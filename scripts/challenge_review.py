@@ -112,6 +112,21 @@ def judge_hit(parsed: dict, actual_idx: int,
     return None
 
 
+def write_policy(path: Path, updates: dict) -> None:
+    """合并写回策略层，保留实验开关（gate_mode/ev_floor/min_sporttery_odds）。
+
+    2026-10-22：这里原来每次整份覆盖 challenge_policy.json。周体检一跑，
+    E8/E10 的开关就被洗掉、实验在无人察觉时回退默认口径——与「零合格静默」
+    同类：状态被写丢，日志里看不出来。改为读-合并-写，只更新复盘自己的字段。
+    """
+    try:
+        cur = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    except (OSError, ValueError):
+        cur = {}
+    cur.update(updates)
+    path.write_text(json.dumps(cur, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
 def main():
     st = load_state()
     # 注：records 条目本身不带 week 字段，无法按周切分；settled 是 state 里
@@ -205,8 +220,9 @@ def main():
     # ---------- 策略层建议（只调挑战门槛/市场偏好，永不回写模型参数） ----------
     policy = {'generated_at': datetime.now().strftime("%F %T"), 'n_settled': n,
               'model_hit': round(hits / n, 3) if n else None,
-              'notes': '样本 <80 时建议仅记录不改变门槛（防小样本抖动）；'
-                       '此文件只被挑战提交 cron 消费（策略层），模型引擎禁止读取'}
+              # 不叫 notes：顶层 note 是实验开关的说明，不能被周复盘洗掉
+              'review_notes': '样本 <80 时建议仅记录不改变门槛（防小样本抖动）；'
+                              '此文件只被挑战提交 cron 消费（策略层），模型引擎禁止读取'}
     # 按声明 edge 分桶的实际兑现
     mk_edge = defaultdict(list)
     for rec in recs:
@@ -226,8 +242,7 @@ def main():
     if n >= 80:
         # 全体命中 vs 50% 粗基线（周中/周末分桶等 p 字段积累两周后细化）
         policy['gate_hint'] = ('keep' if hits / n >= 0.5 else 'tighten')
-    json.dump(policy, open(f'{ROOT}/data/state/challenge_policy.json', 'w'),
-              ensure_ascii=False, indent=1)
+    write_policy(Path(f'{ROOT}/data/state/challenge_policy.json'), policy)
     print("→ data/state/challenge_policy.json（策略层建议，模型引擎禁止读取）")
 
 if __name__ == '__main__':

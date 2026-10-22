@@ -69,6 +69,10 @@ NJStats 的任何数据」，是把侧挂误当热插拔。实测覆盖率见
   开关在 `data/state/challenge_policy.json` 的 `gate_mode`/`ev_floor`，改回 `"edge"` 即停实验。
   实测覆盖率才是下一层天花板：站点板 333 场 ∩ 我方预测 13 场 = 可评 10 场，
   10-22 这天只有 1 场过新闸门；要放量得先扩赛程/赔率覆盖（见任务：独立信息源）。
+- **2026-10-22：低赔候选另立 E10**（`min_sporttery_odds=0.0`，登记见 EXPERIMENTS E10）。
+  旧筛「体彩价≥1.60」只对 E8 之前的 edge 口径有意义，ev_site 下会漏掉正 EV 的低价热门。
+  E10 候选单独成池、排在 E8 之后吃剩余名额；E8 候选/排序/上限不变，
+  记录带 `exp="E10"`。默认 1.60 = 不启用，改回一行即停。
 
 ## JWT 续期机制（2026-10-16 逆向定稿）
 - **正道（免验证码）**：浏览器登录 session 调 `GET /api/user/current`（credentials:include）→ `data.token` 返回全新 20h JWT。Mac :35 值守每次 mint 后写文件 + 推 GitHub secret `NJSTATS_JWT`。只要登录时勾了"自动登录"（Spring SESSION cookie 长期有效），即可无限续命，无需再碰验证码。
