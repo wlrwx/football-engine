@@ -31,6 +31,10 @@ TEAM_ALIASES: dict[str, str] = {
     "女王巡游": "女王公园巡游者",      # QPR 交错缩写，前缀规则覆盖不了
     "不来梅": "云达不莱梅",            # Werder Bremen（竞彩"不来梅" vs DJYY"云达不莱梅"，梅/莱异译）
     "里斯本": "葡萄牙体育",            # Sporting CP（竞彩"里斯本" vs DJYY"葡萄牙体育"）
+    # 2026-10-22: 竞彩用"萨迪纳摩"，DJYY 快照用全称"萨格勒布迪纳摩"。
+    # 只加在 sources 层，不进 engine/team_aliases.py——那边是 team_ratings 的键，
+    # 两侧已有独立 rating（1598/1648），合并属模型层变更。
+    "萨迪纳摩": "萨格勒布迪纳摩",      # Dinamo Zagreb
     # 欧冠/欧联/欧协联资格赛（2026-07/08 赛季初常见）
     "梅尔比": "米亚尔比",          # Mjällby
     "布拉迪斯拉发": "布拉迪斯",    # Slovan Bratislava
