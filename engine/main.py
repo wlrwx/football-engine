@@ -44,7 +44,7 @@ from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
 from engine.strategy.cppi import CPPIStrategy
 from engine.integrity.decision_bundle import DecisionBundle
-from engine.integrity.plan_lock import PlanLock
+from engine.integrity.plan_lock import PlanLock, compute_plan_hash
 from engine.learning.elo_updater import EloUpdater
 from engine.learning.wilson_trust import TrustSystem
 from engine.learning.combo_miner import ComboMiner
@@ -1244,23 +1244,26 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 7. 创建决策包 + 锁定
     print("\n[6/8] 创建不可变决策包...")
     bundle_mgr = DecisionBundle(ROOT / "data" / "daily" / target_date.isoformat())
+    # 2026-10-23（P0#2）：出票结构先落成变量 —— 决策包与计划锁必须锁**同一个
+    # 对象**。原来锁只哈希 plan.singles，而实际出票还含串关/三票/总暴露。
+    betting_plan_dict = {
+        "singles": [{"match_id": s.match_id, "selection": s.selection,
+                     "stake": s.stake, "odds": s.odds} for s in plan.singles],
+        "three_ticket": allocator.summary(ticket_plan),
+        "parlay": [t.to_dict() for t in parlay_plan],
+        "score_parlay": [t.to_dict() for t in score_plan],
+        "breaker_status": breaker_status,
+        "cppi_budget": risk_budget,
+        # 2026-10-11：total_stake 不含串关，真实暴露见 total_exposure
+        "total_stake": plan.total_stake,
+        "parlay_stake": round(_parlay_stake, 2),
+        "total_exposure": round(plan.total_stake + _parlay_stake, 2),
+    }
     bundle = bundle_mgr.create(
         date_str=target_date.isoformat(),
         import_manifest=manifest.__dict__,
         predictions=predictions,
-        betting_plan={
-            "singles": [{"match_id": s.match_id, "selection": s.selection,
-                         "stake": s.stake, "odds": s.odds} for s in plan.singles],
-            "three_ticket": allocator.summary(ticket_plan),
-            "parlay": [t.to_dict() for t in parlay_plan],
-            "score_parlay": [t.to_dict() for t in score_plan],
-            "breaker_status": breaker_status,
-            "cppi_budget": risk_budget,
-            # 2026-10-11：total_stake 不含串关，真实暴露见 total_exposure
-            "total_stake": plan.total_stake,
-            "parlay_stake": round(_parlay_stake, 2),
-            "total_exposure": round(plan.total_stake + _parlay_stake, 2),
-        },
+        betting_plan=betting_plan_dict,
         config_prediction=pred_cfg,
         config_strategy=strat_cfg,
     )
@@ -1280,10 +1283,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     else:
         lock_mgr = PlanLock(ROOT / "data" / "daily" / target_date.isoformat())
         if not lock_mgr.is_locked(target_date.isoformat()):
-            import hashlib
-            plan_hash = hashlib.sha256(
-                json.dumps([s.__dict__ for s in plan.singles], default=str).encode()
-            ).hexdigest()
+            # 锁的对象 = 最终落盘的完整出票结构（含串关/三票/总额）
+            plan_hash = compute_plan_hash(betting_plan_dict)
             lock_mgr.lock(
                 date_str=target_date.isoformat(),
                 plan_hash=plan_hash,

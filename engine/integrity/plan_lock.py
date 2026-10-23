@@ -1,10 +1,27 @@
 from __future__ import annotations
 """计划锁定 - 防止已锁定的决策被重写"""
-import fcntl
 import json
 import os
 import time
 from pathlib import Path
+
+try:  # POSIX 专用
+    import fcntl
+except ImportError:  # Windows 没有 fcntl（PR #57 同款修复；无 fcntl 时 JSON 锁仍可用）
+    fcntl = None  # type: ignore[assignment]
+
+
+def compute_plan_hash(betting_plan: dict) -> str:
+    """计划指纹：覆盖**全部实际出票内容**（单关 + 三票 + 串关 + 总额）。
+
+    2026-10-23 修复（评审 P0#2）：原调用点只哈希 `plan.singles`，而真正
+    落盘的注单还包含串关/三票/总暴露 —— 锁住的"承诺"与实际产物不是同一个
+    对象。现在对最终 betting_plan 结构整体取 SHA-256。
+    """
+    import hashlib
+
+    payload = json.dumps(betting_plan, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class PlanLock:
@@ -74,6 +91,8 @@ class PlanLock:
 
     def acquire_file_lock(self, date_str: str, timeout: float = 5.0):
         """获取 OS 级文件锁（用于并发保护）"""
+        if fcntl is None:
+            raise OSError("OS 级文件锁（flock）仅支持 POSIX；Windows 请改用 lock() 的 JSON 锁")
         lock_file_path = self.lock_dir / f".flock_{date_str}"
         lock_file_path.touch(exist_ok=True)
         self._lock_fd = open(lock_file_path, "w")
@@ -91,6 +110,8 @@ class PlanLock:
 
     def release_file_lock(self):
         """释放文件锁"""
+        if fcntl is None:
+            return
         if hasattr(self, "_lock_fd") and self._lock_fd:
             fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
             self._lock_fd.close()
