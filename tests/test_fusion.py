@@ -75,11 +75,21 @@ def _reference_inline(
         final_d = mw * model_probs[1] + kw * calibrated_probs[1]
         final_a = mw * model_probs[2] + kw * calibrated_probs[2]
     elif djyy_probs and djyy_probs.get("home"):
-        mw = 1.0 - fusion_cfg["djyy_weight"]
-        dw = fusion_cfg["djyy_weight"]
-        final_h = mw * model_probs[0] + dw * djyy_probs["home"]
-        final_d = mw * model_probs[1] + dw * djyy_probs["draw"]
-        final_a = mw * model_probs[2] + dw * djyy_probs["away"]
+        # 2026-10-23（P1#7）：参考实现同步补上 djyy-only 的置信门槛。
+        # 这是**有意的语义变更**（低置信 DJYY 不再单独驱动出票），
+        # 与 engine/prediction/fusion.py 保持一致；其余步骤仍逐位对齐。
+        if max(djyy_probs.values()) < fusion_cfg.get("djyy_min_confidence", 0.50):
+            dw = 0.0
+            mw = 1.0
+            final_h = model_probs[0]
+            final_d = model_probs[1]
+            final_a = model_probs[2]
+        else:
+            mw = 1.0 - fusion_cfg["djyy_weight"]
+            dw = fusion_cfg["djyy_weight"]
+            final_h = mw * model_probs[0] + dw * djyy_probs["home"]
+            final_d = mw * model_probs[1] + dw * djyy_probs["draw"]
+            final_a = mw * model_probs[2] + dw * djyy_probs["away"]
 
     if same_odds_result and same_odds_result.confidence > fusion_cfg["same_odds_min_confidence"]:
         adj_strength = fusion_cfg["same_odds_max_adjust"] * same_odds_result.confidence

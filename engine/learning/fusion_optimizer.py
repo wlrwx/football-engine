@@ -292,29 +292,47 @@ class FusionOptimizer:
         return total_brier, n
 
     def _fused_probs(self, r: MatchReview, w: FusionWeights) -> list[float] | None:
-        """用权重 w 对单场三路概率反事实融合，返回 [h,d,a] 或 None。"""
-        sources = []
-        weights = []
-        if r.model_raw and len(r.model_raw) >= 3:
-            sources.append(r.model_raw)
-            weights.append(w.model)
-        if r.market_fair and len(r.market_fair) >= 3:
-            sources.append(r.market_fair)
-            weights.append(w.market)
-        if r.djyy_prob and len(r.djyy_prob) >= 3:
-            sources.append(r.djyy_prob)
-            weights.append(w.djyy)
-        if not sources:
+        """用权重 w 对单场三路概率反事实融合，返回 [h,d,a] 或 None。
+
+        2026-10-23 修复（评审 P1#8）：原实现自己写了一份"三源加权平均"，
+        与生产 `fuse_probabilities` 是两套数学（生产有 djyy 置信门槛、
+        方向分歧惩罚、归一化），等于在优化一个生产里不存在的函数。
+        现在直接复用生产融合函数，并**关闭全部后处理开关** —— 账本里没有
+        same_odds/combo/LGBM 等后处理输入，重放不了；反事实的语义就是
+        "源融合阶段"。
+        """
+        from engine.prediction.fusion import (
+            DEFAULT_POST_FUSION,
+            FusionInput,
+            fuse_probabilities,
+        )
+
+        if not (r.model_raw and len(r.model_raw) >= 3):
             return None
-        total_w = sum(weights)
-        if total_w <= 0:
-            return None
-        fused = [0.0, 0.0, 0.0]
-        for src_probs, src_w in zip(sources, weights):
-            norm_w = src_w / total_w
-            for i in range(3):
-                fused[i] += src_probs[i] * norm_w
-        return fused
+        market = (
+            tuple(r.market_fair)
+            if r.market_fair and len(r.market_fair) >= 3
+            else None
+        )
+        djyy = None
+        if r.djyy_prob and len(r.djyy_prob) >= 3 and any(r.djyy_prob):
+            djyy = {
+                "home": r.djyy_prob[0],
+                "draw": r.djyy_prob[1],
+                "away": r.djyy_prob[2],
+            }
+        inp = FusionInput(
+            model_probs=tuple(r.model_raw),
+            market_probs=market,
+            djyy_probs=djyy,
+            cfg={
+                "model_weight": w.model,
+                "market_weight": w.market,
+                "djyy_weight": w.djyy,
+            },
+            post_fusion={k: False for k in DEFAULT_POST_FUSION},
+        )
+        return list(fuse_probabilities(inp).probs)
 
     def _paired_improvement(self, reviews: list[MatchReview], champ: FusionWeights, cand: FusionWeights):
         """配对显著性：返回 (mean improvement, SE, n)。
