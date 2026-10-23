@@ -181,12 +181,27 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
         fused_step = "fuse_two_way"
         eff_w = _eff(mw, kw, 0.0)
     elif inp.djyy_probs and inp.djyy_probs.get("home"):
-        _mw = 1.0 - dw
-        h = _mw * inp.model_probs[0] + dw * inp.djyy_probs["home"]
-        d = _mw * inp.model_probs[1] + dw * inp.djyy_probs["draw"]
-        a = _mw * inp.model_probs[2] + dw * inp.djyy_probs["away"]
-        fused_step = "fuse_djyy_only"
-        eff_w = _eff(_mw, 0.0, dw)
+        # 2026-10-23（评审 P1#7）：三路分支有 djyy_min_confidence 门槛，
+        # djyy-only 分支漏了 —— 低置信 DJYY 可单独驱动出票。补同一门槛：
+        # 低置信 → 退化为裸模型（与三路分支"置信不足则 dw=0"语义对齐）。
+        # 注意：这会改变低置信 DJYY 场的输出概率，属**有意的语义变更**。
+        _djyy_conf = max(
+            float(v) for v in inp.djyy_probs.values()
+            if isinstance(v, (int, float)) and not isinstance(v, bool)
+        ) if any(isinstance(v, (int, float)) and not isinstance(v, bool)
+                 for v in inp.djyy_probs.values()) else 0.0
+        if _djyy_conf < float(cfg.get("djyy_min_confidence", 0.50)):
+            dw = 0.0
+            h, d, a = inp.model_probs[0], inp.model_probs[1], inp.model_probs[2]
+            fused_step = "fuse_model_only"
+            eff_w = _eff(1.0, 0.0, 0.0)
+        else:
+            _mw = 1.0 - dw
+            h = _mw * inp.model_probs[0] + dw * inp.djyy_probs["home"]
+            d = _mw * inp.model_probs[1] + dw * inp.djyy_probs["draw"]
+            a = _mw * inp.model_probs[2] + dw * inp.djyy_probs["away"]
+            fused_step = "fuse_djyy_only"
+            eff_w = _eff(_mw, 0.0, dw)
     _trace(trace, fused_step, inp.model_probs, (h, d, a))
 
     # --- 2. 同赔偏差微调 ---
