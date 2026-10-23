@@ -65,3 +65,8 @@ jobs:
 
       - name: Run pytest
         run: python -m pytest tests/ -v
+
+      - name: Repo size guard
+        # 2026-10-23（评审 P2#20）：防止大体量数据（parsed.jsonl 26MB 这类）
+        # 再次静默入 git。历史遗留文件在白名单里豁免。
+        run: python scripts/check_repo_size.py

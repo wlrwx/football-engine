@@ -86,7 +86,12 @@ class MonteCarloModel(PredictionModel):
                 if is_default_home and is_default_away:
                     home_xg, away_xg = odds_xg
                 elif is_default_home:
-                    # 只校准缺失的一方，保持另一方的模型xG
+                    # 只校准缺失的一方，保持另一方的模型xG。
+                    # 2026-10-23（评审 P2#21 复核）：这一行**不是**空操作——
+                    #   odds_xg[0] >= 0.3 → 数学上等于 home_xg（无变化）
+                    #   odds_xg[0] <  0.3 → 按 odds_xg/0.3 比例缩小（弱队 xG 兜底）
+                    # 也就是说它是"对齐赔率推导 xG，但对方 xG 过低时按比例缩"
+                    # 的隐式护栏。保留原行为，仅在此说明语义，避免被当成冗余删掉。
                     away_xg = odds_xg[1]
                     home_xg = odds_xg[0] * (home_xg / max(0.3, odds_xg[0]))
                 else:
