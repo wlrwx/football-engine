@@ -48,6 +48,15 @@ def _norm_match_no(match_id: str) -> str:
     return match_id.split("_", 1)[-1] if "_" in match_id else match_id
 
 
+def _settled_signature(rec: dict) -> tuple:
+    """判定"这次结算结果是否与账本里已有的那次相同"的指纹。
+
+    比分修正必然改变 actual_idx（主胜/平/客胜翻转）或总进球数；
+    仅赔率/概率字段变化不算改判（那些由预测记录负责，不进账本版本）。
+    """
+    return (rec.get("actual_idx"), rec.get("total_goals_actual"))
+
+
 @dataclass
 class MatchReview:
     """单场复盘记录 - 优化器反事实重放的原子单元"""
@@ -129,6 +138,9 @@ class MatchReview:
     # 判定依据是 fusion_trace（权威），历史样本另有 quarantine.json 兜底。
     contaminated: bool = False
     contaminated_reason: str = ""
+    # 结算版本（2026-10-23，评审 P0#3）：0 = 首版；N>0 = 第 N 次修正/改判后的
+    # 替代记录。账本仍 append-only，但读取时按版本取最新，修正不再被静默丢弃。
+    result_version: int = 0
 
 
 @dataclass
@@ -304,16 +316,47 @@ class ReviewLedger:
 
         幂等 key 用归一化编号而非 match_id 原文：
         "周一201" 与 "2026-07-20_周一201" 是同一场，不得重复记账。
+
+        【2026-10-23 修复 P0#3】原实现见到同键就丢弃，导致**比分修正/改判的
+        第二次结算永远进不了账本**，stale actual 会永久污染反事实重放与校准
+        样本。现在区分两种"重复"：
+          - 结算内容相同（actual_idx + 总进球一致）→ 跳过（真幂等）；
+          - 结算内容变化（改判/修正比分）→ 追加 result_version+1 的替代记录，
+            账本仍 append-only，读取侧按版本取最新。
         """
-        # 已存在的键（账本可能较大，只在有记录时构建一次）
-        existing_keys = self._existing_keys()
+        latest = self._latest_by_key()
         with open(self.path, "a", encoding="utf-8") as f:
             for r in reviews:
                 key = (r.date, _norm_match_no(r.match_id))
-                if key in existing_keys:
-                    continue
-                f.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
-                existing_keys.add(key)
+                prev = latest.get(key)
+                if prev is not None:
+                    if _settled_signature(prev) == _settled_signature(asdict(r)):
+                        continue
+                    r.result_version = int(prev.get("result_version", 0) or 0) + 1
+                    print(f"  ↻ 账本改判: {r.date} {r.match_id} → v{r.result_version}"
+                          f"（原 actual={prev.get('actual_idx')} 新 actual={r.actual_idx}）")
+                rec = asdict(r)
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                latest[key] = rec
+
+    def _latest_by_key(self) -> dict:
+        """(date, 竞彩编号) → 最新一条记录 dict（result_version 最大者）"""
+        latest: dict = {}
+        if not self.path.exists():
+            return latest
+        for line in self.path.read_text(encoding="utf-8").strip().split("\n"):
+            if not line.strip():
+                continue
+            try:
+                rec = json.loads(line)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            key = (rec.get("date", ""), _norm_match_no(rec.get("match_id", "")))
+            old = latest.get(key)
+            if old is None or (int(rec.get("result_version", 0) or 0)
+                               >= int(old.get("result_version", 0) or 0)):
+                latest[key] = rec
+        return latest
 
     def _existing_keys(self) -> set:
         """账本中已有的 (date, 竞彩编号) 集合"""
@@ -336,13 +379,23 @@ class ReviewLedger:
         if not self.path.exists():
             return []
         records = []
+        # 2026-10-23（P0#3）：按 (date, 编号) 取 result_version 最新的那条，
+        # 修正记录覆盖旧版本但保持原有顺序位置（不改变时间序列语义）。
+        latest_pos: dict = {}
         for line in self.path.read_text(encoding="utf-8").strip().split("\n"):
             if not line.strip():
                 continue
             try:
-                records.append(MatchReview(**json.loads(line)))
+                rec = MatchReview(**json.loads(line))
             except (json.JSONDecodeError, TypeError):
                 continue
+            key = (rec.date, _norm_match_no(rec.match_id))
+            pos = latest_pos.get(key)
+            if pos is None:
+                latest_pos[key] = len(records)
+                records.append(rec)
+            elif (rec.result_version or 0) >= (records[pos].result_version or 0):
+                records[pos] = rec
         if days:
             cutoff = datetime.now().strftime("%Y-%m-%d")
             # 简单按日期字符串过滤
