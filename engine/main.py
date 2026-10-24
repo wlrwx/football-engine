@@ -46,7 +46,7 @@ from engine.strategy.cppi import CPPIStrategy
 from engine.integrity.decision_bundle import DecisionBundle
 from engine.integrity.plan_lock import PlanLock
 from engine.learning.elo_updater import EloUpdater
-from engine.learning.wilson_trust import TrustSystem
+from engine.learning.wilson_trust import TrustSystem, load_trust_stats
 from engine.learning.combo_miner import ComboMiner
 
 # 判平强度由数据驱动（2026-08-05 结构升级）：不硬编码联赛白名单，
@@ -224,6 +224,14 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 4. 初始化增强模块
     print("\n[3/8] 初始化增强分析模块...")
     trust_system = TrustSystem()
+    # 2026-10-23（P2#22）：Wilson 信任度改用账本里同档位的真实命中率；
+    # 某档样本 < 30 时 trust=1.0（不缩），避免用 confidence 自身自证。
+    _TRUST_STATS = load_trust_stats(ROOT / "data" / "state" / "review_ledger.jsonl")
+    if _TRUST_STATS:
+        print("  Wilson 信任度基准: " + ", ".join(
+            f"{k} {v[0]}/{v[1]}" for k, v in sorted(_TRUST_STATS.items())))
+    else:
+        print("  Wilson 信任度基准: 账本无样本，本轮不收缩")
     combo_miner = ComboMiner(ROOT / "data" / "state" / "combo_stats.json")
     same_odds = SameOddsAnalyzer(ROOT / "data" / "historical" / "odds.csv")
     reverse_engine = ReverseOddsEngine()
@@ -489,12 +497,12 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         features = _extract_features(fixture, pred)
         combo_boost = combo_miner.get_boost(features)
 
-        # --- 增强: Wilson信任度调整 ---
-        # 用模型历史命中率（简化: 用confidence作为代理）
-        trust_score = trust_system.compute_trust(
-            hits=int(pred.confidence * 10),
-            total=10,
-        )
+        # --- 增强: Wilson信任度调整（2026-10-23：改用历史命中率，见 P2#22）---
+        _tier = ("high" if pred.confidence >= 0.60
+                 else "mid" if pred.confidence >= 0.45 else "low")
+        _th, _tt = _TRUST_STATS.get(_tier, (0, 0))
+        trust_score = (trust_system.compute_trust(hits=_th, total=_tt)
+                       if _tt >= 30 else 1.0)
 
         # 综合概率（融合: 模型 + 市场校准 + DJYY第三方 + 同赔偏差 + 组合加分）
         # 2026-08-29 重构：融合+后处理链抽到 engine/prediction/fusion.py（纯函数，

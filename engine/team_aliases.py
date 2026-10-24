@@ -222,35 +222,39 @@ def normalize_team(name: str) -> str:
     return TEAM_ALIASES.get(n, n)
 
 
-# 历史遗留的粗暴删字规则（保留在 loose 层，仅兜底）
-_LOOSE_RULES = [
-    ("迈阿密国际", "迈阿密"),
-    ("迈阿密", "迈"),
-    ("国际", ""),      # 国际米兰 → 米兰? 慎用：只在 loose 层
-    ("罗姆", ""),      # 罗马 → (无)
+# 历史遗留的粗暴删字规则（**2026-10-23 收窄**：评审 P2#16）
+#
+# 原实现对子串做无条件删除：("国际","") 会把"国际米兰"削成"米兰"、
+# ("竞技","") 会把"米内罗竞技"削成"米内罗" —— 不同球队可能被归一成同键。
+# 现在只保留**整名精确匹配**的白名单映射，不再做子串删除。
+_LOOSE_EXACT = {
+    "迈阿密国际": "迈阿密",
+    "布加勒斯特": "布加勒斯特",
+    "里斯本竞技": "葡萄牙体育",
+}
+
+# 保留为文档：已停用的危险规则（勿恢复）
+_DEPRECATED_LOOSE_RULES = [
+    ("国际", ""),
+    ("罗姆", ""),
     ("体育会", ""),
     ("体育", ""),
     ("竞技", ""),
-    ("FC", ""),
-    ("队", ""),
 ]
 
 
 def loose_normalize(name: str) -> str:
-    """宽松归一化：normalize_team 后，再去常见后缀/历史删字规则。
+    """宽松归一化：normalize_team 后，再做后缀剥离与白名单映射。
 
-    仅用于主匹配失败后的兜底。删除后可能产生歧义（如"米内罗竞技"→"米内罗"），
-    因此必须放在别名表之后，且只在精确/主归一化都失败时才调用。
+    仅用于主匹配失败后的兜底。2026-10-23 起**不做子串删字**（原做法会把
+    不同球队并成同键，例如"国际米兰"→"米兰"）。
     """
     n = normalize_team(name)
     for suf in ("FC", "体育会", "队"):
         if n.endswith(suf) and len(n) > len(suf) + 1:
             n = n[: -len(suf)]
             break
-    for src, dst in _LOOSE_RULES:
-        if src in n:
-            n = n.replace(src, dst)
-    return n.strip()
+    return _LOOSE_EXACT.get(n, n).strip()
 
 
 def team_key(home: str, away: str, loose: bool = False) -> str:

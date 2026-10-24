@@ -10,8 +10,39 @@ Wilson Score + 贝叶斯信任系统 — 小样本保护。
 """
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
+from pathlib import Path
+
+
+def load_trust_stats(ledger_path: Path | str) -> dict[str, tuple[int, int]]:
+    """按 confidence_tier 汇总账本历史命中率，供 Wilson 信任度使用。
+
+    2026-10-23 修复（评审 P2#22）：原调用点是
+    `compute_trust(hits=int(confidence*10), total=10)` —— 用 confidence 自身
+    当“命中数”，输出只是 confidence 的单调函数（零信息量），还会系统性压低
+    高置信预测。这里改为读账本同档位的真实 hit 统计；某档样本不足时调用方
+    退回 trust=1.0（不做无依据的收缩）。
+    """
+    stats: dict[str, list[int]] = {}
+    p = Path(ledger_path)
+    if not p.exists():
+        return {}
+    for line in p.read_text(encoding="utf-8").split("\n"):
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        tier = rec.get("confidence_tier") or ""
+        if not tier:
+            continue
+        bucket = stats.setdefault(tier, [0, 0])
+        bucket[0] += 1 if rec.get("hit") else 0
+        bucket[1] += 1
+    return {k: (v[0], v[1]) for k, v in stats.items()}
 
 
 @dataclass
