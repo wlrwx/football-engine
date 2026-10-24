@@ -43,4 +43,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ config/
           git diff --cached --quiet || git commit -m "backtest: weekly optimization $(date +%Y-%m-%d)"
-          git push
+          # 2026-10-23：先 rebase 再 push。原来裸 push，一旦远端有人动过
+          # （本地 Mac 同步 / 另一条流水线）就是 non-fast-forward，周报产物
+          # 静默丢失且 job 只是红一下看不出原因。rebase 冲突时让步骤失败，
+          # 数据留在 workspace 里可查。
+          git pull --rebase origin main
+          git push origin HEAD:main

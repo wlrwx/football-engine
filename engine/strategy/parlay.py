@@ -173,6 +173,28 @@ def load_calibration(
             "n": len(recs), "min_samples": min_samples}
 
 
+def allocate_parlay_stakes(recs: list, weights: list[float], pool_cap: float) -> None:
+    """把串关池按权重分配给推荐串票，**硬保证**总注额不超过 pool_cap。
+
+    2026-10-23 修复（P2#18）：原实现每票独立 `min(raw, pool_cap*0.6)`，
+    多票叠加可达池的 70%+（0.6 + 0.1 模式）；且 `max(..., STAKE_UNIT)` 在
+    raw < 2 元时会进一步抬高总额。改为从**剩余池**按剩余权重比例滚动
+    分配，每票以剩余池为硬上限。
+    """
+    remaining = round(float(pool_cap), 2)
+    for i, (t, w) in enumerate(zip(recs, weights)):
+        rest = sum(weights[i:])
+        raw = remaining * (w / rest) if rest > 0 else 0.0
+        stake = min(raw, pool_cap * 0.6, remaining)
+        stake = max(stake, min(STAKE_UNIT, remaining))
+        t.stake = round(float(stake), 2)
+        remaining = round(remaining - t.stake, 2)
+        # 重算注额口径 EV（2026-08-08 修复：potential/cal_ev 此前仍按 2 元
+        # 口径，与实际 stake 不符；cal_roi 为每元回报率）
+        t.potential = round(t.total_odds * t.stake, 2)
+        t.cal_ev = round(t.stake * t.cal_roi, 2)
+
+
 class ParlayBuilder:
     """当日串关方案生成器（校准 EV 驱动）"""
 
@@ -483,14 +505,7 @@ class ParlayBuilder:
             if wsum <= 0:
                 weights = [1.0 / len(recs)] * len(recs)
                 wsum = 1.0
-            for t, w in zip(recs, weights):
-                raw = pool_cap * w / wsum
-                t.stake = round(max(min(raw, pool_cap * 0.6), STAKE_UNIT), 2)
-                # 重算注额口径 EV（2026-08-08 修复：potential/cal_ev 此前
-                # 仍按 2 元口径，与实际 stake 不符；cal_roi 为每元回报率，
-                # 三种串票统一 cal_ev = stake × cal_roi）
-                t.potential = round(t.total_odds * t.stake, 2)
-                t.cal_ev = round(t.stake * t.cal_roi, 2)
+            allocate_parlay_stakes(recs, weights, pool_cap)
         return tickets
 
 

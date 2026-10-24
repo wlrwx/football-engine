@@ -7,6 +7,35 @@ import re
 import time
 from pathlib import Path
 
+# 决策包默认绑定的"模型代码指纹"清单（2026-10-23，评审 P1#11）
+DEFAULT_MODEL_CODE_FILES: tuple[str, ...] = (
+    "engine/main.py",
+    "engine/prediction/dixon_coles.py",
+    "engine/prediction/monte_carlo.py",
+    "engine/prediction/fusion.py",
+    "engine/prediction/ensemble.py",
+    "engine/strategy/kelly.py",
+)
+
+
+def compute_model_code_hashes(
+    root: Path | str,
+    files: tuple[str, ...] | None = None,
+) -> dict[str, str]:
+    """计算关键模型/策略文件的 SHA-256。
+
+    2026-10-23 修复（P1#11）：决策包的 inputs.model_code_hashes 此前恒为 {}
+    —— 包承诺"可复核"，却无法回答"这是用哪版模型算的"。现在创建时强制绑定。
+    文件缺失则跳过（不因清理/裁剪让建包失败）。
+    """
+    root = Path(root)
+    out: dict[str, str] = {}
+    for rel in files or DEFAULT_MODEL_CODE_FILES:
+        p = root / rel
+        if p.exists():
+            out[rel] = hashlib.sha256(p.read_bytes()).hexdigest()
+    return out
+
 
 class DecisionBundle:
     """

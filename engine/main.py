@@ -43,7 +43,7 @@ from engine.strategy.kelly import KellyStrategy, favorite_band_factor, market_si
 from engine.strategy.circuit_breaker import CircuitBreaker
 from engine.strategy.three_ticket import ThreeTicketAllocator
 from engine.strategy.cppi import CPPIStrategy
-from engine.integrity.decision_bundle import DecisionBundle
+from engine.integrity.decision_bundle import DecisionBundle, compute_model_code_hashes
 from engine.integrity.plan_lock import PlanLock
 from engine.learning.elo_updater import EloUpdater
 from engine.learning.wilson_trust import TrustSystem
@@ -1263,6 +1263,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         },
         config_prediction=pred_cfg,
         config_strategy=strat_cfg,
+        # 2026-10-23：决策包必须绑模型代码版本，否则"这个包是用哪版模型算的"
+        # 无法复核（bundle 里 model_code_hashes 此前恒为空 {}）。
+        model_code_hashes=compute_model_code_hashes(ROOT),
     )
     print(f"  ✓ 决策包 SHA-256: {bundle['bundle_sha256'][:16]}...")
     # 清理旧版本决策包（保留最新3个），防止30分钟一次的流水线无限堆积

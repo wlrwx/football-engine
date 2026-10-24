@@ -51,4 +51,13 @@ jobs:
                    data/state/system_health.json data/state/weekly_digest.jsonl; do
             if [ -e "$f" ]; then git add "$f"; fi
           done
-          git diff --cached --quiet || (git pull --rebase origin main || git rebase --abort; git commit -m "tracker: 周度体检(云) $(date +%F)"; git push origin HEAD:main)
+          # 2026-10-23：原来 `git pull --rebase || git rebase --abort; git commit; git push`
+          # 在 rebase 失败后**照样往下走**，等于把冲突静默吞掉再推一个分叉分支。
+          # 现在 rebase 失败即中止（set -e 语义），冲突可见、数据不被静默覆盖。
+          if git diff --cached --quiet; then
+            echo "无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "tracker: 周度体检(云) $(date +%F)"
+          git pull --rebase origin main
+          git push origin HEAD:main
