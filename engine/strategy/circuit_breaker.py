@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -91,17 +92,33 @@ class CircuitBreaker:
         self.state = self._load()
 
     def _load(self) -> BreakerState:
-        if self.state_path.exists():
+        """容错读盘（2026-10-23 修复）。
+
+        原实现 `BreakerState(**raw)` 遇未知键直接 TypeError、遇损坏 JSON 直接
+        JSONDecodeError —— 状态文件 schema 演进或 CI 写入中途被杀，会让下次
+        实例化崩掉整条每日流水线。现在：坏文件/未知键 → 回落默认状态（熔断
+        状态丢失=按未熔断处理，是安全的保守方向）。
+        """
+        if not self.state_path.exists():
+            return BreakerState()
+        try:
             raw = json.loads(self.state_path.read_text(encoding="utf-8"))
-            return BreakerState(**raw)
-        return BreakerState()
+        except (OSError, ValueError):
+            return BreakerState()
+        if not isinstance(raw, dict):
+            return BreakerState()
+        allowed = BreakerState.__dataclass_fields__
+        return BreakerState(**{k: v for k, v in raw.items() if k in allowed})
 
     def save(self) -> None:
+        """原子写（tmp + os.replace），避免 CI timeout 时留下半写文件。"""
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
-        self.state_path.write_text(
+        tmp = self.state_path.with_name(self.state_path.name + ".tmp")
+        tmp.write_text(
             json.dumps(self.state.__dict__, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        os.replace(tmp, self.state_path)
 
     def get_multiplier(self, bankroll: float) -> float:
         """返回当前注额乘数 [0.0, 1.0]"""

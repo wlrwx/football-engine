@@ -1,6 +1,13 @@
 from __future__ import annotations
 """计划锁定 - 防止已锁定的决策被重写"""
-import fcntl
+try:  # POSIX 专用
+    import fcntl
+except ImportError:  # Windows 没有 fcntl
+    # 2026-10-23 修复：原来无条件 `import fcntl`，导致 Windows 上整个模块
+    # 导入失败 → engine.main 无法 import，整条管线不可用（本机实测）。
+    # JSON 锁（lock/verify_lock）不依赖 fcntl，应保持可用；
+    # 只有 acquire_file_lock 这个 flock 封装需要降级。
+    fcntl = None  # type: ignore[assignment]
 import json
 import os
 import time
@@ -74,6 +81,10 @@ class PlanLock:
 
     def acquire_file_lock(self, date_str: str, timeout: float = 5.0):
         """获取 OS 级文件锁（用于并发保护）"""
+        if fcntl is None:
+            raise OSError(
+                "OS 级文件锁（flock）仅支持 POSIX；Windows 请改用 lock() 的 JSON 锁"
+            )
         lock_file_path = self.lock_dir / f".flock_{date_str}"
         lock_file_path.touch(exist_ok=True)
         self._lock_fd = open(lock_file_path, "w")
@@ -91,6 +102,8 @@ class PlanLock:
 
     def release_file_lock(self):
         """释放文件锁"""
+        if fcntl is None:
+            return
         if hasattr(self, "_lock_fd") and self._lock_fd:
             fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
             self._lock_fd.close()

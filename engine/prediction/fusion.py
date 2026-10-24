@@ -35,6 +35,26 @@ DEFAULT_POST_FUSION: dict[str, bool] = {
     "league_draw_anchor": True,
 }
 
+
+def _djyy_confidence(probs: Any) -> float:
+    """DJYY 置信度 = 最大类别概率（2026-10-23 加）。
+
+    上游 model_probs 可能是 None / 缺键 / 含 None 值（manager 出口无校验）。
+    直接 `max(probs.values())` 在含 None 时会 TypeError，把整条预测链炸掉。
+    这里对非数值一律忽略，取不到任何数值时返回 0.0（= 低置信，不参与融合）。
+    """
+    if not isinstance(probs, dict):
+        return 0.0
+    vals = [v for v in probs.values() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    return float(max(vals)) if vals else 0.0
+
+
+def _num(value: Any, default: float = 0.0) -> float:
+    """把可能为 None/缺失/字符串的概率值安全转成 float（2026-10-23 加）。"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    return float(value)
+
 # 联赛平局率锚定表
 #
 # 【修正 2026-10-09】旧表标注「账本实证 n>=5」，但 n>=5 的样本量根本不能
@@ -155,11 +175,14 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
     fused_step = "fuse_model_only"
     eff_w: dict[str, float] | None = None
     if inp.market_probs and inp.djyy_probs and inp.djyy_probs.get("home"):
-        _djyy_conf = max(inp.djyy_probs.values())
+        _djyy_conf = _djyy_confidence(inp.djyy_probs)
         if _djyy_conf < float(cfg.get("djyy_min_confidence", 0.50)):
             dw = 0.0
         else:
-            _djyy_dir = max(inp.djyy_probs, key=inp.djyy_probs.get)
+            _djyy_dir = max(
+                inp.djyy_probs,
+                key=lambda k: _num(inp.djyy_probs.get(k), -1.0),
+            )
             _mkt_dir = ["home", "draw", "away"][
                 max(range(3), key=lambda i: inp.market_probs[i])
             ]
@@ -167,9 +190,9 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
                 dw *= float(cfg.get("djyy_disagree_penalty", 0.5))
         total_w = mw + kw + dw
         mw, kw, dw = mw / total_w, kw / total_w, dw / total_w
-        h = mw * inp.model_probs[0] + kw * inp.market_probs[0] + dw * inp.djyy_probs["home"]
-        d = mw * inp.model_probs[1] + kw * inp.market_probs[1] + dw * inp.djyy_probs["draw"]
-        a = mw * inp.model_probs[2] + kw * inp.market_probs[2] + dw * inp.djyy_probs["away"]
+        h = mw * inp.model_probs[0] + kw * inp.market_probs[0] + dw * _num(inp.djyy_probs.get("home"))
+        d = mw * inp.model_probs[1] + kw * inp.market_probs[1] + dw * _num(inp.djyy_probs.get("draw"))
+        a = mw * inp.model_probs[2] + kw * inp.market_probs[2] + dw * _num(inp.djyy_probs.get("away"))
         fused_step = "fuse_three_way"
         eff_w = _eff(mw, kw, dw)
     elif inp.market_probs:
@@ -181,10 +204,14 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
         fused_step = "fuse_two_way"
         eff_w = _eff(mw, kw, 0.0)
     elif inp.djyy_probs and inp.djyy_probs.get("home"):
+        # 2026-10-23：只做防御（缺键/None 不再 KeyError），**不改置信语义**。
+        # 三路分支有 djyy_min_confidence 门槛、djyy-only 没有——这会改变
+        # 低置信 DJYY 场的输出概率，属预测语义变更，需作者裁决后再改
+        # （见 docs/REVIEW_20261023.md P1#7，本 PR 不包含）。
         _mw = 1.0 - dw
-        h = _mw * inp.model_probs[0] + dw * inp.djyy_probs["home"]
-        d = _mw * inp.model_probs[1] + dw * inp.djyy_probs["draw"]
-        a = _mw * inp.model_probs[2] + dw * inp.djyy_probs["away"]
+        h = _mw * inp.model_probs[0] + dw * _num(inp.djyy_probs.get("home"))
+        d = _mw * inp.model_probs[1] + dw * _num(inp.djyy_probs.get("draw"))
+        a = _mw * inp.model_probs[2] + dw * _num(inp.djyy_probs.get("away"))
         fused_step = "fuse_djyy_only"
         eff_w = _eff(_mw, 0.0, dw)
     _trace(trace, fused_step, inp.model_probs, (h, d, a))
@@ -271,7 +298,11 @@ def fuse_probabilities(inp: FusionInput) -> FusionResult:
 
     # --- 8. 新浪水位信号（±0.02 后归一化） ---
     if switches["sina_odds_movement"] and inp.sina_data and inp.sina_data.get("movement"):
-        comp = inp.sina_data.get("compression", {})
+        # 2026-10-23 修复：原为 .get("compression", {})，JSON null 或 schema
+        # 漂移时返回 None，下面 comp.get(...) 直接 AttributeError 炸整条流水线。
+        comp = inp.sina_data.get("compression") or {}
+        if not isinstance(comp, dict):
+            comp = {}
         fired = 0
         b, bd, ba = h, d, a
         if comp.get("home", 1.0) > 1.05:

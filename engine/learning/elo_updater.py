@@ -1,6 +1,7 @@
 from __future__ import annotations
 """Elo 自动更新器 - 每次结算后自动更新球队评级"""
 import json
+import os
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -84,7 +85,11 @@ class EloUpdater:
                 "last_match_date": r.last_match_date,
             }
         self.ratings_path.parent.mkdir(parents=True, exist_ok=True)
-        self.ratings_path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+        # 原子写（2026-10-23）：原为裸 write_text，写入中途被杀会留下半截
+        # JSON，下次 load 直接崩。tmp + os.replace 保证要么旧要么新。
+        tmp = self.ratings_path.with_name(self.ratings_path.name + ".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, self.ratings_path)
 
     def get_rating(self, team_name: str) -> TeamRating:
         """获取球队评级（归一化键），不存在则创建默认"""

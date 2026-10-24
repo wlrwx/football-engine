@@ -13,6 +13,7 @@ from __future__ import annotations
 """
 import argparse
 import json
+import os
 import sys
 import numpy as np
 from datetime import date, datetime, timedelta
@@ -2412,7 +2413,11 @@ def run_settlement(target_date: date):
         if config_path.exists():
             cfg = json.loads(config_path.read_text())
             cfg.setdefault("prediction", {})["rho"] = rho_result["rho"]
-            config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+            # 2026-10-23：原子写。原为裸 write_text —— 每日自动 commit 的场景下，
+            # 进程被杀/并发轮次会留下半截 JSON，把下一轮的配置读崩。
+            _tmp = config_path.with_name(config_path.name + ".tmp")
+            _tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+            os.replace(_tmp, config_path)
             print(f"    ✓ rho={rho_result['rho']} 已写入 config")
 
     # Walk-forward 回测
@@ -2432,8 +2437,11 @@ def run_settlement(target_date: date):
     print(f"    平局: 实际{draw_a.get('actual_draw_rate', 0):.0%} "
           f"预测{draw_a.get('predicted_draw_rate', 0):.0%} "
           f"最高{draw_a.get('max_draw_prob', 0):.0%}")
-    best_strat = max(strat.items(), key=lambda x: x[1]["hit_rate"])
-    print(f"    最优策略: {best_strat[0]} ({best_strat[1]['hit_rate']:.1%})")
+    best_strat = max(strat.items(), key=lambda x: x[1].get("hit_rate", 0), default=None)
+    if best_strat:
+        print(f"    最优策略: {best_strat[0]} ({best_strat[1].get('hit_rate', 0):.1%})")
+    else:
+        print("    最优策略: 无（strategy_comparison 为空）")
 
     print(f"\n{'='*60}")
     print(f"  结算完成 ✓ ({len(new_items)} 场新增)")

@@ -86,9 +86,9 @@ def decide_calibration(clean_records: list[dict], current_enabled: bool,
         return status
 
     from engine.prediction.isotonic_cal import IsotonicCalibrator
-    scratch = Path(tempfile.gettempdir()) / f"cal_auto_{id(cfg)}.pkl"
-    if scratch.exists():
-        scratch.unlink()
+    # 2026-10-23 修复：原为 f"cal_auto_{id(cfg)}.pkl"（内存地址）命名，
+    # 跨进程可能撞名互相覆盖。改用 mkdtemp 唯一目录。
+    scratch = Path(tempfile.mkdtemp(prefix="cal_auto_")) / "calibrator.pkl"
     calibrator = IsotonicCalibrator(scratch)
     try:
         import numpy as np
@@ -103,6 +103,10 @@ def decide_calibration(clean_records: list[dict], current_enabled: bool,
     finally:
         if scratch.exists():
             scratch.unlink()
+        try:
+            scratch.parent.rmdir()
+        except OSError:
+            pass
 
     status["val_delta_brier"] = round(mean, 5)
     status["t"] = round(mean / se, 2) if se > 0 else 0.0
