@@ -124,9 +124,15 @@ class ChampionChallenger:
         if ll_improvement < self.MIN_LOGLOSS_IMPROVEMENT:
             return False, f"Log-loss 改进不足 ({ll_improvement:.3f} < {self.MIN_LOGLOSS_IMPROVEMENT})"
 
-        # Brier skill > 0（必须打败市场）
-        if ch_brier >= 0.25:  # 市场基准约 0.25
-            return False, "Brier skill <= 0（未超越市场）"
+        # 2026-10-23 修复：原为 `if ch_brier >= 0.25: 未超越市场`。
+        # 0.25 是二分类 Brier 的基准口径，本系统是**三分类**（胜/平/负），
+        # 市场基线实测≈0.63（见 STATUS.md 7 万场回放），任何候选都必然
+        # >= 0.25 → 晋升条件永远不成立（静默失效）。
+        # "是否打败市场"必须用同口径的市场基线做配对检验，本类拿不到市场
+        # 概率，故不在此处用绝对值判定；该项由 upgrade_tracker /
+        # fusion_optimizer 的配对显著性检验负责。
+        # 本类目前无调用方（weekly_evaluate 已改走 fusion_optimizer），
+        # 保留作为评估骨架，接入前请先补测试（见 docs/REVIEW_20261023.md）。
 
         # ROI > 0
         if ch_metrics.get("roi", 0) <= 0:

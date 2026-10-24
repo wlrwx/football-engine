@@ -1,6 +1,13 @@
 """
 在线权重学习 — 根据近期预测表现动态调整模型权重。
 
+⚠️ 2026-10-23 归档说明（未删除，仅停止调用）：
+  本模块已被判定为死代码——权重计算只认 dixon_coles/monte_carlo，
+  但写入端只写 "ensemble"，state 文件里 weights 恒为 {}；ensemble.py
+  也从不读它。main.py 的调用点已移除（2026-09 起实际已停用）。
+  真正的融合权重学习走 engine/learning/fusion_optimizer.py。
+  保留本文件仅为历史参考，启用前请先补测试。
+
 核心思想:
   - 追踪每个子模型最近N场的Brier Score / 命中率
   - 表现好的模型获得更高权重，差的降权

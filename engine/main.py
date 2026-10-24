@@ -55,7 +55,6 @@ from engine.learning.combo_miner import ComboMiner
 #   样本少/不准(瑞典超 0/2、巴西杯 0/1) → 温和试探 0.35（不清零，继续积累反馈）
 #   无反馈 → 温和 0.40
 # 判平错误 → 强度自动下降，等反馈证明后再升，而不是关闭联赛
-from engine.learning.online_weights import OnlineWeightLearner
 from engine.prediction.lgbm_model import LGBMModel, LGBMConfig, build_features
 from engine.prediction.league_stats import league_stats
 from engine.prediction.isotonic_cal import IsotonicCalibrator, CalibrationConfig
@@ -276,17 +275,18 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                                   if k in DixonColesConfig.__dataclass_fields__})
     mc_cfg = MonteCarloConfig(**{k: v for k, v in pred_cfg.get("prediction", {}).items()
                                   if k in MonteCarloConfig.__dataclass_fields__})
-    # 在线权重学习: 动态调整模型权重
-    weight_learner = OnlineWeightLearner(ROOT / "data" / "state" / "online_weights.json")
+    # 在线权重学习：2026-10-23 移除死调用。
+    # OnlineWeightLearner 只被 update("ensemble") 写入 performances，而权重计算
+    # 只认 dixon_coles/monte_carlo；state 文件里 weights 恒为 {}，ensemble.py
+    # 又从不读它 —— 纯死代码、假学习（2026-08-05 已停用，调用点却还在跑）。
+    # 真正的融合权重学习走 fusion_optimizer（fusion_weights.json，反事实验证+守卫栏）。
     static_weights = pred_cfg.get("ensemble", {"dixon_coles_weight": 0.6, "monte_carlo_weight": 0.4})
-    default_w = {
+    dynamic_weights = {
         "dixon_coles": static_weights.get("dixon_coles_weight", 0.6),
         "monte_carlo": static_weights.get("monte_carlo_weight", 0.4),
     }
-    dynamic_weights = weight_learner.get_weights(default=default_w)
     print(f"  模型权重: DC={dynamic_weights.get('dixon_coles', 0.6):.3f}, "
-          f"MC={dynamic_weights.get('monte_carlo', 0.4):.3f} "
-          f"({'动态' if dynamic_weights != default_w else '静态'})")
+          f"MC={dynamic_weights.get('monte_carlo', 0.4):.3f} (静态)")
 
     model = EnsembleModel(
         dc_config=dc_cfg,
@@ -727,7 +727,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # 市场锚是否真实（2026-10-09）：合成赔率场次 market_fair 由模型概率反推，
             # 去水后≈模型自身，非真实市场。此标记供账本/页面识别裸奔场次，
             # 避免把裸模型概率误当市场公允概率混入 EV 计算与校准。
-            "market_is_synthetic": bool(_odds_synthetic) or (calibrated_probs is None and bool(_odds_synthetic)),
+            "market_is_synthetic": bool(_odds_synthetic),
             # 融合链 trace（2026-08-29）：每步对 [h,d,a] 的实际改动，结算后可归因
             "fusion_trace": fusion_trace,
             # 【2026-10-11】归一化后的**有效权重** + 实际走的融合分支。
@@ -1125,6 +1125,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             print(f"  ⚠ 多玩法 EV 失败 {p.get('match_id')}: {e}")
 
         # 写回 kelly_edge 到预测字典，解决 Kelly=0 问题
+        # 注：max_edge 初值 -1.0 是"本场无任何候选"的哨兵值（概率为 0 时
+        # edge 恰为 -1，故用 <= -1.0 判哨兵，语义与原写法一致）。
         p["kelly_edge"] = round(max_edge, 4) if max_edge > -1.0 else 0.0
 
     if filtered_count > 0:
@@ -1773,8 +1775,6 @@ def run_settlement(target_date: date):
                 _cur = _keep[_seen_idx[_k]]
                 if _mid_rank(_e.get("match_id", "")) > _mid_rank(_cur.get("match_id", "")):
                     _keep[_seen_idx[_k]] = _e
-        if len(_keep) < len(existing):
-            print(f"    ↻ 归一化去重: results.json {len(existing)} → {len(_keep)} 条 (同场译名/编号重复)")
         if len(_keep) < len(existing):
             print(f"    ↻ 归一化去重: results.json {len(existing)} → {len(_keep)} 条 (同场译名/编号重复)")
         _dedup_changed = len(_keep) < len(existing)

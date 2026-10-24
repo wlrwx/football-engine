@@ -1,6 +1,7 @@
 from __future__ import annotations
 """增强预测模块 - 移植自 lottery-football 的核心算法"""
 import csv
+import hashlib
 import math
 import unicodedata
 from pathlib import Path
@@ -80,6 +81,20 @@ def time_decay_weight(days_ago: int) -> float:
 # ============================================================
 # 交锋因子 H2H（借鉴 lottery-football）
 # ============================================================
+def _same_team(name_a: str, name_b: str) -> bool:
+    """队名同一性判定：先走 aliases 归一（"皇马"→"皇家马德里" 这类短名
+    别名只有 aliases 表认得），再兜底 canonical + 子串匹配。
+    归一化失败时退化为原始字符串比较，不抛异常。
+    """
+    try:
+        from engine.team_aliases import normalize_team
+
+        a, b = normalize_team(name_a), normalize_team(name_b)
+    except Exception:
+        a, b = name_a, name_b
+    return a == b or team_names_match(a, b)
+
+
 def head_to_head_factor(
     home_team: str,
     away_team: str,
@@ -102,10 +117,18 @@ def head_to_head_factor(
         w = time_decay_weight(days) * MATCH_TYPE_WEIGHTS.get(match_type, 1.0)
 
         # 计算净胜球（从主队视角）
-        if match.get("home_team") == home_team:
+        # 2026-10-23 修复：原来用精确字符串比较，队名别名不一致时（如
+        # "皇马" vs "皇家马德里"）会走 else 分支把净胜球算反，修正方向错误。
+        # 统一走 team_aliases.normalize_team（短名别名只有 aliases 表认得，
+        # 子串规则对 <=3 字的短名无效），两边都认不出来时跳过该场，
+        # 宁可不加权也不猜方向。
+        home_key = match.get("home_team", "")
+        if _same_team(home_key, home_team):
             diff = match["home_score"] - match["away_score"]
-        else:
+        elif _same_team(home_key, away_team):
             diff = match["away_score"] - match["home_score"]
+        else:
+            continue
 
         total_diff += diff * w
         total_weight += w
@@ -186,16 +209,27 @@ def total_goals_from_xg(home_xg: float, away_xg: float) -> list[tuple[int, float
 # ============================================================
 # 确定性种子（保证可复现）
 # ============================================================
+def _stable_hash(text: str) -> int:
+    """跨进程稳定的字符串哈希。
+
+    2026-10-23 修复：原实现用内置 `hash()`。Python 对 str 的哈希受
+    PYTHONHASHSEED 随机化影响（默认随机），同一 match_id 在不同进程里
+    得到的种子不同 → "相同输入永远相同输出" 只在单进程内成立。
+    改为 sha256 截断，跨进程/跨机器稳定。
+    """
+    return int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
+
+
 def build_seed(match_id: str, home_xg: float, away_xg: float, simulations: int) -> int:
     """
-    确定性种子：相同输入永远产生相同输出。
+    确定性种子：相同输入永远产生相同输出（跨进程亦然）。
     借鉴 lottery-football 的 seed 构建方式。
     """
     seed = 1125899906842597
-    seed = seed * 31 + hash(match_id)
-    seed = seed * 31 + hash(round(home_xg, 4))
-    seed = seed * 31 + hash(round(away_xg, 4))
-    seed = seed * 31 + simulations
+    seed = seed * 31 + _stable_hash(str(match_id))
+    seed = seed * 31 + _stable_hash(f"{round(home_xg, 4):.4f}")
+    seed = seed * 31 + _stable_hash(f"{round(away_xg, 4):.4f}")
+    seed = seed * 31 + int(simulations)
     return abs(seed) % (2**63)
 
 
