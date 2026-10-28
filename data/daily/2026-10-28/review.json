@@ -1,13 +1,13 @@
 {
   "date": "2026-10-28",
-  "n_matches": 8,
-  "hit_rate": 0.5,
+  "n_matches": 9,
+  "hit_rate": 0.4444,
   "hits": 4,
   "source_brier": {
-    "model": 0.5932,
-    "market": 0.728,
+    "model": 0.609,
+    "market": 0.744,
     "djyy": 0.6575,
-    "final": 0.7145
+    "final": 0.7308
   },
   "by_league": {
     "亚冠精英": {
@@ -39,6 +39,12 @@
       "hit_rate": 0.0,
       "wilson_lower": 0.0,
       "avg_brier": 1.1255
+    },
+    "荷兰杯": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8612
     }
   },
   "by_confidence_tier": {
@@ -53,6 +59,12 @@
       "hit_rate": 1.0,
       "wilson_lower": 0.2065,
       "avg_brier": 0.6633
+    },
+    "mid": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8612
     }
   },
   "by_odds_band": {
@@ -73,6 +85,12 @@
       "hit_rate": 1.0,
       "wilson_lower": 0.2065,
       "avg_brier": 0.6633
+    },
+    "L3 中(1.8-2.2)": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8612
     }
   },
   "score_stats": {
@@ -98,18 +116,22 @@
     }
   },
   "market_signal_stats": {
-    "n": 8,
+    "n": 9,
     "hits": 0
   },
   "layered": {
-    "log_loss_final": 1.1858,
-    "rps_final": 0.2389,
-    "rps_market": 0.2431,
+    "log_loss_final": 1.2065,
+    "rps_final": 0.2293,
+    "rps_market": 0.2333,
     "goal_framework": {
-      "n": 8,
+      "n": 9,
       "hits": 4
     },
     "prob_bands": {
+      "40-50%": {
+        "n": 1,
+        "hit_rate": 0.0
+      },
       "60%+": {
         "n": 7,
         "hit_rate": 0.4286
@@ -127,6 +149,10 @@
       "ok": {
         "n": 7,
         "hit_rate": 0.5714
+      },
+      "watch": {
+        "n": 1,
+        "hit_rate": 0.0
       }
     }
   },
@@ -135,15 +161,15 @@
       "dimension": "outcome",
       "key": "all",
       "outcome": "draw",
-      "predicted_avg": 0.2061,
-      "actual_rate": 0.375,
-      "gap": -0.1689,
-      "n": 8,
+      "predicted_avg": 0.2114,
+      "actual_rate": 0.4444,
+      "gap": -0.233,
+      "n": 9,
       "severity": "warn",
       "suggested_action": "reduce draw_bias"
     }
   ],
   "total_pnl": 0.0,
-  "generated_at": "2026-10-28T19:53:56.295149",
-  "sha256": "8e8e75ef075c0fe7370c682227be21cd"
+  "generated_at": "2026-10-28T21:25:54.576597",
+  "sha256": "0fac7613c9e343211a65009c8f8bb6af"
 }
