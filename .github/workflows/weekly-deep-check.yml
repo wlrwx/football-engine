@@ -58,6 +58,11 @@ jobs:
             echo "无变化，跳过提交"
             exit 0
           fi
-          git commit -m "tracker: 周度体检(云) $(date +%F)"
-          git pull --rebase origin main
+          # 2026-10-28：pull --rebase 要求工作区干净；CLV/selfcheck 等步骤还会写
+          # 别的 data/state 文件（不在白名单），10-25 实测因此报
+          #   cannot pull with rebase: You have unstaged changes → exit 128
+          # 周报永远推不出去。用 --autostash 收这些生成物；autostash 冲突照样红，
+          # 不静默覆盖。提交信息日期也用北京日期，和 daily 口径一致。
+          git commit -m "tracker: 周度体检(云) $(TZ=Asia/Shanghai date +%F)"
+          git pull --rebase --autostash origin main
           git push origin HEAD:main
