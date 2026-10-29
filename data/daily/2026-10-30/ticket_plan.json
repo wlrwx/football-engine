@@ -1,0 +1,110 @@
+{
+  "stable": [],
+  "value": [],
+  "lottery": [],
+  "total_stake": 0,
+  "expected_roi": 0.0,
+  "bankroll": 3796.6011,
+  "breaker_multiplier": 0.5,
+  "parlay": [
+    {
+      "type": "2串1",
+      "legs": [
+        {
+          "match": "2026-10-30_周五003",
+          "home": "尼斯",
+          "away": "雷恩",
+          "league": "法甲",
+          "sel": "away",
+          "odds": 2.21,
+          "prob": 0.405,
+          "cal_prob": 0.492,
+          "market_prob": 0.397,
+          "source": "fusion",
+          "hit_prob": 0.492
+        },
+        {
+          "match": "2026-10-30_周五001",
+          "home": "布里斯班",
+          "away": "奥克兰FC",
+          "league": "澳超",
+          "sel": "away",
+          "odds": 2.4,
+          "prob": 0.368,
+          "cal_prob": 0.439,
+          "market_prob": 0.366,
+          "source": "fusion",
+          "hit_prob": 0.439
+        }
+      ],
+      "total_odds": 5.3,
+      "model_ev": -0.42,
+      "cal_ev": 1.97,
+      "cal_roi": 0.1439,
+      "market_ev": -0.46,
+      "market_roi": -0.2289,
+      "hit_prob_cal": 0.216,
+      "recommended": true,
+      "stake": 13.67,
+      "n_bets": 1,
+      "potential": 72.51,
+      "worst_win": 0.0,
+      "note": "两场全中才赢",
+      "source": "calibrated"
+    }
+  ],
+  "parlay_pool_n": 2,
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-10-30_周五002",
+          "home": "科特布斯",
+          "away": "波鸿",
+          "league": "德乙",
+          "score": "1-0",
+          "prob": 0.247,
+          "cal_prob": 0.0893,
+          "odds": 15.0
+        },
+        {
+          "match": "2026-10-30_周五005",
+          "home": "博德闪耀",
+          "away": "维京",
+          "league": "挪超",
+          "score": "1-0",
+          "prob": 0.272,
+          "cal_prob": 0.0893,
+          "odds": 13.5
+        }
+      ],
+      "total_odds": 202.5,
+      "hit_prob": 0.008,
+      "stake": 2.0,
+      "potential": 405.0,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.8% × 赔率 202 倍 = EV +61%）"
+    }
+  ],
+  "parlay_stake": 15.67,
+  "total_exposure": 15.67,
+  "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
+  "parlay_calibration": {
+    "overall": 0.5436,
+    "n": 1273,
+    "table": {
+      "0.35": 0.4386,
+      "0.4": 0.4917,
+      "0.45": 0.493,
+      "0.5": 0.4862,
+      "0.55": 0.4729,
+      "0.6": 0.6389,
+      "0.65": 0.7368,
+      "0.7": 0.8015
+    },
+    "note": "串关 EV 用账本校准命中率（模型概率高估，0.55-0.60 段仅 31.6% 命中）；推荐=校准EV>0"
+  }
+}
