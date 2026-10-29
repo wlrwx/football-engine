@@ -1,13 +1,13 @@
 {
   "date": "2026-10-29",
-  "n_matches": 1,
-  "hit_rate": 1.0,
+  "n_matches": 2,
+  "hit_rate": 0.5,
   "hits": 1,
   "source_brier": {
-    "model": 0.4482,
-    "market": 0.2818,
+    "model": 0.7948,
+    "market": 0.5235,
     "djyy": null,
-    "final": 0.291
+    "final": 0.5371
   },
   "by_league": {
     "亚冠乙": {
@@ -15,6 +15,12 @@
       "hit_rate": 1.0,
       "wilson_lower": 0.2065,
       "avg_brier": 0.291
+    },
+    "芬超": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7832
     }
   },
   "by_confidence_tier": {
@@ -23,6 +29,12 @@
       "hit_rate": 1.0,
       "wilson_lower": 0.2065,
       "avg_brier": 0.291
+    },
+    "mid": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7832
     }
   },
   "by_odds_band": {
@@ -31,6 +43,12 @@
       "hit_rate": 1.0,
       "wilson_lower": 0.2065,
       "avg_brier": 0.291
+    },
+    "L3 中(1.8-2.2)": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7832
     }
   },
   "score_stats": {
@@ -54,24 +72,32 @@
     }
   },
   "market_signal_stats": {
-    "n": 1,
-    "hits": 1
+    "n": 2,
+    "hits": 2
   },
   "layered": {
-    "log_loss_final": 0.58,
-    "rps_final": 0.1176,
-    "rps_market": 0.1142,
+    "log_loss_final": 0.9281,
+    "rps_final": 0.2294,
+    "rps_market": 0.2257,
     "goal_framework": {
-      "n": 1,
+      "n": 2,
       "hits": 1
     },
     "prob_bands": {
+      "40-50%": {
+        "n": 1,
+        "hit_rate": 0.0
+      },
       "50-60%": {
         "n": 1,
         "hit_rate": 1.0
       }
     },
     "freshness_groups": {
+      "ok": {
+        "n": 1,
+        "hit_rate": 0.0
+      },
       "watch": {
         "n": 1,
         "hit_rate": 1.0
@@ -80,6 +106,6 @@
   },
   "biases": [],
   "total_pnl": 0.0,
-  "generated_at": "2026-10-29T16:10:20.507658",
-  "sha256": "12352cd5eaeb41940babdbd06378795b"
+  "generated_at": "2026-10-29T18:58:49.051886",
+  "sha256": "9a2cdf4dadfb333619607c25cc4d02de"
 }
