@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-30T17:00:58",
+  "generated_at": "2026-10-31T00:15:39",
   "summary": {
-    "total": 11,
+    "total": 9,
     "critical": 0,
     "healed": 0
   },
@@ -33,32 +33,16 @@
     {
       "id": "data/results",
       "layer": "data",
-      "severity": "ok",
-      "detail": "昨日赛果文件在",
-      "healable": false,
+      "severity": "warn",
+      "detail": "昨日(2026-10-30)缺 results_sina.json（补抓失败）",
+      "healable": true,
       "healed": false
     },
     {
       "id": "data/yesterday",
       "layer": "data",
-      "severity": "ok",
-      "detail": "昨日(2026-10-29)已结算",
-      "healable": false,
-      "healed": false
-    },
-    {
-      "id": "source/djyy",
-      "layer": "source",
-      "severity": "ok",
-      "detail": "DJYY 存活率 2026-10-28:35%",
-      "healable": false,
-      "healed": false
-    },
-    {
-      "id": "model/draw",
-      "layer": "model",
-      "severity": "ok",
-      "detail": "平局均值 22.0% 在先验带内",
+      "severity": "info",
+      "detail": "昨日(2026-10-30)无预测或无赛果，跳过结算检查",
       "healable": false,
       "healed": false
     },
