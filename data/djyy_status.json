@@ -1,6 +1,6 @@
 {
-  "date": "2026-10-31",
-  "generated_at": "2026-10-31T13:40:06",
+  "date": "2026-11-01",
+  "generated_at": "2026-10-31T17:56:54",
   "healthy": false,
   "coverage": 0.0,
   "enrich_success": 0.0,
@@ -8,8 +8,8 @@
   "covered": 0,
   "matched": 0,
   "failed": 0,
-  "fixtures": 20,
-  "budget_s": 480.0,
+  "fixtures": 25,
+  "budget_s": 600.0,
   "budget_exhausted": false,
   "error": "blocked_by_edge HTTP 403 /api/leagues/fixtures — 检查 Cloudflare 是否对 GitHub Actions IP 返回 403；若已配 DJYY_KEY，确认仓库 Secret 也已配置（当前进程未读到 DJYY_KEY 环境变量）",
   "proxy_configured": true,
@@ -24,10 +24,10 @@
     "proxy_configured": true
   },
   "note": "healthy 由 enrich_success 决定（匹配上的场次里富化成功的比例）；league_coverage 低说明我们预测了 DJYY 不覆盖的联赛，属结构性差异而非故障——两者混用会让告警永远为真；proxy_configured=false 时 enrich_success 低几乎一定是 secrets.DJYY_PROXY 未设置，不是上游故障",
-  "snapshot_probs": 16,
-  "snapshot_total": 20,
-  "snapshot_age_h": 35.0,
-  "snapshot_updated_at": "2026-10-31T13:40:13",
+  "snapshot_probs": 10,
+  "snapshot_total": 25,
+  "snapshot_age_h": 39.3,
+  "snapshot_updated_at": "2026-10-31T17:57:00",
   "live_channel_used": false,
   "fallback": "ssr_snapshot"
 }

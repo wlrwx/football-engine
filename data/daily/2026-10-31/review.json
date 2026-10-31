@@ -1,0 +1,213 @@
+{
+  "date": "2026-10-31",
+  "n_matches": 20,
+  "hit_rate": 0.55,
+  "hits": 11,
+  "source_brier": {
+    "model": 0.5725,
+    "market": 0.5472,
+    "djyy": 0.6362,
+    "final": 0.545
+  },
+  "by_league": {
+    "日职": {
+      "n": 2,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.3811
+    },
+    "日乙": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8636
+    },
+    "K1联赛": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7642
+    },
+    "澳超": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.8764
+    },
+    "英超": {
+      "n": 5,
+      "hit_rate": 0.6,
+      "wilson_lower": 0.2307,
+      "avg_brier": 0.5177
+    },
+    "英冠": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.435
+    },
+    "西甲": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.4078
+    },
+    "意甲": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.1817
+    },
+    "德甲": {
+      "n": 5,
+      "hit_rate": 0.4,
+      "wilson_lower": 0.1176,
+      "avg_brier": 0.6765
+    },
+    "挪超": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.2298
+    }
+  },
+  "by_confidence_tier": {
+    "mid": {
+      "n": 12,
+      "hit_rate": 0.5833,
+      "wilson_lower": 0.3195,
+      "avg_brier": 0.5704
+    },
+    "low": {
+      "n": 3,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7237
+    },
+    "high": {
+      "n": 5,
+      "hit_rate": 0.8,
+      "wilson_lower": 0.3755,
+      "avg_brier": 0.3766
+    }
+  },
+  "by_odds_band": {
+    "L2 热(1.5-1.8)": {
+      "n": 7,
+      "hit_rate": 0.8571,
+      "wilson_lower": 0.4869,
+      "avg_brier": 0.3914
+    },
+    "L3 中(1.8-2.2)": {
+      "n": 6,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.1876,
+      "avg_brier": 0.6554
+    },
+    "L4 冷(2.2-3.0)": {
+      "n": 4,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7014
+    },
+    "L1 大热(<1.5)": {
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.4736
+    }
+  },
+  "score_stats": {
+    "top1": 0,
+    "top3": 4,
+    "top5": 8,
+    "top8": 14,
+    "any": 14
+  },
+  "score_rank_hist": {
+    "7": 4,
+    "5": 2,
+    "8": 2,
+    "3": 2,
+    "2": 2,
+    "4": 2
+  },
+  "score_source_stats": {
+    "djyy": {
+      "n": 0,
+      "hits": 0
+    },
+    "mc": {
+      "n": 14,
+      "hits": 8
+    }
+  },
+  "market_signal_stats": {
+    "n": 20,
+    "hits": 3
+  },
+  "layered": {
+    "log_loss_final": 0.9318,
+    "rps_final": 0.1941,
+    "rps_market": 0.1958,
+    "goal_framework": {
+      "n": 20,
+      "hits": 8
+    },
+    "prob_bands": {
+      "40-50%": {
+        "n": 6,
+        "hit_rate": 0.5
+      },
+      "50-60%": {
+        "n": 6,
+        "hit_rate": 0.6667
+      },
+      "60%+": {
+        "n": 5,
+        "hit_rate": 0.8
+      },
+      "<40%": {
+        "n": 3,
+        "hit_rate": 0.0
+      }
+    },
+    "freshness_groups": {
+      "ok": {
+        "n": 13,
+        "hit_rate": 0.5385
+      },
+      "watch": {
+        "n": 7,
+        "hit_rate": 0.5714
+      }
+    }
+  },
+  "biases": [
+    {
+      "dimension": "league",
+      "key": "英超",
+      "outcome": "home",
+      "predicted_avg": 0.4279,
+      "actual_rate": 0.8,
+      "gap": -0.3721,
+      "n": 5,
+      "severity": "critical",
+      "suggested_action": "increase home_adv_weight"
+    },
+    {
+      "dimension": "league",
+      "key": "德甲",
+      "outcome": "home",
+      "predicted_avg": 0.4023,
+      "actual_rate": 0.2,
+      "gap": 0.2023,
+      "n": 5,
+      "severity": "critical",
+      "suggested_action": "reduce home_adv_weight"
+    }
+  ],
+  "total_pnl": 0.0,
+  "generated_at": "2026-10-31T17:57:10.216772",
+  "sha256": "eff7622e030693c99736c6ebef942761"
+}
