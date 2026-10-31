@@ -1,13 +1,13 @@
 {
   "date": "2026-10-31",
-  "n_matches": 20,
-  "hit_rate": 0.55,
-  "hits": 11,
+  "n_matches": 24,
+  "hit_rate": 0.5833,
+  "hits": 14,
   "source_brier": {
-    "model": 0.5725,
-    "market": 0.5472,
-    "djyy": 0.6362,
-    "final": 0.545
+    "model": 0.5333,
+    "market": 0.5313,
+    "djyy": 0.6279,
+    "final": 0.5263
   },
   "by_league": {
     "日职": {
@@ -35,10 +35,10 @@
       "avg_brier": 0.8764
     },
     "英超": {
-      "n": 5,
-      "hit_rate": 0.6,
-      "wilson_lower": 0.2307,
-      "avg_brier": 0.5177
+      "n": 6,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.3,
+      "avg_brier": 0.4646
     },
     "英冠": {
       "n": 1,
@@ -47,22 +47,22 @@
       "avg_brier": 0.435
     },
     "西甲": {
-      "n": 2,
-      "hit_rate": 0.5,
-      "wilson_lower": 0.0945,
-      "avg_brier": 0.4078
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.2923
     },
     "意甲": {
-      "n": 1,
+      "n": 2,
       "hit_rate": 1.0,
-      "wilson_lower": 0.2065,
-      "avg_brier": 0.1817
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.178
     },
     "德甲": {
-      "n": 5,
-      "hit_rate": 0.4,
-      "wilson_lower": 0.1176,
-      "avg_brier": 0.6765
+      "n": 6,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0968,
+      "avg_brier": 0.7798
     },
     "挪超": {
       "n": 1,
@@ -85,10 +85,10 @@
       "avg_brier": 0.7237
     },
     "high": {
-      "n": 5,
-      "hit_rate": 0.8,
-      "wilson_lower": 0.3755,
-      "avg_brier": 0.3766
+      "n": 9,
+      "hit_rate": 0.7778,
+      "wilson_lower": 0.4526,
+      "avg_brier": 0.4016
     }
   },
   "by_odds_band": {
@@ -111,24 +111,24 @@
       "avg_brier": 0.7014
     },
     "L1 大热(<1.5)": {
-      "n": 3,
-      "hit_rate": 0.6667,
-      "wilson_lower": 0.2077,
-      "avg_brier": 0.4736
+      "n": 7,
+      "hit_rate": 0.7143,
+      "wilson_lower": 0.3589,
+      "avg_brier": 0.4503
     }
   },
   "score_stats": {
     "top1": 0,
-    "top3": 4,
-    "top5": 8,
-    "top8": 14,
-    "any": 14
+    "top3": 5,
+    "top5": 9,
+    "top8": 16,
+    "any": 16
   },
   "score_rank_hist": {
-    "7": 4,
+    "7": 5,
     "5": 2,
     "8": 2,
-    "3": 2,
+    "3": 3,
     "2": 2,
     "4": 2
   },
@@ -138,21 +138,21 @@
       "hits": 0
     },
     "mc": {
-      "n": 14,
-      "hits": 8
+      "n": 16,
+      "hits": 9
     }
   },
   "market_signal_stats": {
-    "n": 20,
-    "hits": 3
+    "n": 24,
+    "hits": 4
   },
   "layered": {
-    "log_loss_final": 0.9318,
-    "rps_final": 0.1941,
-    "rps_market": 0.1958,
+    "log_loss_final": 0.9018,
+    "rps_final": 0.1806,
+    "rps_market": 0.1828,
     "goal_framework": {
-      "n": 20,
-      "hits": 8
+      "n": 24,
+      "hits": 10
     },
     "prob_bands": {
       "40-50%": {
@@ -164,8 +164,8 @@
         "hit_rate": 0.6667
       },
       "60%+": {
-        "n": 5,
-        "hit_rate": 0.8
+        "n": 9,
+        "hit_rate": 0.7778
       },
       "<40%": {
         "n": 3,
@@ -174,8 +174,8 @@
     },
     "freshness_groups": {
       "ok": {
-        "n": 13,
-        "hit_rate": 0.5385
+        "n": 17,
+        "hit_rate": 0.5882
       },
       "watch": {
         "n": 7,
@@ -188,10 +188,10 @@
       "dimension": "league",
       "key": "英超",
       "outcome": "home",
-      "predicted_avg": 0.4279,
-      "actual_rate": 0.8,
-      "gap": -0.3721,
-      "n": 5,
+      "predicted_avg": 0.4627,
+      "actual_rate": 0.8333,
+      "gap": -0.3707,
+      "n": 6,
       "severity": "critical",
       "suggested_action": "increase home_adv_weight"
     },
@@ -199,15 +199,15 @@
       "dimension": "league",
       "key": "德甲",
       "outcome": "home",
-      "predicted_avg": 0.4023,
-      "actual_rate": 0.2,
-      "gap": 0.2023,
-      "n": 5,
+      "predicted_avg": 0.4596,
+      "actual_rate": 0.1667,
+      "gap": 0.2929,
+      "n": 6,
       "severity": "critical",
       "suggested_action": "reduce home_adv_weight"
     }
   ],
   "total_pnl": 0.0,
-  "generated_at": "2026-10-31T17:57:10.216772",
-  "sha256": "eff7622e030693c99736c6ebef942761"
+  "generated_at": "2026-10-31T21:33:26.245792",
+  "sha256": "aafa63190e8f2b55f65ef848b59fba2a"
 }
