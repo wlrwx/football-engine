@@ -317,6 +317,15 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-01 **断网被误报成「需人工登录」**：10-30 17:35 → 11-01 11:35 本机网络被中间设备
+      劫持（`SSL: CERTIFICATE_VERIFY_FAILED: self-signed certificate in certificate chain`），
+      duty 连续 81 轮 mint 失败，每轮都打「需人工登录（跑 seed_login）」——实际 session 没死，
+      11:35 网络一恢复立刻 mint 成功。更糟的是这 42 小时把两个 Qoder 自动化打到
+      `failureCircuit` 自动停用（已重新启用）。修法：`mint()` 用 `MINT_NET` 哨兵区分
+      网络异常（退出码 0 + 日志「不需人工登录，下轮自动重试」）与 session 真死（20）。
+      **断网实际损失**：10-31 的逐时站点快照整日缺失、DJYY 快照停更 49h（现已刷新 204 场）；
+      CI 侧不受影响，期间投的 2 注（10-31 AC米兰 vs 国米、11-01 利物浦 vs 阿森纳）
+      正是靠 #53 的「CI 状态回仓真提交」修复才进了仓（账目 0 缺口）。
 - 2026-10-23 **daily-forecast 看门狗**：GitHub cron 限流导致 10-23 的预测一直没生成
       （上次 daily 是 10-22 23:15），挑战池连续两轮「匹配0/候选0」，页面/结算/rho 也停。
       duty 的 CI 看门狗扩展到 Daily Forecast：**北京时间今天还没跑过、或距上次超 4h**

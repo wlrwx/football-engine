@@ -2,7 +2,9 @@
 """确定性挑战值守（零模型版）——launchd 每小时 :05/:35 触发。
 
 流程：cookie→mint JWT→（变化时）推 GitHub secret→跑 challenge_hourly→state 冲突自愈→commit/push。
-退出码：0 正常；20 需人工登录（浏览器 session 死，跑 scripts/njstats_seed_login.py 重新播种）。
+退出码：0 正常（含网络异常跳过，日志会写明）；20 需人工登录（浏览器 session 死，
+跑 scripts/njstats_seed_login.py 重新播种）。网络异常 ≠ 登录失效：2026-10-30~11-01 断网
+42 小时里 81 轮全被报成「需人工登录」，把人和自动化都带偏。
 依赖：~/.football-engine/njstats_session.json（由 seed_login 播种）、pynacl、requests。
 """
 from __future__ import annotations
@@ -54,6 +56,7 @@ DJYY_PATH = "data/djyy_matches.json"
 DJYY_MAX_AGE_H = 10.0
 DJYY_ATTEMPT_GAP_H = 2.0
 DJYY_MARKER = HOME / ".football-engine" / "djyy_last_attempt"
+MINT_NET = "__net__"  # mint 因网络/SSL 拦截失败的哨兵（不是登录问题）
 PX = {"http": None, "https": None}  # 直连；显式 None 防环境代理回落
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 
@@ -147,23 +150,39 @@ def mint() -> str | None:
                          timeout=20, proxies=PX)
     except requests.RequestException as e:
         log(f"mint 网络异常 {e}")
-        return None
+        return MINT_NET
     if r.status_code != 200:
         log(f"mint HTTP {r.status_code}（session 死，尝试无头续期）")
         if not autoheal_session():
             log("无头续期失败，需人工登录（跑 njstats_seed_login.py）")
             return None
         cookie = json.loads(SESS.read_text(encoding="utf-8")).get("SESSION", "")
-        r = requests.get(f"{BASE}/api/user/current",
-                         headers={"Cookie": f"SESSION={cookie}", "User-Agent": UA,
-                                  "Accept": "application/json", "Referer": BASE + "/prediction/mine"},
-                         timeout=20, proxies=PX)
+        try:
+            r = requests.get(f"{BASE}/api/user/current",
+                             headers={"Cookie": f"SESSION={cookie}", "User-Agent": UA,
+                                      "Accept": "application/json", "Referer": BASE + "/prediction/mine"},
+                             timeout=20, proxies=PX)
+        except requests.RequestException as e:
+            log(f"续期后 mint 网络异常 {e}")
+            return MINT_NET
         if r.status_code != 200:
             log(f"续期后仍 HTTP {r.status_code}，需人工登录")
             return None
         log("无头续期成功")
     tok = ((r.json() or {}).get("data") or {}).get("token")
     return tok or None
+
+
+def _mint_action(tok):
+    """把 mint() 结果翻成 (退出码, 日志)；退出码 None 表示继续本轮。
+
+    网络异常返回 0 而不是 20：让 launchd/巡检能分清「等下轮自愈」和「要人登录」。
+    """
+    if tok == MINT_NET:
+        return 0, "本轮：网络异常导致 mint 失败，跳过（不需人工登录，下轮自动重试）"
+    if not tok:
+        return 20, "本轮：mint 失败，需人工登录（跑 njstats_seed_login.py）"
+    return None, ""
 
 
 def push_secret(jwt: str) -> None:
@@ -222,9 +241,10 @@ def main() -> int:
     if sh("git", "diff", "--name-only", "--diff-filter=U").stdout.strip():
         fix_conflicts()
     tok = mint()
-    if not tok:
-        log("本轮：mint 失败，需人工登录（跑 njstats_seed_login.py）")
-        return 20
+    _code, _msg = _mint_action(tok)
+    if _code is not None:
+        log(_msg)
+        return _code
     old = JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else ""
     JWT_FILE.write_text(tok, encoding="utf-8")
     os.chmod(JWT_FILE, 0o600)
