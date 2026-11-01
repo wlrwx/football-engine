@@ -56,6 +56,8 @@ DJYY_PATH = "data/djyy_matches.json"
 DJYY_MAX_AGE_H = 10.0
 DJYY_ATTEMPT_GAP_H = 2.0
 DJYY_MARKER = HOME / ".football-engine" / "djyy_last_attempt"
+NET_STATE = HOME / ".football-engine" / "net_fail_state.json"
+CHALLENGE_STATE = "data/state/challenge_state.json"
 MINT_NET = "__net__"  # mint 因网络/SSL 拦截失败的哨兵（不是登录问题）
 PX = {"http": None, "https": None}  # 直连；显式 None 防环境代理回落
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
@@ -185,6 +187,86 @@ def _mint_action(tok):
     return None, ""
 
 
+def _net_fail_note(now_ts: float, path: Path | None = None) -> str:
+    """断网计时：让一条日志就能看出「断了多久」，而不是每轮重复同一句话。"""
+    p = path or NET_STATE
+    st: dict = {}
+    try:
+        if p.exists():
+            st = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        st = {}
+    since = st.get("since")
+    if not since:
+        st = {"since": now_ts, "last": now_ts}
+    else:
+        st["last"] = now_ts
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(st), encoding="utf-8")
+    except OSError:
+        pass
+    dur = (now_ts - float(st["since"])) / 3600
+    start = datetime.fromtimestamp(float(st["since"])).strftime("%m-%d %H:%M")
+    return f"（自 {start} 起已 {dur:.1f}h，下轮自动重试）"
+
+
+def _net_fail_clear(now_ts: float, path: Path | None = None) -> str:
+    """恢复时给出总停机时长并清计时；没在计时则返回空串。"""
+    p = path or NET_STATE
+    if not p.exists():
+        return ""
+    try:
+        since = json.loads(p.read_text(encoding="utf-8")).get("since")
+    except (OSError, ValueError):
+        since = None
+    try:
+        p.unlink()
+    except OSError:
+        pass
+    if not since:
+        return ""
+    return f"（中断 {(now_ts - float(since)) / 3600:.1f}h 后恢复）"
+
+
+def merge_challenge_state(a: str, b: str) -> str | None:
+    """challenge_state 冲突按并集合并，而不是取某一边（2026-11-01）。
+
+    27/28 配额 + E8/E10 是实验样本；原来「取新生成侧」会整份覆盖对侧记录，
+    CI 侧写入的 ev_site/site_odds/exp 字段可能整批消失，而服务端去重只防重复
+    下单、不防样本丢失。records 按 (match, pick) 去重并保留字段更全的一条。
+    任一侧解析失败返回 None，由调用方回退到原有「取新侧」逻辑。
+    """
+    try:
+        da = json.loads(a) if (a or "").strip() else {}
+        db = json.loads(b) if (b or "").strip() else {}
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(da, dict) or not isinstance(db, dict):
+        return None
+    newer = da if str(da.get("week") or "") >= str(db.get("week") or "") else db
+    out = dict(newer)
+    keyed: dict[tuple, dict] = {}
+    for src in (da, db):
+        recs = src.get("records")
+        for r in (recs if isinstance(recs, list) else []):
+            if not isinstance(r, dict):
+                continue
+            k = (str(r.get("match")), str(r.get("pick")))
+            old = keyed.get(k)
+            if old is None or len(json.dumps(r, sort_keys=True)) > len(json.dumps(old, sort_keys=True)):
+                keyed[k] = r
+    out["records"] = list(keyed.values())
+    def _int(v, dflt):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return dflt
+    out["used"] = max(_int(da.get("used"), 0), _int(db.get("used"), 0))
+    out["quota"] = max(_int(da.get("quota"), 28), _int(db.get("quota"), 28))
+    return json.dumps(out, ensure_ascii=False, indent=1)
+
+
 def push_secret(jwt: str) -> None:
     try:
         from nacl.encoding import Base64Encoder
@@ -217,7 +299,15 @@ def fix_conflicts() -> None:
     if not u:
         return
     files = " ".join(u)
+    merged = None
+    if CHALLENGE_STATE in u:
+        head = sh("git", "show", f"HEAD:{CHALLENGE_STATE}").stdout
+        side = sh("git", "show", f"stash@{{0}}:{CHALLENGE_STATE}").stdout
+        merged = merge_challenge_state(head, side)
     sh("sh", "-c", f"git checkout stash@{{0}} -- {files} 2>/dev/null || git checkout --theirs -- {files}")
+    if merged:
+        (ROOT / CHALLENGE_STATE).write_text(merged + "\n", encoding="utf-8")
+        log("challenge_state 冲突已按并集合并（不丢对侧注单）")
     sh("git", "stash", "drop")
     bad = []
     for f in u:
@@ -243,8 +333,11 @@ def main() -> int:
     tok = mint()
     _code, _msg = _mint_action(tok)
     if _code is not None:
-        log(_msg)
+        log(_msg + (_net_fail_note(time.time()) if _code == 0 else ""))
         return _code
+    _back = _net_fail_clear(time.time())
+    if _back:
+        log("网络恢复" + _back)
     old = JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else ""
     JWT_FILE.write_text(tok, encoding="utf-8")
     os.chmod(JWT_FILE, 0o600)

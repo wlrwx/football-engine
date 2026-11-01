@@ -322,7 +322,12 @@
       duty 连续 81 轮 mint 失败，每轮都打「需人工登录（跑 seed_login）」——实际 session 没死，
       11:35 网络一恢复立刻 mint 成功。更糟的是这 42 小时把两个 Qoder 自动化打到
       `failureCircuit` 自动停用（已重新启用）。修法：`mint()` 用 `MINT_NET` 哨兵区分
-      网络异常（退出码 0 + 日志「不需人工登录，下轮自动重试」）与 session 真死（20）。
+      网络异常（退出码 0 + 日志「不需人工登录，下轮自动重试」）与 session 真死（20）；
+      另加 `~/.football-engine/net_fail_state.json` 计时，日志一条就能看出「自 HH:MM 已 Xh」，
+      恢复时打印总停机时长；`challenge_reconcile.py` 新增「逐时快照(近7天) 缺 N（日期）」，
+      断网缺口在 CI 报告里也看得见；`fix_conflicts` 对 `challenge_state.json` 改为
+      **两侧 records 并集**（同一注保留字段更全的一条、used/quota 取大），
+      不再「取新生成侧」整份覆盖对侧注单。
       **断网实际损失**：10-31 的逐时站点快照整日缺失、DJYY 快照停更 49h（现已刷新 204 场）；
       CI 侧不受影响，期间投的 2 注（10-31 AC米兰 vs 国米、11-01 利物浦 vs 阿森纳）
       正是靠 #53 的「CI 状态回仓真提交」修复才进了仓（账目 0 缺口）。

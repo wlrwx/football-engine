@@ -136,6 +136,21 @@ def pool_stats(records: list[dict], exp: str) -> dict:
     }
 
 
+def snapshot_gap_line(days: int = 7) -> str:
+    """逐时快照完整性：断网/关机最直观的证据，且 CI 也能看见（不依赖 duty.log）。"""
+    base = STATE / "njstats"
+    today = datetime.now(BJT).date()
+    want = [(today - timedelta(days=i)).isoformat() for i in range(days)][::-1]
+    parts = []
+    for kind in ("site_odds", "my_predictions", "community"):
+        d = base / kind
+        have = {p.stem for p in d.glob("*.json")} if d.exists() else set()
+        miss = [x for x in want if x not in have]
+        parts.append(f"{kind} 缺{len(miss)}"
+                     + (f"（{'、'.join(m[5:] for m in miss)}）" if miss else ""))
+    return f"逐时快照(近{days}天): " + " | ".join(parts)
+
+
 def snapshot_line() -> str:
     d = STATE / "njstats" / "my_predictions"
     files = sorted(d.glob("*.json")) if d.exists() else []
@@ -176,6 +191,7 @@ def main(argv=None) -> int:
     print("=== E8/E10 对账（数据兜底，无 JWT/无实时服务端）===")
     for exp in ("E8", "E10"):
         print(_fmt_pool(exp, pool_stats(records, exp), today, records))
+    print(snapshot_gap_line())
     print(snapshot_line())
     print("归因: 零合格轮需本机 duty.log（CI 不可得）；实时真值需本机续 JWT，均未包含。")
     return 0

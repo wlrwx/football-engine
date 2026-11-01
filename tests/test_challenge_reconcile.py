@@ -100,3 +100,18 @@ def test_missing_files_do_not_crash(tmp_path, monkeypatch, capsys):
     assert cr.main([]) == 0
     out = capsys.readouterr().out
     assert "E8: n=0/60" in out and "无已入库的「已预测」快照" in out
+
+
+def test_snapshot_gap_line_flags_missing_days(tmp_path, monkeypatch):
+    """断网那天（10-31）三份逐时快照全缺，必须在对账里看得见。"""
+    _use_tmp(tmp_path, monkeypatch)
+    from datetime import datetime, timedelta
+    today = datetime.now(cr.BJT).date()
+    have = (today - timedelta(days=1)).isoformat()
+    for kind in ("site_odds", "my_predictions", "community"):
+        d = cr.STATE / "njstats" / kind
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{have}.json").write_text('{"records": []}', encoding="utf-8")
+    line = cr.snapshot_gap_line(days=3)
+    assert "site_odds 缺2" in line and "my_predictions 缺2" in line, line
+    assert "community 缺2" in line, line
