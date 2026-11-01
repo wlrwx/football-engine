@@ -1,8 +1,8 @@
 {
-  "date": "2026-10-25",
+  "date": "2026-11-01",
   "steps": {
     "walk_forward": {
-      "total_matches": 1237
+      "total_matches": 1338
     },
     "fusion_optimizer": {
       "decision": "hold",
@@ -14,16 +14,16 @@
       "message": null
     },
     "horizon_eval": {
-      "best_horizon": "t6h",
+      "best_horizon": "t90m",
       "best_metric": "brier",
       "buckets": [
         {
           "horizon": "t24h",
           "label": "开赛前24小时",
-          "n": 1,
-          "brier": 0.0811,
-          "rps": 0.0308,
-          "log_loss": 0.2624,
+          "n": 2,
+          "brier": 0.2275,
+          "rps": 0.0894,
+          "log_loss": 0.4759,
           "hit_rate": 1.0,
           "avg_ev": 0.0,
           "total_ev": 0.0
@@ -31,51 +31,51 @@
         {
           "horizon": "t6h",
           "label": "开赛前6小时",
-          "n": 234,
-          "brier": 0.5575,
-          "rps": 0.1966,
-          "log_loss": 0.9422,
-          "hit_rate": 0.5556,
-          "avg_ev": -0.2698,
+          "n": 287,
+          "brier": 0.56,
+          "rps": 0.2005,
+          "log_loss": 0.9462,
+          "hit_rate": 0.5645,
+          "avg_ev": -0.22,
           "total_ev": -63.13
         },
         {
           "horizon": "t90m",
           "label": "开赛前90分钟",
-          "n": 533,
-          "brier": 0.5588,
-          "rps": 0.1906,
-          "log_loss": 0.9452,
-          "hit_rate": 0.5741,
-          "avg_ev": -0.5675,
+          "n": 571,
+          "brier": 0.5597,
+          "rps": 0.1908,
+          "log_loss": 0.9471,
+          "hit_rate": 0.5692,
+          "avg_ev": -0.5297,
           "total_ev": -302.47
         },
         {
           "horizon": "closing",
           "label": "收盘市场",
-          "n": 195,
-          "brier": 0.5685,
-          "rps": 0.196,
-          "log_loss": 0.9616,
-          "hit_rate": 0.5795,
-          "avg_ev": -0.2564,
+          "n": 204,
+          "brier": 0.5668,
+          "rps": 0.1952,
+          "log_loss": 0.9592,
+          "hit_rate": 0.5784,
+          "avg_ev": -0.2451,
           "total_ev": -50.0
         }
       ]
     },
     "shrinkage_dc": {
-      "n_evaluated": 1226,
+      "n_evaluated": 1327,
       "skipped_dates": 0,
-      "shrinkage_dc_brier": 0.6172,
-      "final_brier": 0.5773,
-      "model_raw_brier": 0.6142,
-      "market_brier": 0.5709,
+      "shrinkage_dc_brier": 0.6147,
+      "final_brier": 0.5764,
+      "model_raw_brier": 0.6155,
+      "market_brier": 0.5703,
       "verdict": "hold",
       "snapshot": {
-        "n_matches": 58030,
-        "teams": 1052,
-        "rho": -0.0463,
-        "fitted_at": "2026-10-25"
+        "n_matches": 58131,
+        "teams": 1054,
+        "rho": -0.0452,
+        "fitted_at": "2026-11-01"
       }
     }
   }
