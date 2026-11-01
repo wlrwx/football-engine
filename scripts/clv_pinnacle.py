@@ -5,6 +5,13 @@ football-data.co.uk 的 60k+ 场历史 CSV 自带 Pinnacle 收盘价（PSCH/PSCD
 把账本里已结算的下注匹配上去，得到"vs 尖锐收盘"的 CLV——之前用 DJYY 市场均价
 只能算近似口径，这是行业标准口径的免费实现。
 
+**口径限制（2026-10-28 实测，别再当 bug 追）**：
+`new/` 系列文件里 Pinnacle 收盘价到 2025 年后基本为空——BRA 2026 年 319 行，
+PSCH 非空 0 行（2012–2024 年基本 100%），所以近年注只能退到 B365 收盘。
+基准阶梯是 psc → b365c → maxc → avgc，报告里 `benchmark_stats` 按基准分开统计；
+读 `overall` 之前先看它用的是哪一档，B365 收盘比 Pinnacle 软，
+把两者混成一句「vs 尖锐收盘」会高估我们贴近市场的程度。
+
 匹配链：账本行 →（队名 ZH→EN 字典，源自 context_cache 阵容的中英双名）
        →（同日 + 同联赛文件）→ football-data 行 → PSC 收盘价。
 未覆盖：欧国联/国际赛/K联赛等 fdc 没有的联赛，以及字典缺队的场次。
@@ -123,6 +130,26 @@ def _name_match(a: str, b: str) -> float:
     return len(ta & tb) / max(1, min(len(ta), len(tb)))
 
 
+# 基准阶梯：越靠前越锐。sel 是本注选中的结果（0=主胜 1=平 2=客胜）。
+_CLOSE_LADDER = (("psc", "pinnacle"), ("b365c", "b365"),
+                 ("maxc", "max_market"), ("avgc", "avg_market"))
+
+
+def pick_close(row: dict, sel: int) -> tuple[float | None, str | None]:
+    """按阶梯取收盘价，返回 (价格, 基准名)。
+
+    2026-10-28 抽出：原来这段内联在主循环里，无法单测。它的口径直接决定
+    「CLV 是 vs 尖锐收盘还是 vs 软收盘」，值得锁一个测试——
+    实测 2026 年的行 psc_* 普遍为空（源站不给 Pinnacle 收盘了），
+    所以近年注基本都退到 b365，报告必须按 benchmark 分开统计。
+    """
+    for prefix, name in _CLOSE_LADDER:
+        trio = [row.get(f"{prefix}_{s}") for s in ("h", "d", "a")]
+        if sel < len(trio) and trio[sel]:
+            return trio[sel], name
+    return None, None
+
+
 def main() -> int:
     zh_en = build_zh_en_dict()
 
@@ -196,13 +223,7 @@ def main() -> int:
             stats["no_match"] += 1
             continue
         # 收盘基准择锐：Pinnacle 收盘 → B365 收盘 → 全市场最高收盘 → 均值收盘
-        bench, bench_name = None, None
-        for prefix, name in (("psc", "pinnacle"), ("b365c", "b365"),
-                             ("maxc", "max_market"), ("avgc", "avg_market")):
-            trio = [best.get(f"{prefix}_{s2}") for s2 in ("h", "d", "a")]
-            if trio[sel]:
-                bench, bench_name = trio[sel], name
-                break
+        bench, bench_name = pick_close(best, sel)
         if not bench:
             stats["no_close"] += 1
             continue
@@ -228,8 +249,29 @@ def main() -> int:
             "pos_pct": round(sum(1 for x in clvs if x > 0) / n, 3),
             "t": round(mean / (sd / n ** 0.5), 2) if sd > 0 else 0.0,
         }
+        # 2026-10-28：按基准分开统计。
+        # 起因是「258 条全部 benchmark=b365」被当成匹配 bug 查了一轮，结论是源数据本身：
+        # new/ 文件里 PSCH 在 2025 年之后基本为空（BRA 2026 年 319 行 PSCH 非空 0），
+        # 退到 B365 收盘是唯一选择。那就必须把口径写进报告，不能一句「vs 尖锐收盘」带过——
+        # B365 的收盘比 Pinnacle 软，混在一起讲会高估「我们贴近市场」的程度。
+        by_bench: dict[str, list[float]] = defaultdict(list)
+        for m in matched:
+            by_bench[m.get("benchmark") or "unknown"].append(m["clv"])
+        report["benchmark_stats"] = {
+            k: {
+                "n": len(v),
+                "mean": round(statistics.mean(v), 4),
+                "median": round(statistics.median(v), 4),
+                "pos_pct": round(sum(1 for x in v if x > 0) / len(v), 3),
+            }
+            for k, v in sorted(by_bench.items())
+        }
+        report["latest_matched_date"] = max(m["date"] for m in matched)
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(json.dumps({"stats": stats, "overall": report.get("overall")}, ensure_ascii=False, indent=1))
+    print(json.dumps({"stats": stats, "overall": report.get("overall"),
+                      "benchmark_stats": report.get("benchmark_stats"),
+                      "latest_matched_date": report.get("latest_matched_date")},
+                     ensure_ascii=False, indent=1))
     return 0
 
 

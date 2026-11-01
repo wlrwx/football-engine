@@ -44,3 +44,10 @@ data/state/.community_snapshot_done
 
 # CI 看门狗的上次补触发时间（per-host 节流用）
 .ci_watchdog_last
+
+# football-data.co.uk 原始缓存与派生表：每次运行重新生成，不入 git
+# （2026-10-28：此前 43 个 CSV + 26MB parsed.jsonl 全在版本库里，一旦恢复
+#  每日刷新，会以约 10MB/天的速度膨胀历史；解析结果由 fetch_football_data.py
+#  在 CI 同一步重新生成，因此在仓库里留 status.json + clv_pinnacle.json 即可）
+data/state/fdc/*.csv
+data/state/fdc/parsed.jsonl

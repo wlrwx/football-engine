@@ -34,6 +34,15 @@ jobs:
         run: python scripts/sportmonks_capture.py --date "$(TZ=Asia/Shanghai date +%F)" --quiet || true
       - name: NJStats（试用 2026-10-15 已到期，收割完结，步骤休眠）
         run: echo "njstats trial expired; archive 150/150 done"
+      - name: 恢复 fdc 缓存
+        # 原始 CSV 与解析表都不再入库（见 .gitignore），用 Actions 缓存在本机之间传递，
+        # 避免每小时重复下载 43 个 CSV；缓存丢失时下面的 date 门控会自动补抓。
+        uses: actions/cache@v4
+        with:
+          path: data/state/fdc
+          key: fdc-${{ github.run_id }}
+          restore-keys: |
+            fdc-
       - name: 每日任务（fdc 历史刷新/AUT 纸面跟踪；date 门控）
         # DJYY 月审已移出本步骤：它读 _vault/djyy_value_model.json，而 _vault/ 被
         # .gitignore 排除（0e1447d93 的刻意安全设计，免数据口子被站点封堵）——
@@ -41,11 +50,19 @@ jobs:
         # 步骤名却让人以为云端在跑月审。现仅在本地手工跑：python scripts/djyy_audit.py
         run: |
           STAMP="data/state/.daily_ci_$(TZ=Asia/Shanghai date +%F)"
-          if [ ! -f "$STAMP" ]; then
+          # 2026-10-28：fdc 缓存不再入库（43 个 CSV + 26MB parsed.jsonl）。
+          # 于是「今天已经刷过」的判断要加上「解析缓存还在不在本机」——
+          # 否则换一个干净的 runner 就会跳过抓取，后面的 CLV 重算无数据可用。
+          if [ ! -f "$STAMP" ] || [ ! -f data/state/fdc/parsed.jsonl ]; then
             python scripts/fetch_football_data.py >> "$STAMP" 2>&1 || true
             python scripts/paper_track_draw.py >> "$STAMP" 2>&1 || true
             touch "$STAMP"
           fi
+      - name: 重算下注级 CLV（依赖上一步的 fdc 解析缓存）
+        # 2026-10-28：此前没有任何 workflow 调用 clv_pinnacle.py，
+        # 于是 data/state/clv_pinnacle.json 停在 2026-10-23（ok=258），
+        # 新入账的注一条都没进面板，而 health-check 还在引用这个文件判断收盘通路。
+        run: python scripts/clv_pinnacle.py || echo "::error::CLV 重算失败（fdc 缓存为空或解析异常）"
       # 2026-10-22：sina 赔率时序采集也挂到这里。
       #
       # 起因是 PR#9 的结论被推翻了：那次把 fetch_sina_odds 的 `--days` 从 1 扩到 2

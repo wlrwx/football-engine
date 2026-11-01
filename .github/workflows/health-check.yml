@@ -171,3 +171,28 @@ jobs:
           if echo "$SNAP" | jq -e '.snapshot_age_h == null or .snapshot_age_h > 24' >/dev/null; then
             echo "::error::DJYY 快照已 $(echo "$SNAP" | jq -r '.snapshot_age_h // "无快照"')h 未更新（阈值 24h）—— 本机 duty 可能长期离线，实时源一旦被拦就没有兜底"
           fi
+
+      # 2026-10-28：football-data.co.uk 缓存新鲜度。
+      # 起因：缓存从 2026-10-09 起停更 19 天，CLV 面板停在 10-08，而新入账的
+      # 272 注全部匹配失败却只被记成 league_uncovered/no_en/no_match —— 看不出
+      # 「根本没新数据」。根因有两个：抓取脚本「文件存在就跳过」+ 代理写死在本机
+      # Clash，CI 里必然失败且被 `|| true` 吞掉。两边都修了，这里补判定。
+      - name: football-data cache freshness (read-only)
+        if: ${{ github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          URL="repos/${{ github.repository }}/contents/data/state/fdc/status.json"
+          ST=$(gh api "$URL" --jq '.content' 2>/dev/null | base64 -d) || ST=""
+          if [ -z "$ST" ]; then
+            echo "::warning::没有 data/state/fdc/status.json —— 抓取脚本尚未上报过状态"
+            exit 0
+          fi
+          echo "$ST" | jq -r '"→ football-data: 刷新 \(.files_ok)/\(.files_total) | 最新数据 \(.latest_date // "?")'
+            + " | 行数 \(.rows) | " + (if .proxy_configured then "代理已配置" else "直连" end)'
+          if [ "$(echo "$ST" | jq -r '.files_ok')" = "0" ]; then
+            echo "::error::football-data 全部文件刷新失败 —— CLV 面板会停在旧数据上（检查出口网络或 FDC_PROXY）"
+          fi
+          if echo "$ST" | jq -e '(.latest_date != null) and ((now - (.latest_date + "T00:00:00Z" | fromdateiso8601)) > 8*86400)' >/dev/null; then
+            echo "::error::football-data 最新数据只到 $(echo "$ST" | jq -r '.latest_date')（超过 8 天）—— 缓存未刷新，CLV 覆盖率会持续下滑"
+          fi
