@@ -5,6 +5,8 @@
 """
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,8 +20,26 @@ sys.modules["duty_main_watch"] = duty
 SPEC.loader.exec_module(duty)
 
 
+def _bash():
+    """Windows runner 上 `bash` 会命中没有发行版的 WSL 壳，必须指到真正的 Git Bash。"""
+    if os.name != "nt":
+        return "bash"
+    candidates = []
+    git = shutil.which("git")
+    if git:
+        candidates.append(str(Path(git).resolve().parent.parent / "bin" / "bash.exe"))
+    for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
+        if base:
+            candidates.append(str(Path(base) / "Git" / "bin" / "bash.exe"))
+    return next((c for c in candidates if Path(c).exists()), None)
+
+
+BASH = _bash()
+pytestmark = pytest.mark.skipif(BASH is None, reason="需要 Git Bash / POSIX bash")
+
+
 def _sh(cwd, cmd):
-    return subprocess.run(["bash", "-c", cmd], cwd=str(cwd), capture_output=True,
+    return subprocess.run([BASH, "-c", cmd], cwd=str(cwd), capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
 
 
