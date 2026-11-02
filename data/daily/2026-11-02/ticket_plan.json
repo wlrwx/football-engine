@@ -6,11 +6,57 @@
   "expected_roi": 0.0,
   "bankroll": 3773.8959000000004,
   "breaker_multiplier": 0.5,
-  "parlay": [],
-  "parlay_pool_n": 1,
+  "parlay": [
+    {
+      "type": "2串1",
+      "legs": [
+        {
+          "match": "2026-11-02_周一005",
+          "home": "红星",
+          "away": "南锡",
+          "league": "法乙",
+          "sel": "home",
+          "odds": 2.18,
+          "prob": 0.426,
+          "cal_prob": 0.486,
+          "market_prob": 0.403,
+          "source": "fusion",
+          "hit_prob": 0.486
+        },
+        {
+          "match": "2026-11-02_周一007",
+          "home": "拉科鲁尼亚",
+          "away": "奥萨苏纳",
+          "league": "西甲",
+          "sel": "home",
+          "odds": 2.18,
+          "prob": 0.409,
+          "cal_prob": 0.486,
+          "market_prob": 0.403,
+          "source": "fusion",
+          "hit_prob": 0.486
+        }
+      ],
+      "total_odds": 4.75,
+      "model_ev": -0.35,
+      "cal_ev": 1.68,
+      "cal_roi": 0.1239,
+      "market_ev": -0.46,
+      "market_roi": -0.2292,
+      "hit_prob_cal": 0.236,
+      "recommended": true,
+      "stake": 13.59,
+      "n_bets": 1,
+      "potential": 64.59,
+      "worst_win": 0.0,
+      "note": "两场全中才赢",
+      "source": "calibrated"
+    }
+  ],
+  "parlay_pool_n": 2,
   "score_parlay": [],
-  "parlay_stake": 0,
-  "total_exposure": 0.0,
+  "parlay_stake": 13.59,
+  "total_exposure": 13.59,
   "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
   "parlay_calibration": {
     "overall": 0.5465,
