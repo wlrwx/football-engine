@@ -25,7 +25,7 @@ def _sh(cwd, cmd):
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
-    remote = tmp_path / "remote.git"
+    # 裸库用相对路径：Windows runner 上绝对路径带反斜杠，git 会当协议前缀解析。
     _sh(tmp_path, "git init -q --bare remote.git && "
                   "git -C remote.git symbolic-ref HEAD refs/heads/main")
     r = tmp_path / "r"
@@ -33,7 +33,9 @@ def repo(tmp_path, monkeypatch):
     _sh(r, "git init -q -b main && git config user.email owner@localhost && git config user.name owner")
     (r / "a.txt").write_text("1\n", encoding="utf-8")
     _sh(r, "git add -A && git commit -qm 'duty: 正常提交'")
-    _sh(r, f"git remote add origin {remote} && git push -q origin main")
+    _sh(r, 'git remote add origin "../remote.git" && git push -q origin main')
+    tip = _sh(r, "git rev-parse --verify origin/main")
+    assert tip.returncode == 0, f"夹具的 origin/main 没建起来：{tip.stdout}{tip.stderr}"
     monkeypatch.setattr(duty, "sh", lambda *a: subprocess.run(
         list(a), cwd=str(r), capture_output=True, text=True, check=False,
         encoding="utf-8", errors="replace"))
