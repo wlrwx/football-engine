@@ -58,6 +58,9 @@ DJYY_ATTEMPT_GAP_H = 2.0
 DJYY_MARKER = HOME / ".football-engine" / "djyy_last_attempt"
 NET_STATE = HOME / ".football-engine" / "net_fail_state.json"
 CHALLENGE_STATE = "data/state/challenge_state.json"
+# main 写入者监督（见 watch_main_writes）：小号拿到 Write 之后，main 的作者不再是常量。
+MAIN_WATCH = HOME / ".football-engine" / "main_watch.json"
+MAIN_WATCH_SEED_DAYS = "90.days"
 MINT_NET = "__net__"  # mint 因网络/SSL 拦截失败的哨兵（不是登录问题）
 PX = {"http": None, "https": None}  # 直连；显式 None 防环境代理回落
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
@@ -325,9 +328,93 @@ def fix_conflicts() -> None:
     log(f"冲突已清: {len(u)} 文件")
 
 
+def _main_rows(rng: str = "", limit: int = 25) -> list[dict]:
+    """读 origin/main 的提交（sha/作者邮箱/标题）。rng 给定时按范围取。"""
+    args = ["git", "log", "--format=%H%x09%ae%x09%s"]
+    args += [rng] if rng else [f"-n{limit}"]
+    args.append("origin/main")
+    rows = []
+    for line in sh(*args).stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 3:
+            rows.append({"sha": parts[0], "email": parts[1], "subject": parts[2]})
+    return rows
+
+
+def unexpected_authors(rows: list[dict], known: set[str]) -> list[str]:
+    """不在基线里的作者邮箱，按出现顺序去重。"""
+    seen: set[str] = set()
+    out: list[str] = []
+    for r in rows:
+        if r["email"] not in known and r["email"] not in seen:
+            seen.add(r["email"])
+            out.append(r["email"])
+    return out
+
+
+def watch_main_writes(path: Path = MAIN_WATCH) -> list[str]:
+    """核对上次以来 origin/main 的新增提交作者，返回需要上报的行。
+
+    为什么现在加它：一年多来 main 的直推只有两类来源——duty（wlrwx 的 SSH key）
+    和 github-actions[bot]。接 dsh-superagent 必须给小号 Write（006 的 setup 校验
+    push 权限），而 Write 也能直推 main，所以「谁改了 main」从此不再是常量。
+
+    只报警、不自动 revert：第一次给第二个身份开写权限，既没有坏样本可以校准
+    allowlist，也没有好样本的完备清单（同事邮箱、未来换的 commit identity 都算
+    变量）。把 revert 建在猜出来的名单上，误判就是撤掉真提交——比漏报严重。
+    所以 v1 只做可见性，出事由人决定；state 里的 last_sha 就是取证起点。
+    首次运行不比对，只用近 90 天的真实历史建基线。
+    """
+    tip = sh("git", "log", "-n1", "--format=%H", "origin/main").stdout.strip()
+    if not tip:
+        return []
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        state = None
+    if not isinstance(state, dict) or "known_authors" not in state:
+        known = {r["email"] for r in _main_rows(rng=f"--since={MAIN_WATCH_SEED_DAYS}")}
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"last_sha": tip, "known_authors": sorted(known)},
+                                       ensure_ascii=False), encoding="utf-8")
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+        log(f"main 作者基线建立：{len(known)} 个邮箱（近 90 天历史）")
+        return []
+
+    known = set(state.get("known_authors") or [])
+    last = str(state.get("last_sha") or "")
+    alerts: list[str] = []
+    if last and last != tip and sh("git", "merge-base", "--is-ancestor", last,
+                                   "origin/main").returncode != 0:
+        # 非快进：历史被重写或 force-push，基线作废，重建后继续盯。
+        alerts.append(f"⚠ main 非快进（{last[:8]} 不在 origin/main 上）——"
+                      f"有人 force-push 或重写了历史，作者基线重建")
+        known = {r["email"] for r in _main_rows(rng=f"--since={MAIN_WATCH_SEED_DAYS}")}
+    elif last:
+        rows = _main_rows(rng=f"{last}..origin/main")
+        for email in unexpected_authors(rows, known):
+            who = next((r for r in rows if r["email"] == email), {})
+            alerts.append(f"⚠ main 陌生作者 {email}（{who.get('sha','')[:8]} {who.get('subject','')[:40]}）"
+                          f"——不自动回退，请人工确认这轮提交是谁推的")
+        # 陌生作者不进基线：进了就等于「看过一次就永久合法」，持续偷推只在第一轮出声。
+        # 基线只在首次运行或历史被重写时从近 90 天真实历史重建。
+    try:
+        path.write_text(json.dumps({"last_sha": tip, "known_authors": sorted(known)},
+                                   ensure_ascii=False), encoding="utf-8")
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    return alerts
+
+
 def main() -> int:
     os.chdir(ROOT)
     sh("git", "pull", "--rebase", "--autostash", "origin", "main")
+    for _line in watch_main_writes():
+        log(_line)
     if sh("git", "diff", "--name-only", "--diff-filter=U").stdout.strip():
         fix_conflicts()
     tok = mint()
