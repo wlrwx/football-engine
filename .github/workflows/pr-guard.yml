@@ -1,0 +1,35 @@
+# 外部 PR 闸门：自动化身份不得碰裁判层；人的改动需要 human-approved 标签；
+# 挑战子系统改动必须写「拔除影响评估」。判定逻辑全在 scripts/pr_guard.py（有单测）。
+# 注意：这是三道闸的第一道。真正让「小号合不了 PR」的是 main 的 ruleset
+# （必须 PR + 1 个别人批准 + 必过检查），两者缺一不可。
+name: PR 闸门
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: 取改动清单
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch -q origin "$BASE_SHA" "$HEAD_SHA" || git fetch -q origin
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > /tmp/changed.txt
+          echo "改动 $(wc -l < /tmp/changed.txt) 个文件"
+      - name: 判定
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          printf '%s' "$PR_BODY" > /tmp/pr_body.txt
+          python scripts/pr_guard.py --files-from /tmp/changed.txt \
+            --labels-json "$PR_LABELS" --body-file /tmp/pr_body.txt --author "$PR_AUTHOR"
