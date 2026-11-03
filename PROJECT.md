@@ -286,6 +286,15 @@
 - 推送：HTTPS token 或 SSH deploy key；STATUS.md 记录走 `~/.ssh/football-engine_deploy`【本机未验证】
 - GitHub Actions：daily-forecast(:15/:45) / ci-sync(:47) / health-check(:00) / evolution-loop(每日 01:30 UTC，PR#28 新增)
 - GitHub 对公开仓高频 schedule 有排队限流：实测 */15 实际只跑 5 次/天，阈值必须按真实频率设
+- **main 不加分支保护**（2026-11-04 事故结论）：保护会拦 `github-actions[bot]` 直推，而 duty/三条
+      CI 回仓都靠直推；owner 探针验不出这一侧。小号「只能提 PR」靠 fork 交付 + 上游零写权限实现
+- 运维摘要：duty 每轮跑 `scripts/ops_digest.py --write --quiet` → `~/.football-engine/ops_digest.{txt,json}`
+      （含 `red_flags`，每条带人的动作）；`DUTY_SKIP_OPS_DIGEST=1` 可关。红线同时写 duty.log
+- Qoder 自动化：原「巡检 4 次/天」「E8 对账 2 次/天」已**禁用**（prompt 原文保留，回退即重新启用）；
+      现役只有「竞彩运维分诊」每日 22:40 一次（`independent`、只读、无红线只回一行）
+- 第二运行时（未起服务）：`~/.dsh/profiles/superagent` + bundle `~/src/dsh-superagent`；小号 `dykily`
+      的 gh 凭据只在 `~/.config/gh-agent`（默认 `gh` 刻意保持未登录）；启动前必须过
+      `scripts/agent_identity_preflight.py`
 
 ## 已知未修（按优先级）
 > 2026-10-13 复核：前 4 条**已解决**，移到底部「已完成」；下面是真正还开着的。
@@ -300,7 +309,21 @@
 - [x] ~~LGBM ready~~ → 2026-10-22 复核：`ready:false` 是影子验证的正常裁决，
       holdout n=339，Brier 0.5583 vs 融合 0.5261 / 市场 0.5301（t=-2.85 / -3.41），
       模型照常训练、上线闸门不开；不是接线 bug。
-- [ ] 洁净样本累积 / 新闻进模型（展示层已做；进模型需覆盖率 + 预登记实验）
+- [ ] 洁净样本累积 / 新闻进模型：覆盖率已量出（14 天 217 场，任意新闻 **45.2%**、injury **18.0%**，
+      PR #74），旧上限 40 截断已提到 120 并记录 `matched_total`。**E11 草案在 PR #74 描述里，未启用**；
+      开跑前置：E8/E10 先收尾（中途加特征会污染冻结样本）、重测覆盖 ≥70% / injury ≥35%、
+      特征需 `has_news` 指示位区分「无覆盖」与「覆盖且 0 条伤病」
+- [ ] dsh-superagent 接入停在半路：bundle/profile 已装、身份不变量与 PR 闸门已上线，但 **fork 未建、
+      服务未起**，小号对上游只读。剩余：建 fork → 单独 clone 到 `~/agentbox`（**不要复用 duty 那份
+      clone，worktree 会继承大号的 SSH remote**）→ 身份检查全绿 → 配 Sources/Policy（observe、
+      只允许 wlrwx）→ 起服务 → 第一张工单验「只能提 PR」
+- [ ] 残留安全面（用户裁决不建独立 macOS 账号）：同 OS 用户下的 agent 理论上能读 `~/.ssh` 冒充大号
+      直推 main。现有兜底是 main-watch 报警 + 身份不变量检查 + 小号上游零写权限，**不是硬隔离**
+- [ ] 10-31 三份逐时快照永久缺失（断网当天，不可补）：E8/E10 配对回放少一天；速度分母按真实观察
+      天数计，不要试图伪造补齐
+- [ ] 站点赔率覆盖 84%（184 场里 29 场无赔率）：成因是**赛事级别**覆盖（亚冠二级/东南亚/中东俱乐部
+      赛事为主；青年队只占缺口 8/29，而带赔率的 155 场里反有 30 场青年队）。**不是抽样瓶颈**——
+      瓶颈是与体彩预测的交集（匹配5/173）与价差（最高<2%）。裁决：不改采集口径
 - [x] ~~SportMonks `fixtures_on` / `fixture_odds` / `injuries` 未接入~~ → 随不订阅裁决关闭。
       **不要凭文档猜**这三个方法；真要接需先有能覆盖竞彩联赛的套餐与 token 再实测
 - [ ] 静默吞异常（2026-10-22 AST 重扫：**256 处**，旧记的 98 是漏算）——**不报错，只是没产出**，
@@ -317,6 +340,57 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-04 **给 main 加分支保护 → CI 回仓全灭（自己造成的事故，务必记住）**：为接 dsh-superagent
+      想让小号「只能提 PR」，用经典分支保护开了「必须走 PR + 1 批准 + 必过检查」。owner 的 SSH key
+      是 admin 可绕过（duty 一路绿），但 `github-actions[bot]` 的 `GITHUB_TOKEN` **不是 admin**，
+      直推被 `GH006: Protected branch update failed / Changes must be made through a pull request` 拦掉：
+      `daily-forecast` #1627~#1630 连红四轮，11-03 的 `predictions.json` 没落库 → duty 连续「匹配0」，
+      11-02 的 `results/results_sina/review` 也没生成。处置：撤保护（一条 DELETE）→ 重跑 #1631 补回全部数据。
+      **结论：不要再给 main 加分支保护**；「小号只能提 PR」改用 **fork 交付**（小号推自己的 fork、
+      对上游零写权限，结构上就合不了），main 保持无保护。教训：验 owner 侧探针**验不出 Actions 侧**，
+      两侧都要实测才算验过。
+- 2026-11-04 **health-check 连红 5 轮，红的是检查自己**：`football-data cache freshness` 步骤里 jq
+      程序被写成两行，第一行末尾就闭合了单引号 → `jq compile error` → 整步 exit 3，**后面两条真判定
+      （files_ok==0 / 停更>8天）从来没执行过**。数据其实健康（43/45、最新到 11-01）。修法：jq 合成一行、
+      两条 `::error::` 补 `exit 1`（原来只发 annotation、步骤照样绿）、加 6 项真跑 bash+jq 的测试并做
+      变异验证（旧代码确实报错）。PR #71。**写了检查 ≠ 检查在跑**——这条判定正是 10-28「缓存停更 19 天」
+      之后补的，补上了却因引号一直空转。
+- 2026-11-04 **ci-sync 回仓失败静默**：`git push … || echo "推送跳过（无新提交或竞态）"` 把权限/保护/
+      网络失败与「无变更」混成一句无害提示，是上面那次事故的隐形放大器（同样被拦却一直绿）。修法：
+      无变更明确 exit 0；真 commit + 3 轮 pull/push 重试；冲突 abort 后 `::error::`+exit 1；3 轮仍失败
+      `::error::`+exit 1。staged 条件是「路径存在 **或** 仍被 git 跟踪」——只判 `[ -e ]` 会漏掉目录被删时的
+      删除动作，导致 `pull --rebase` 报 unstaged changes（这个洞被新测试抓出来）。PR #72，测试用
+      pre-receive 钩子模拟 GH006 拒推。
+- 2026-11-04 **`--no-net` 名不副实 → CI 偶发超时**：`engine/doctor.py` 的 `check_git_state()` 无条件
+      `git fetch origin main`，于是 `test_run_smoke_no_net` 在 runner 上真联网，偶发
+      `TimeoutExpired … 120 seconds`（PR #72 的 ubuntu 与 windows 各中一次）。修法：fetch/push 只在
+      `net=True` 下做，离线用本地 `origin/main` 引用并在结论里注明「可能滞后」；治疗动作同样按 net gating。
+      新测试 spy `_git`，任何 fetch/push/ls-remote 直接断言失败。PR #73。
+- 2026-11-03 **巡检/对账烧 credits：脚本化后降约 94%**：逐笔核会话计费字段发现 1.1.79 之后单笔从
+      0.36 涨到 68~80 credits，而两条自动化（巡检 4 次/天、对账 2 次/天）做的事几乎全是确定性的。
+      新增 `scripts/ops_digest.py`（复用 `challenge_reconcile`/`experiment_pace`/`challenge_review` 的
+      **冻结判据**，只补 duty.log 轮次/异常/归因 + 配额与字段完整性），由 duty 每轮调用（48 次/天、
+      零模型成本，覆盖比原来更密），红线写 duty.log。原两条自动化**禁用**（prompt 原文保留可回退），
+      新增每日 22:40 一次的分诊（`independent` 每次新会话、只读、无红线只回一行）。实测：新分诊
+      2 请求/33.7 credits，旧巡检 9~14 请求/77~129。另：原对账用 `merged` 模式，同一会话从 10-23
+      续用累计 618 credits——上下文越滚越贵，换 `independent` 掐掉增长。PR #70。
+      **真数据抓出的三个 bug**：①「匹配0」那类零合格行**没有「最高」字段**，正则要求它存在会让最该报的
+      数据洞归因成 None ②EV 会写成 `+0.88%`（正号）③把日志**行数**当轮次（24h 276 行其实 46 轮）。
+      对照证据：11-03 早上「匹配0」正是上面那次事故的数据洞，**旧巡检模型的报告写的是「全部正常，
+      无需人工介入」**；新脚本把 `匹配0` 判为 `prediction_coverage_gap` 红线。
+- 2026-11-03 **外部 PR 闸门 + main 写入者监督 + 大小号身份不变量**：`scripts/pr_guard.py` +
+      `.github/workflows/pr-guard.yml`——自动化身份（`AGENT_AUTHORS={dykily}`）**永远**不得碰裁判层/
+      策略状态/实验台账（不看标签，标签是 Write 账号自己加得动的）；人的 PR 碰这些需 `human-approved`；
+      碰挑战子系统必须写「拔除影响评估」。duty 每轮核对 `origin/main` 新增提交作者，陌生作者/非快进
+      都打 ⚠（**只报警不自动 revert**：第一次给第二个身份开写权限，没有坏样本可校准 allowlist，
+      误判撤真提交比漏报严重）。基线从近 90 天真实历史种出来——实测含 `bot@football.engine`、
+      `dsh-agent@…`、`jason@MacBook-Pro.local`，硬编码「wlrwx+actions」会把 duty 自己当偷推。
+      `scripts/agent_identity_preflight.py`：小号只走 HTTPS+自己的 fork、对上游 push/admin 全 false、
+      署名不得是大号那套、大号 remote 必须仍是 SSH 别名、环境不得有 GH_TOKEN。PR #68 / #69。
+- 2026-11-04 **新闻覆盖率被采集上限低估**：14 天里 6 天条数正好卡在旧上限 40。上限提到 120，
+      `news.json` 新增 `matched_total`（截断前总数）与 `limit`，否则永远分不清「源不足」和「我们截断了」。
+      按场次实测：217 场预测里任意新闻覆盖 **45.2%**、injury 覆盖 **18.0%**。E11 预登记**草案**写在
+      PR #74 描述里（未启用、未进 EXPERIMENTS 生效区）：必须等 E8/E10 收尾、覆盖率达阈值才允许开跑。
 - 2026-11-01 **断网被误报成「需人工登录」**：10-30 17:35 → 11-01 11:35 本机网络被中间设备
       劫持（`SSL: CERTIFICATE_VERIFY_FAILED: self-signed certificate in certificate chain`），
       duty 连续 81 轮 mint 失败，每轮都打「需人工登录（跑 seed_login）」——实际 session 没死，
