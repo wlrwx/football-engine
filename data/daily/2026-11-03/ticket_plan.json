@@ -7,10 +7,44 @@
   "bankroll": 3760.3059000000003,
   "breaker_multiplier": 1.0,
   "parlay": [],
-  "parlay_pool_n": 0,
-  "score_parlay": [],
-  "parlay_stake": 0,
-  "total_exposure": 0.0,
+  "parlay_pool_n": 1,
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-11-03_周二009",
+          "home": "巴塞罗那",
+          "away": "阿斯顿维拉",
+          "league": "欧冠",
+          "score": "1-0",
+          "prob": 0.237,
+          "cal_prob": 0.0885,
+          "odds": 17.0
+        },
+        {
+          "match": "2026-11-03_周二004",
+          "home": "加拉塔萨雷",
+          "away": "斯图加特",
+          "league": "欧冠",
+          "score": "0-1",
+          "prob": 0.193,
+          "cal_prob": 0.0641,
+          "odds": 21.0
+        }
+      ],
+      "total_odds": 357.0,
+      "hit_prob": 0.0057,
+      "stake": 2.0,
+      "potential": 714.0,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.6% × 赔率 357 倍 = EV +102%）"
+    }
+  ],
+  "parlay_stake": 2.0,
+  "total_exposure": 2.0,
   "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
   "parlay_calibration": {
     "overall": 0.5473,
