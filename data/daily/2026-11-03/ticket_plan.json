@@ -1,0 +1,30 @@
+{
+  "stable": [],
+  "value": [],
+  "lottery": [],
+  "total_stake": 0,
+  "expected_roi": 0.0,
+  "bankroll": 3773.8959000000004,
+  "breaker_multiplier": 0.5,
+  "parlay": [],
+  "parlay_pool_n": 0,
+  "score_parlay": [],
+  "parlay_stake": 0,
+  "total_exposure": 0.0,
+  "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
+  "parlay_calibration": {
+    "overall": 0.5465,
+    "n": 1345,
+    "table": {
+      "0.35": 0.4333,
+      "0.4": 0.4863,
+      "0.45": 0.4977,
+      "0.5": 0.4922,
+      "0.55": 0.4776,
+      "0.6": 0.6552,
+      "0.65": 0.7525,
+      "0.7": 0.7971
+    },
+    "note": "串关 EV 用账本校准命中率（模型概率高估，0.55-0.60 段仅 31.6% 命中）；推荐=校准EV>0"
+  }
+}
