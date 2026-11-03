@@ -410,6 +410,39 @@ def watch_main_writes(path: Path = MAIN_WATCH) -> list[str]:
     return alerts
 
 
+def _maybe_ops_digest() -> None:
+    """每轮跑确定性运维摘要（零模型成本），红线写进 duty.log。
+
+    2026-11-03：原来巡检 4 次/天 + 对账 2 次/天都是模型会话，实测新版客户端下
+    约 500+ credits/天，而它们做的事全是确定性的。判定搬进 scripts/ops_digest.py
+    后由这里每轮调用（48 次/天，覆盖更密），模型只在有红线时才需要介入。
+    摘要自身出错只记一行，绝不影响本轮采集与提交链。
+    """
+    if os.environ.get("DUTY_SKIP_OPS_DIGEST") == "1":
+        return
+    try:
+        p = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"), "scripts/ops_digest.py",
+                            "--write", "--quiet"], cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", check=False, timeout=180)
+    except (OSError, subprocess.SubprocessError) as exc:
+        log(f"⚠ ops_digest 跑不起来: {type(exc).__name__}")
+        return
+    if p.returncode == 2:
+        log(f"⚠ ops_digest 自身出错: {(p.stdout or p.stderr).strip()[:160]}")
+        return
+    try:
+        ctx = json.loads((HOME / ".football-engine" / "ops_digest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        log("⚠ ops_digest 没产出可读摘要")
+        return
+    flags = ctx.get("red_flags") or []
+    if not flags:
+        log("ops: 无红线")
+        return
+    for f in flags:
+        log(f"⚠ 运维红线 {f.get('code')}: {f.get('detail')} → {f.get('action')}")
+
+
 def main() -> int:
     os.chdir(ROOT)
     sh("git", "pull", "--rebase", "--autostash", "origin", "main")
@@ -458,6 +491,9 @@ def main() -> int:
     # 提交失败不影响本轮采集（文件在本地，下一轮再试）——但要可见，否则又回到
     # 「静默不提交、样本只活在笔记本上」。
     commit_push(SNAPSHOT_PATHS, "duty: njstats 每日快照（站点赔率/服务端真值/社区倾向）")
+    # 摘要放在快照提交之后、DJYY 之前：快照龄/入库检查要反映本轮，而 DJYY 是
+    # 600s 级的外网抓取，不该让摘要等它。
+    _maybe_ops_digest()
     if os.environ.get("DUTY_SKIP_DJYY") != "1":
         _maybe_djyy_snapshot()
     # CI 看门狗：平台定时任务限流严重，CI 长时间没跑时补一轮。
