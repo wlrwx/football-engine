@@ -117,15 +117,22 @@ def _beijing_date(days_back: int = 0) -> str:
 
 # ---------------------------------------------------------------- git 层
 
-def check_git_state(report: DoctorReport, heal: bool) -> None:
-    """事故史：rebase 卡死 → detached HEAD → 推送全灭（2026-10-11 两次复发）。"""
+def check_git_state(report: DoctorReport, heal: bool, net: bool = True) -> None:
+    """事故史：rebase 卡死 → detached HEAD → 推送全灭（2026-10-11 两次复发）。
+
+    2026-11-04：`net=False`（--no-net）必须真的不联网。原来这里无条件 `git fetch`，
+    CI 的 test_run_smoke_no_net 在 runner 上偶发 fetch 超时 120s 而红——一个名叫
+    no_net 的测试却在真联网，ubuntu 与 windows 都中过。离线时改用本地 origin/main
+    引用并在结论里注明可能滞后；「清场对齐远端」和「补推」这种必须联网的治疗也只在
+    net 下做，离线只报告不动手。
+    """
     stuck = ((REPO / ".git" / "rebase-merge").exists()
              or (REPO / ".git" / "rebase-apply").exists())
     _, head_branch = _git(["symbolic-ref", "-q", "--short", "HEAD"])
     detached = head_branch == ""
 
     if stuck or detached:
-        if heal:
+        if heal and net:
             _git(["rebase", "--quit"]) if stuck else None
             _git(["checkout", "-B", "main"])
             _git(["fetch", "origin", "main"])
@@ -134,6 +141,12 @@ def check_git_state(report: DoctorReport, heal: bool) -> None:
                 "git/state", "git", "warn",
                 f"残留 rebase 状态={stuck}, detached HEAD={detached} → 已清场对齐远端",
                 healable=True, healed=True))
+        elif heal:
+            report.add(Finding(
+                "git/state", "git", "warn",
+                f"残留 rebase 状态={stuck}, detached HEAD={detached}；--no-net 下不联网清场，"
+                f"需联网跑一次治疗模式",
+                healable=True, healed=False))
         else:
             report.add(Finding(
                 "git/state", "git", "critical",
@@ -142,20 +155,23 @@ def check_git_state(report: DoctorReport, heal: bool) -> None:
         report.add(Finding("git/state", "git", "ok", "分支状态正常"))
 
     # 本地积压未推送（事故史：推送失败静默积压 6 个提交 5 小时）
-    _git(["fetch", "origin", "main"])
+    if net:
+        _git(["fetch", "origin", "main"])
     _, ahead = _git(["rev-list", "--count", "origin/main..main"])
     n_ahead = int(ahead) if ahead.isdigit() else 0
+    offline = "" if net else "（离线：用本地 origin/main 引用，可能滞后）"
     if n_ahead > 0:
         healed = False
-        if heal:
+        if heal and net:
             rc, _ = _git(["push", "origin", "main"])
             healed = rc == 0
         report.add(Finding(
             "git/backlog", "git", "info" if healed else "warn",
-            f"本地领先 origin/main {n_ahead} 个提交" + ("→ 已补推" if healed else "（推送失败，下轮重试）"),
+            f"本地领先 origin/main {n_ahead} 个提交"
+            + ("→ 已补推" if healed else "（推送失败，下轮重试）") + offline,
             healable=True, healed=healed))
     else:
-        report.add(Finding("git/backlog", "git", "ok", "无未推送积压"))
+        report.add(Finding("git/backlog", "git", "ok", "无未推送积压" + offline))
 
     # fetch refspec 被收窄（事故史：本地永远看不见远端其他分支，8 个分支无感知）
     _, refspec = _git(["config", "remote.origin.fetch"])
@@ -427,7 +443,7 @@ def check_repo_hygiene(report: DoctorReport) -> None:
 
 def run(heal: bool = True, net: bool = True) -> DoctorReport:
     report = DoctorReport()
-    check_git_state(report, heal)
+    check_git_state(report, heal, net)
     check_missing_results(report, heal)
     check_settlement_flow(report, heal)
     check_djyy_liveness(report)
