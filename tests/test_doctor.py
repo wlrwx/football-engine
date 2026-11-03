@@ -178,6 +178,31 @@ def test_run_smoke_no_net(tmp_path, monkeypatch):
     assert all(f.severity in ("ok", "info", "warn", "critical") for f in r.findings)
 
 
+def test_no_net_never_touches_the_network(tmp_path, monkeypatch):
+    """--no-net 必须真的不联网（2026-11-04）。
+
+    check_git_state 原来无条件 `git fetch origin main`，于是名叫 no_net 的冒烟测试
+    在 runner 上偶发 fetch 超时 120s 而红，ubuntu 与 windows 都中过。这里 spy 掉 _git：
+    任何 fetch/push/ls-remote 直接判失败；同时要求离线结论注明用的是本地引用。
+    """
+    (tmp_path / "state").mkdir()
+    monkeypatch.setattr(doctor, "STATE", tmp_path / "state")
+    real = doctor._git
+    calls = []
+
+    def spy(args, cwd=doctor.REPO):
+        calls.append(list(args))
+        assert args[0] not in ("fetch", "push", "ls-remote"), f"--no-net 竟然联网: {args}"
+        return real(args, cwd)
+
+    monkeypatch.setattr(doctor, "_git", spy)
+    r = run(heal=False, net=False)
+    assert r.findings and calls, "git 层仍应做本地检查"
+    backlog = [f for f in r.findings if f.id == "git/backlog"]
+    assert backlog and all("离线" in f.detail for f in backlog), \
+        "离线结论必须注明用的是本地 origin/main 引用、可能滞后"
+
+
 # ------------------------------------------------ 报告时间戳（2026-10-19 事故）
 def test_generated_at_is_beijing_in_any_runner_tz(monkeypatch):
     """CI runner 是 UTC：`beijing_date + 本地时分` 会拼出超前 8 小时的假时间。
