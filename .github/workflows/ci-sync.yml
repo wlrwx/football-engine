@@ -84,14 +84,40 @@ jobs:
       - name: 提交回仓库
         env:
           GH_TOKEN: ${{ github.token }}
+        # 2026-11-04 修：原来是 `git push … || echo "推送跳过（无新提交或竞态，下轮重试）"`，
+        # 把真实失败（权限/分支保护/网络）吞成一句无害提示。11-02 给 main 加分支保护后
+        # github-actions[bot] 的直推被 GH006 拦掉，daily-forecast 红了四轮才被发现，而
+        # ci-sync 同样被拦却一直是绿的——它就是这个事故的隐形放大器。
+        # 现在：无变更明确 exit 0；推送 3 轮仍失败 → ::error:: + exit 1；冲突 abort 并红。
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # runner 上没有本地那份 SSH deploy key，用 workflow token 走 HTTPS
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/wlrwx/football-engine.git"
-          # 先本地提交（各采集步骤留在工作区的变更），再 rebase 拉齐，最后推送
-          git add data/ web/ || true
-          git diff --cached --quiet || git commit -m "ci-sync: $(TZ=Asia/Shanghai date +%F\ %H:%M)"
-          git pull --rebase origin main || (git rebase --abort 2>/dev/null; true)
-          git push origin HEAD:main || echo "推送跳过（无新提交或竞态，下轮重试）"
+          # git add 是原子的：一个路径不存在就整条失败。但只判 [ -e ] 也不够——
+          # 目录被删时删除动作也需要 staged，否则 pull --rebase 会报 unstaged changes。
+          for p in data web; do
+            if [ -e "$p" ] || [ -n "$(git ls-files -- "$p")" ]; then git add -A -- "$p"; fi
+          done
+          if git diff --cached --quiet; then
+            echo "ci-sync: 无变更，跳过提交与推送"
+            exit 0
+          fi
+          git commit -m "ci-sync: $(TZ=Asia/Shanghai date '+%m-%d %H:%M')"
+          pushed=0
+          for i in 1 2 3; do
+            if git pull --rebase origin main; then
+              if git push origin HEAD:main; then pushed=1; break; fi
+              sleep 5
+              continue
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "::error::ci-sync 与上游冲突——不覆盖上游，红一轮；生成物下一轮重算"
+            exit 1
+          done
+          if [ "$pushed" -ne 1 ]; then
+            echo "::error::ci-sync 3 轮仍未能 push（权限/保护规则/网络）——生成物没有进仓，这不是「无变更」"
+            exit 1
+          fi
+          echo "ci-sync: 已回仓"
 
