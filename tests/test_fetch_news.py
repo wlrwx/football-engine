@@ -46,6 +46,34 @@ def test_match_uses_aliases_and_date_window():
     assert "伯恩茅斯" in first["teams"]
 
 
+def _many(n, day="2026-10-22"):
+    return [{"date": day, "title": f"尤文图斯伤情通报{i}",
+             "url": f"https://news.zhibo8.com/zuqiu/{day}/x{i}.htm"} for i in range(n)]
+
+
+def test_limit_none_returns_all_and_default_is_120():
+    # 实测 14 天里 6 天条数正好卡在旧上限 40 → 按场次覆盖率被截断低估。
+    assert fn.NEWS_LIMIT == 120, "存储上限被改回去了？覆盖率会再次被低估"
+    items = _many(150)
+    assert len(fn.match_items(items, _preds(), "2026-10-22", limit=None)) == 150
+    assert len(fn.match_items(items, _preds(), "2026-10-22")) == 120
+    assert len(fn.match_items(items, _preds(), "2026-10-22", limit=7)) == 7
+
+
+def test_main_records_pre_truncation_total(tmp_path, monkeypatch):
+    day = "2026-10-22"
+    d = tmp_path / "data" / "daily" / day
+    d.mkdir(parents=True)
+    (d / "predictions.json").write_text(json.dumps(_preds(), ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(fn, "ROOT", tmp_path)
+    monkeypatch.setattr(fn, "fetch_html", lambda: "")
+    monkeypatch.setattr(fn, "parse_list", lambda page: _many(150, day))
+    assert fn.main(["--date", day]) == 0
+    out = json.loads((d / "news.json").read_text(encoding="utf-8"))
+    assert out["matched_total"] == 150 and out["limit"] == 120, "必须记下截断前总数，否则覆盖率被上限蒙住"
+    assert len(out["items"]) == 120
+
+
 def test_classify_and_kind_sort():
     assert fn.classify("尤文伤情：主力缺阵，首发存疑") == "injury"
     assert fn.classify("尤文有意签下前锋，谈判中") == "transfer"
