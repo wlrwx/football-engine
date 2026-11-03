@@ -4,16 +4,18 @@
 单引号，第二行被 shell 当成新命令 → jq compile error → 整步 exit 3，**下面两条
 真正的判定从来没执行过**。连续 5 轮 health-check 红，红的是检查自己；而数据其实
 是好的（43/45、最新到 11-01）。文本里看着有 `::error::`，所以只有真跑才抓得到。
+
+只用标准库：CI 的约定是「测试只依赖标准库 + engine 纯函数模块」，不引入 PyYAML。
 """
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
-import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows" / "health-check.yml"
@@ -39,14 +41,20 @@ pytestmark = pytest.mark.skipif(BASH is None or shutil.which("jq") is None,
 
 
 def _block():
-    doc = yaml.safe_load(WF.read_text(encoding="utf-8"))
-    for job in doc["jobs"].values():
-        for step in job.get("steps", []):
-            if step.get("name") == STEP:
-                run = step["run"]
-                # 只取判定部分，把 gh api 取数换成夹具
-                return run[run.index('if [ -z "$ST" ]; then'):]
-    pytest.fail(f"找不到步骤 {STEP}")
+    """抠出该步骤 run: | 的脚本正文（去缩进），只取判定部分。"""
+    lines = WF.read_text(encoding="utf-8").splitlines()
+    start = next((k for k, l in enumerate(lines) if l.strip() == f"- name: {STEP}"), None)
+    assert start is not None, f"找不到步骤 {STEP}"
+    run_at = next(k for k in range(start, len(lines)) if lines[k].strip() == "run: |")
+    indent = len(lines[run_at]) - len(lines[run_at].lstrip())
+    body = []
+    for line in lines[run_at + 1:]:
+        if line.strip() and (len(line) - len(line.lstrip())) <= indent:
+            break
+        body.append(line[indent + 2:] if line.strip() else "")
+    text = "\n".join(body)
+    # 把 gh api 取数换成夹具，只留判定
+    return text[text.index('if [ -z "$ST" ]; then'):]
 
 
 def run_with(tmp_path, status):
@@ -96,3 +104,10 @@ def test_missing_status_is_warning_not_failure(tmp_path):
 def test_proxy_configured_is_reported(tmp_path):
     r = run_with(tmp_path, healthy(proxy_configured=True))
     assert r.returncode == 0 and "代理已配置" in r.stdout
+
+
+def test_extraction_really_got_the_script():
+    # 防止抠错了段落却「测试全过」：正文必须含三条判定特征
+    b = _block()
+    assert "jq -r" in b and "files_ok" in b and "8*86400" in b
+    assert re.search(r"exit 1", b), "两条 error 分支必须真的让步骤失败"
