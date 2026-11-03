@@ -188,11 +188,16 @@ jobs:
             echo "::warning::没有 data/state/fdc/status.json —— 抓取脚本尚未上报过状态"
             exit 0
           fi
-          echo "$ST" | jq -r '"→ football-data: 刷新 \(.files_ok)/\(.files_total) | 最新数据 \(.latest_date // "?")'
-            + " | 行数 \(.rows) | " + (if .proxy_configured then "代理已配置" else "直连" end)'
+          # 2026-11-04：jq 程序必须写在**一行**里。原来拆成两行，第一行末尾就闭合了
+          # 单引号，第二行的 `+ " | 行数 …"` 被 shell 当成新命令 → jq compile error →
+          # 整步 exit 3，下面两条真正的判定从来没执行过（health-check 连续 5 轮红，
+          # 红的是检查自己，不是数据）。回归测试：tests/test_health_check_fdc.py
+          echo "$ST" | jq -r '"→ football-data: 刷新 \(.files_ok)/\(.files_total) | 最新数据 \(.latest_date // "?") | 行数 \(.rows) | " + (if .proxy_configured then "代理已配置" else "直连" end)'
           if [ "$(echo "$ST" | jq -r '.files_ok')" = "0" ]; then
             echo "::error::football-data 全部文件刷新失败 —— CLV 面板会停在旧数据上（检查出口网络或 FDC_PROXY）"
+            exit 1
           fi
           if echo "$ST" | jq -e '(.latest_date != null) and ((now - (.latest_date + "T00:00:00Z" | fromdateiso8601)) > 8*86400)' >/dev/null; then
             echo "::error::football-data 最新数据只到 $(echo "$ST" | jq -r '.latest_date')（超过 8 天）—— 缓存未刷新，CLV 覆盖率会持续下滑"
+            exit 1
           fi
