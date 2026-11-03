@@ -112,8 +112,14 @@ def team_variants(predictions: list[dict]) -> dict[str, set[str]]:
     return out
 
 
+# 2026-11-04：存储上限 40 → 120。实测 14 天里有 6 天条数正好卡在 40，说明按场次的
+# 新闻覆盖率（45.2%）是被采集截断低估的，不是源不足。展示层只取前 12 条，提高存储
+# 上限不影响页面。limit=None 表示不截断，供 main 记录截断前的匹配总数。
+NEWS_LIMIT = 120
+
+
 def match_items(items: list[dict], predictions: list[dict], target: str,
-                days: int = 1, limit: int = 40) -> list[dict]:
+                days: int = 1, limit: int | None = NEWS_LIMIT) -> list[dict]:
     t0 = date.fromisoformat(target)
     window = {(t0 + timedelta(days=i)).isoformat() for i in range(-days, days + 1)}
     variants = team_variants(predictions)
@@ -135,7 +141,7 @@ def match_items(items: list[dict], predictions: list[dict], target: str,
     # 最新在前，再按类别稳定排序：伤病/首发 → 其他 → 转会传闻
     matched.sort(key=lambda x: (x["date"], x["title"]), reverse=True)
     matched.sort(key=lambda x: KIND_ORDER.get(x["kind"], 1))
-    return matched[:limit]
+    return matched if limit is None else matched[:limit]
 
 
 def main(argv=None) -> int:
@@ -158,20 +164,25 @@ def main(argv=None) -> int:
         return 1
 
     items = parse_list(page)
-    matched = match_items(items, preds, args.date)
+    all_matched = match_items(items, preds, args.date, limit=None)
+    matched = all_matched[:NEWS_LIMIT]
     counts = {k: sum(1 for x in matched if x["kind"] == k) for k in KIND_ORDER}
     out = {
         "generated_at": datetime.now(BJT).strftime("%Y-%m-%d %H:%M:%S"),
         "source": SOURCE_NAME,
         "source_url": SOURCE_URL,
         "total_scanned": len(items),
+        # 记下截断前的总数与上限：否则覆盖率会被上限蒙住，看不出是源不足还是我们截断了
+        "matched_total": len(all_matched),
+        "limit": NEWS_LIMIT,
         "counts": counts,
         "items": matched,
     }
     out_file = ROOT / "data" / "daily" / args.date / "news.json"
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"  ✓ 赛前情报: {len(matched)} 条匹配 / 扫描 {len(items)} 条 → {out_file}")
+    cut = f"（匹配 {len(all_matched)} 条，截断至 {NEWS_LIMIT}）" if len(all_matched) > NEWS_LIMIT else ""
+    print(f"  ✓ 赛前情报: {len(matched)} 条匹配 / 扫描 {len(items)} 条{cut} → {out_file}")
     return 0
 
 
