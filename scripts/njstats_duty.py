@@ -443,6 +443,29 @@ def _maybe_ops_digest() -> None:
         log(f"⚠ 运维红线 {f.get('code')}: {f.get('detail')} → {f.get('action')}")
 
 
+def _maybe_agent_dispatch() -> None:
+    """把可安全自动修的信号派成 dsh-superagent 工单（fork 上的 issue）。
+
+    2026-11-04：agent 的 Source 只能是它可 push 的 fork（指向只读上游会被保存时拒绝），
+    所以它看不见上游 CI。判定留在脚本这边，由 agent_dispatch 决定派什么、去重限流，
+    并把涉及账本/策略/凭据的红线只留给人。派单失败不影响本轮采集与提交链。
+    """
+    if os.environ.get("DUTY_SKIP_AGENT_DISPATCH") == "1":
+        return
+    try:
+        p = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"), "scripts/agent_dispatch.py"],
+                           cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", check=False, timeout=240)
+    except (OSError, subprocess.SubprocessError) as exc:
+        log(f"⚠ agent_dispatch 跑不起来: {type(exc).__name__}")
+        return
+    for line in (p.stdout or p.stderr).strip().splitlines():
+        if line.strip():
+            log(line.strip()[:200])
+    if p.returncode not in (0,):
+        log(f"⚠ agent_dispatch 退出码 {p.returncode}")
+
+
 def main() -> int:
     os.chdir(ROOT)
     sh("git", "pull", "--rebase", "--autostash", "origin", "main")
@@ -494,6 +517,7 @@ def main() -> int:
     # 摘要放在快照提交之后、DJYY 之前：快照龄/入库检查要反映本轮，而 DJYY 是
     # 600s 级的外网抓取，不该让摘要等它。
     _maybe_ops_digest()
+    _maybe_agent_dispatch()
     if os.environ.get("DUTY_SKIP_DJYY") != "1":
         _maybe_djyy_snapshot()
     # CI 看门狗：平台定时任务限流严重，CI 长时间没跑时补一轮。
