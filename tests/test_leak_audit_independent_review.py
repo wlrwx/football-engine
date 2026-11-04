@@ -53,7 +53,7 @@ def test_claim1_blacklist_scan_29_hits_in_two_files():
         n = sum(len(pat.findall(line))
                 for line in p.read_text(encoding="utf-8").splitlines())
         if n:
-            hits[str(p.relative_to(ROOT))] = n
+            hits[p.relative_to(ROOT).as_posix()] = n
     assert sum(hits.values()) == 29
     assert hits == {
         "engine/prediction/market_isolation.py": 17,
@@ -191,7 +191,7 @@ def test_claim4_series_does_not_change_probabilities():
 
 def test_claim4_no_settlement_reader_of_series():
     for p in _py_files("engine/review", "scripts"):
-        assert "series" not in _string_constants(str(p.relative_to(ROOT))), p
+        assert "series" not in _string_constants(p.relative_to(ROOT).as_posix()), p
 
 
 def test_claim4_series_consumed_by_build_site_display():
