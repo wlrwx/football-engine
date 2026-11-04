@@ -55,6 +55,55 @@ HUMAN_ONLY = {
     "error_branch",
 }
 CI_KIND = "ci_failure"
+SCOUT_KIND = "scout"
+
+# 每日探索工单：主动挖掘「能提升预测能力」的东西，而不是只等故障。
+# 这个原型没有自调度能力（worker preset 明确剔除了 scheduling），它的「主动」=
+# 对观察到的事件自动评估并接受。所以由这里每天产生一条可观察事件，主题按天轮换，
+# 人只需要在最后对提案做决策。全部是只读量化 + 提案，不碰冻结的判据与门槛。
+SCOUT_FOCUS = (
+    ("matching-loss", "匹配缺口归因",
+     "池子里有上百场，但 duty 日志常年只有 `匹配5~7`。量化丢失都发生在哪：队名别名/译名不一致、"
+     "日期窗口错位、联赛不在竞彩范围、还是 predictions 当天没落库。给出每一类的场数与占比，"
+     "并提出可验证的最小修复（补别名/修窗口）或采集改进草案。"),
+    ("calibration-strata", "分层校准偏差",
+     "按联赛、赔率档（<1.60 / 1.60-2.50 / >2.50）、主客场分层，算 Brier 与命中率 vs 打平线，"
+     "找出系统性偏差最大的层。只读分析、给样本量，小样本明说不可结论。"
+     "**不要改 calibration 参数或文件**，把发现写成提案交人裁决。"),
+    ("clv-coverage", "CLV 覆盖与匹配失败",
+     "统计 CLV 面板里 league_uncovered / no_en / no_match 各自的占比与成因，量化「本可回收却丢了」"
+     "的部分，提出提高覆盖的可验证办法（联赛映射、英文名来源、缓存新鲜度）。"),
+    ("funnel-efficiency", "候选漏斗最卡的一环",
+     "把 池→匹配→候选→合格 四级漏斗按天量化，指出最卡的一环并给出证据。"
+     "**禁止建议降低 2% 门槛或放宽 25% 上界**；只找不改判据就能提升通过率的办法。"),
+    ("leakage-alignment", "泄漏与训练/服务对齐",
+     "审计模型特征是否混入目标市场（竞彩/站点）赔率或赛后信息，训练与服务的特征是否一致，"
+     "同一口径是否在两处各写一份。给出文件行号证据与可复现的检查脚本/测试。"),
+    ("sample-integrity", "样本完整性",
+     "找出白丢或污染样本的地方：逐时快照缺口、结算滞后、重复计入、让球走盘因信息不足被当成失败、"
+     "服务端真值与本地 records 的差异。量化影响（多少注/多少天）并提出可验证的修复。"),
+)
+
+
+def scout_candidate(today: str) -> dict:
+    """按天轮换主题，同一天内稳定（duty 每 30 分钟跑一次，不能每次换题）。"""
+    from datetime import date
+    idx = date.fromisoformat(today).toordinal() % len(SCOUT_FOCUS)
+    fid, title, brief = SCOUT_FOCUS[idx]
+    return {"key": f"scout:{today}:{fid}", "kind": SCOUT_KIND,
+            "title": title, "evidence": brief, "focus": fid}
+
+
+def scout_due(state: dict, today: str) -> bool:
+    """探索工单独立预算：每天一条，不占用故障派单的 DAILY_LIMIT。"""
+    return state.get("scout_date") != today
+
+
+def record_scout(state: dict, today: str, issue: str) -> dict:
+    st = dict(state)
+    st["scout_date"] = today
+    st["scout_issue"] = issue
+    return st
 
 
 def candidates_from_flags(flags: list[dict]) -> list[dict]:
@@ -114,22 +163,40 @@ def record(state: dict, key: str, today: str, issue: str) -> dict:
 
 
 def render_issue(c: dict) -> tuple[str, str]:
-    title = f"[自动派单] {c['title']}"[:120]
-    body = f"""@{AGENT} 这是 ops_digest/CI 自动派单（信号判定由确定性脚本完成，不是人随手开的）。
+    scout = c.get("kind") == SCOUT_KIND
+    title = f"[{'每日探索' if scout else '自动派单'}] {c['title']}"[:120]
+    if scout:
+        task = f"""## 今天的探索主题
+{c['evidence']}
 
-## 信号
-- 类别：`{c['kind']}`
-- 证据：{c['evidence']}
-
-## 期望范围
+## 交付要求（这是挖掘与提案，不是直接改判据）
+- 先**只读量化**：给出数字、样本量、口径与证据（文件行号 / 日志原文 / 可复现命令）。
+- 产出 PR，内容可以是：分析脚本及其测试、诊断文档、或**预登记草案**。
+- 草案写在 **PR 描述**里或 `docs/proposals/` 的**新文件**；
+  **不要改 `docs/EXPERIMENTS.md`**（人审领域，CI 会直接拦）。
+- 分清「已证实」与「推测」；样本不足就明说不足，不要把噪声当信号。
+- 若量化后没有可行动发现，就如实报告「本轮无可行动发现」并给出数字，**不要硬凑改动**。
+- E8/E10 正在按冻结判据跑样本：**不得改模型特征、门槛、上界、校准参数**，否则整段样本作废。
+"""
+    else:
+        task = f"""## 期望范围
 先只读定位根因（可读上游 {UPSTREAM} 的代码与 CI 日志），再提**最小修复**。
 允许改：`scripts/`、`.github/workflows/`、`tests/`、`engine/` 中与该根因直接相关的部分、文档。
 
 ## 验收
 - 附根因说明与失败证据原文片段；
 - 改动必须带**行为测试**（真跑，不做文本断言），并贴出验证输出摘要；
-- `ruff check --select F engine scripts tests evolution` 与相关测试全绿；
-- 推 `agent/` 分支到 origin（你的 fork），提 PR 到 `{UPSTREAM}`，描述含改了什么/为什么/验证/回退。
+- `ruff check --select F engine scripts tests evolution` 与相关测试全绿。
+"""
+    body = f"""@{AGENT} 这是脚本自动派单（信号判定与选题由确定性脚本完成，不是人随手开的，也不需要人来 @）。
+
+## 信号
+- 类别：`{c['kind']}`
+- 主题/证据：{c['evidence']}
+
+{task}
+## 交付路径
+推 `agent/` 分支到 origin（你的 fork），提 PR 到 `{UPSTREAM}`，描述含改了什么/为什么/验证/回退。
 
 ## 红线（无条件）
 - **不要合并任何 PR**（你对上游只有读权限，本来也合不了）。
@@ -138,6 +205,8 @@ def render_issue(c: dict) -> tuple[str, str]:
   `engine/prediction/calibration.py`；不改任何门槛或判定口径。
 - **不得给 main 加分支保护**：2026-11-03 实测它会拦死 `github-actions[bot]` 直推，
   导致 daily-forecast 连红四轮、当天预测缺失。
+- **禁止在 `/Users/dykily/football-engine` 里做任何 git 写操作或改任何文件**（那是大号的生产仓库，
+  duty 每 30 分钟在里面提交推送 main）；只允许用它的解释器，且 cwd 必须是你的工单目录。
 - 不靠删测试/跳过测试/放宽断言来变绿；不打印或提交任何 JWT/cookie/token。
 - 若根因落在红线范围内，**停下来只报告**，不要改。
 """
@@ -190,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="只打印将要派什么，不建 issue、不写状态")
     ap.add_argument("--limit", type=int, default=DAILY_LIMIT)
     ap.add_argument("--no-ci", action="store_true", help="只看 ops_digest 红线，不查上游 CI")
+    ap.add_argument("--no-scout", action="store_true", help="不派每日探索工单（只派故障/CI）")
     args = ap.parse_args(argv)
 
     today = datetime.now(BJT).date().isoformat()
@@ -235,6 +305,26 @@ def main(argv: list[str] | None = None) -> int:
         state = record(state, c["key"], today, url)
         sent += 1
         print(f"派单: 已建 {url} key={c['key']}")
+
+    # 每日探索：独立预算，不占故障派单额度；这是「主动找活」的来源——
+    # 原型自身没有调度能力，由这里每天产生一条可观察事件，主题按天轮换。
+    if not args.no_scout and scout_due(state, today):
+        c = scout_candidate(today)
+        title, body = render_issue(c)
+        if args.dry_run:
+            print(f"派单[dry-run]: 将建探索 issue「{title}」 key={c['key']}")
+            state = record_scout(state, today, "(dry-run)")
+        elif not token:
+            print("派单: 无 token，探索工单跳过")
+        else:
+            url = create_issue(token, title, body)
+            if url:
+                state = record_scout(state, today, url)
+                print(f"派单: 已建每日探索 {url} 主题={c['focus']}")
+            else:
+                print("派单: 探索 issue 建失败（不记状态，下轮重试）")
+    elif not args.no_scout:
+        print("派单: 今日探索工单已派过，跳过")
 
     if skipped:
         print(f"派单: 只报给人的红线（不派给 agent）: {sorted(set(skipped))}")
