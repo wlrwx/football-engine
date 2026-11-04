@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 三点 diff 需要 merge-base，浅克隆取不到共同祖先
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - name: 取改动清单
@@ -22,8 +25,13 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git fetch -q origin "$BASE_SHA" "$HEAD_SHA" || git fetch -q origin
-          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > /tmp/changed.txt
+          # 2026-11-04：必须用三点 diff（merge-base..head），与 GitHub 的 Files changed 一致。
+          # 原来用两点 `base head`，当 fork 落后于 main 时，会把「上游比 fork 多出来的改动」
+          # 反向算成 PR 的改动——PR #80 只加了 1 个新文件，却被判成改了 review_ledger.jsonl
+          # 与 duty 快照而拦红。那是误报，且会冤拦几乎所有落后于 main 的 fork PR。
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/changed.txt
           echo "改动 $(wc -l < /tmp/changed.txt) 个文件"
+          cat /tmp/changed.txt
       - name: 判定
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
