@@ -67,3 +67,13 @@ def test_cli_exit_code_reflects_verdict(tmp_path):
 
 def test_author_match_is_case_insensitive():
     assert guard.decide(["docs/EXPERIMENTS.md"], [], guard.SECTION, author="Dykily")
+
+
+def test_dykily_can_edit_readme():
+    # README.md 不在 PROTECTED 名单里，dykily 编辑它应该放行。
+    assert guard.decide(["README.md"], [], "x", author="dykily") == []
+
+
+def test_dykily_can_edit_tests_files():
+    # tests/ 子目录不在 PROTECTED 名单里，dykily 编辑测试文件应放行。
+    assert guard.decide(["tests/test_pr_guard.py"], [], "x", author="dykily") == []
