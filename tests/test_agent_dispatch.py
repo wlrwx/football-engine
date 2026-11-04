@@ -156,3 +156,40 @@ def test_no_scout_flag_suppresses_it(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(disp, "TOKEN_FILE", tmp_path / "nope")
     assert disp.main(["--dry-run", "--no-ci", "--no-scout"]) == 0
     assert "探索" not in capsys.readouterr().out
+
+
+def _pr(**over):
+    d = {"number": 80, "title": "泄漏审计", "html_url": "https://x/pr/80",
+         "head_sha": "a" * 40, "failed_checks": ["guard", "test (ubuntu-latest)"]}
+    d.update(over)
+    return d
+
+
+def test_pr_feedback_only_red_prs_and_keyed_by_sha():
+    got = disp.candidates_from_prs([_pr(), _pr(number=81, failed_checks=[])])
+    assert len(got) == 1, got
+    assert got[0]["key"] == "prfix:80:aaaaaaaa" and got[0]["kind"] == disp.PR_FIX_KIND
+    assert "guard" in got[0]["evidence"]
+    # 推了新提交就是新 key，不会被旧失败的去重挡住
+    assert disp.candidates_from_prs([_pr(head_sha="c" * 40)])[0]["key"] != got[0]["key"]
+
+
+def test_pr_fix_issue_requires_local_verification():
+    title, body = disp.render_issue(disp.candidates_from_prs([_pr()])[0])
+    assert title.startswith("[PR 修复]")
+    for must in ("原来那个 fork 分支", "ruff check --select F", "不要绕过闸门",
+                 "F841", "不要合并任何 PR", "按结论改正"):
+        assert must in body, f"PR 修复单缺少 {must}"
+
+
+def test_no_pr_feedback_flag_skips_query(tmp_path, monkeypatch):
+    monkeypatch.setattr(disp, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(disp, "DIGEST_FILE", tmp_path / "digest.json")
+    (tmp_path / "tok").write_text("dummy", encoding="utf-8")
+    monkeypatch.setattr(disp, "TOKEN_FILE", tmp_path / "tok")
+    monkeypatch.setattr(disp, "fetch_ci_runs", lambda t: [])
+
+    def boom(t):
+        raise AssertionError("--no-pr-feedback 竟然还去查 PR")
+    monkeypatch.setattr(disp, "fetch_agent_prs", boom)
+    assert disp.main(["--dry-run", "--no-pr-feedback"]) == 0
