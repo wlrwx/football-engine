@@ -1,211 +1,162 @@
 #!/usr/bin/env python3
-"""
-泄漏与训练/服务对齐 — 诊断测试
+"""泄漏与训练/服务对齐审计脚本的测试（只读，不改任何文件）。
 
-测试只读证据链，验证审计结论。不改动任何文件。
+    .venv/bin/python -m pytest tests/test_leak_audit.py -q
+
+写法：断言**判定结论与判定规则**，不断言计数。命中数、每文件条数、参数个数
+只出现在脚本报告的 `counts_for_humans` 里；黑名单加字段、代码挪行、
+`build_features` 加带默认值的参数都不会让 CI 变红。
+
+（原版本是一批 `return dict/bool` 的"诊断函数"，pytest 收集后不做任何断言，
+等于没有测试；本次改成真断言。）
 """
 from __future__ import annotations
 
+import importlib.util
+import json
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+import pytest
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-def read_source_file(path: Path) -> str:
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return ""
+SPEC = importlib.util.spec_from_file_location(
+    "leak_audit_check", ROOT / "scripts" / "leak_audit_check.py")
+audit = importlib.util.module_from_spec(SPEC)
+sys.modules["leak_audit_check"] = audit
+SPEC.loader.exec_module(audit)
 
-
-# ============================================================
-# 测试 1: LGBM 默认禁用目标市场赔率特征
-# ============================================================
-
-def test_lgbm_odds_features_default_disabled() -> bool:
-    lgbm_source = read_source_file(ROOT / "engine" / "prediction" / "lgbm_model.py")
-    return "use_odds_features: bool = False" in lgbm_source
-
-
-def test_lgbm_build_features_shutdowns_odds_by_default() -> bool:
-    lgbm_source = read_source_file(ROOT / "engine" / "prediction" / "lgbm_model.py")
-    lines = lgbm_source.split("\n")
-    in_else = False
-    found_shutdown = False
-    found_zeros = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("if include_market_odds"):
-            found_shutdown = True
-        if found_shutdown and stripped == "else:":
-            in_else = True
-        if in_else and 'features["odds_home_impl"]' in stripped:
-            found_zeros = True
-    return found_shutdown and found_zeros
+EXPECTED_IDS = {
+    "target_market_blacklist", "lgbm_odds_gate", "sina_odds_movement",
+    "odds_series", "njstats_opening", "train_serving_alignment",
+}
 
 
-# ============================================================
-# 测试 2: DC 层混入目标市场赔率（P0 违规）
-# ============================================================
-
-def test_dc_mixes_target_market_odds() -> dict:
-    dc_source = read_source_file(ROOT / "engine" / "prediction" / "dixon_coles.py")
-    main_source = read_source_file(ROOT / "engine" / "main.py")
-    return {
-        "dc_violation": {
-            "dc_read_market_odds_param": "market_odds" in dc_source,
-            "dc_de_vig_call": "_de_vig" in dc_source,
-            "dc_market_blend_weight": "market_blend_weight" in dc_source,
-            "dc_weighted_home_win": "home_win = (1" in dc_source and "market_probs" in dc_source,
-        },
-        "main_evidence": {
-            "sporttery_is_target_market": "Sporttery" in main_source,
-            "market_odds_from_fixture": "fixture.home_odds" in main_source,
-            "market_odds_passed_to_predict": "predict(" in main_source and "market_odds=" in main_source,
-        },
-    }
+@pytest.fixture(scope="module")
+def report() -> dict:
+    return audit.build_report()
 
 
-# ============================================================
-# 测试 3: devig_shin 训练/服务不一致
-# ============================================================
-
-def test_devig_shin_inconsistency() -> dict:
-    cal_source = read_source_file(ROOT / "engine" / "prediction" / "calibration.py")
-    replay_source = read_source_file(ROOT / "engine" / "backtest" / "historical_replay.py")
-
-    # calibration.py: docstring 描述旧 bug，代码已修复为 1.0-1e-12，100 轮后 fallback
-    cal_has_doc_bug = "hi = 1.0 - 1.0 / max(implied)" in cal_source
-    cal_code_fixed = "1.0 - 1e-12" in cal_source
-    cal_has_fallback = "for _ in range(100)" in cal_source and "# fallback:" in cal_source
-
-    # historical_replay.py: 固定 z=0.02
-    replay_fixed_z = "z = 0.02" in replay_source
-
-    return {
-        "calibration_devig_shin": {
-            "docstring_describes_old_bug": cal_has_doc_bug,
-            "code_fixed_upper_bound": cal_code_fixed,
-            "has_fallback_after_100": cal_has_fallback,
-        },
-        "historical_replay_devig_shin": {
-            "uses_fixed_z_002": replay_fixed_z,
-            "formula": "sqrt(z*z + 4" in replay_source,
-        },
-        "inconsistency": {
-            "root_cause": "calibration.py 二分区间 [0, 1-1e-12] 虽已修复，但文档仍描述旧 bug",
-            "impact": "calibration.py 实际走 Shin 公式（修复后），historical_replay.py 也走真 Shin 公式，两者一致",
-            "note": "文档自述 951 场竞彩 100% fallback 是旧代码状态，当前生产已修复",
-        },
-    }
+def _finding(report: dict, fid: str) -> dict:
+    return next(f for f in report["findings"] if f["id"] == fid)
 
 
-# ============================================================
-# 测试 4: 训练/服务 devig 路径不同
-# ============================================================
-
-def test_train_serving_devig_paths_differ() -> dict:
-    return {
-        "serving_path": {
-            "entry": "main.py: select_devig_method(list(market_odds))",
-            "selects": "devig_shin (默认)",
-        },
-        "training_path": {
-            "entry": "historical_replay.py: market_benchmark / line_movement",
-            "method": "devig(odds, 'proportional')",
-        },
-        "final_verdict": {
-            "same_final_formula": True,
-            "same_path": False,
-            "path_difference": "服务走 devig_shin，回放走 devig(proportional)，最终都是比例归一化",
-        },
-    }
+def test_report_covers_the_six_audited_questions(report):
+    assert {f["id"] for f in report["findings"]} == EXPECTED_IDS
+    for f in report["findings"]:
+        assert f["verdict"] and f["status"] in {"clean", "by_design", "violation"}
+        assert f["severity"] in audit.SEVERITY_ORDER
 
 
-# ============================================================
-# 测试 5: 赛后信息不参与预测
-# ============================================================
+def test_report_is_json_serialisable_and_read_only(report):
+    # 只读：跑一次 main 不产生任何文件，报告可序列化。
+    before = {p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*.json")}
+    text = json.dumps(report, ensure_ascii=False, default=str)
+    assert json.loads(text)["findings"]
+    after = {p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*.json")}
+    assert before == after
 
-def test_postmatch_not_in_prediction() -> dict:
-    main_source = read_source_file(ROOT / "engine" / "main.py")
 
-    # 预测入口：model.predict(调用，参数仅为 home/away rating + handicap
-    predict_call = "model.predict(" in main_source
+def test_current_code_has_no_violation_verdict(report):
+    assert [f["id"] for f in report["findings"] if f["status"] == "violation"] == []
 
-    # 赛果写回发生在预测之后（[3.5/5] 更新预测赛果 和 [5/5] 赛后复盘）
-    postmatch_writes_after_pred = (
-        'pred["actual_result"] = f"{r.home_score}-{r.away_score}"' in main_source
+
+# ------------------------------------------------------------------ 判定规则
+def test_severity_is_capped_at_info_when_path_inactive():
+    for severity in audit.SEVERITY_ORDER:
+        assert audit.cap_severity(severity, path_active=False) == "info"
+        assert audit.cap_severity(severity, path_active=True) == severity
+
+
+
+def test_sina_verdict_respects_the_config_switch(report):
+    f = _finding(report, "sina_odds_movement")
+    if not f["switch_on"]:
+        # 规则：开关关 ⇒ 不得动概率、判定不得高于 info、不得是违规
+        assert not f["probabilities_changed"]
+        assert not f["step_fired"]
+        assert f["severity"] == "info"
+        assert f["status"] != "violation"
+    else:
+        assert f["source_is_reference"] or f["status"] == "violation"
+
+
+def test_blacklist_hits_are_all_in_allowed_locations(report):
+    f = _finding(report, "target_market_blacklist")
+    assert f["evidence"] == []
+    assert f["verdict"] == "all_hits_in_allowed_locations"
+
+
+def test_classifier_rejects_an_ungated_assignment():
+    # 防假绿：无闸的生产赋值必须被判为 unallowed；受闸的必须被放行。
+    from engine.prediction.market_isolation import TARGET_MARKET_FEATURES
+    features = set(TARGET_MARKET_FEATURES)
+    feat = sorted(features)[0]
+    bad = f'def build(odds):\n    return {{"{feat}": 1.0 / odds[0]}}\n'
+    assert audit.classify_hits(bad, features)["unallowed"]
+    good = (
+        "def build(odds, include_market_odds=False):\n"
+        "    if include_market_odds and odds:\n"
+        f'        return {{"{feat}": 1.0 / odds[0]}}\n'
+        "    else:\n"
+        f'        return {{"{feat}": 0.0}}\n'
     )
-
-    # 验证：model.predict(调用处附近不存在赛后数据变量
-    pred_call_line = main_source.find("model.predict(")
-    context = main_source[max(0, pred_call_line - 200):pred_call_line + 200]
-    predicts_uses_actual = "actual_result" in context or "home_score" in context or "away_score" in context
-
-    return {
-        "prediction_phase": {
-            "has_model_predict": predict_call,
-            "predicts_uses_actual": predicts_uses_actual,
-        },
-        "settlement_phase": {
-            "writes_actual_after_pred": postmatch_writes_after_pred,
-        },
-        "conclusion": {
-            "prediction_clean": not predicts_uses_actual,
-            "settlement_only": postmatch_writes_after_pred,
-        },
-    }
+    res = audit.classify_hits(good, features)
+    assert res["allowed"] and not res["unallowed"]
 
 
-# ============================================================
-# 主入口
-# ============================================================
-
-def main() -> None:
-    print("=" * 60)
-    print("泄漏与训练/服务对齐 — 诊断测试")
-    print("=" * 60)
-
-    print("\n[测试 1] LGBM 默认禁用目标市场赔率特征")
-    t1a = test_lgbm_odds_features_default_disabled()
-    t1b = test_lgbm_build_features_shutdowns_odds_by_default()
-    print(f"  use_odds_features default=False: {'PASS' if t1a else 'FAIL'}")
-    print(f"  build_features shutdown odds by default: {'PASS' if t1b else 'FAIL'}")
-
-    print("\n[测试 2] DC 层混入目标市场赔率（P0 违规）")
-    t2 = test_dc_mixes_target_market_odds()
-    dc_v = t2["dc_violation"]
-    print(f"  DC 读 market_odds 参数: {'PASS' if dc_v['dc_read_market_odds_param'] else 'FAIL'}")
-    print(f"  DC 调 _de_vig: {'PASS' if dc_v['dc_de_vig_call'] else 'FAIL'}")
-    print(f"  DC 用 market_blend_weight: {'PASS' if dc_v['dc_market_blend_weight'] else 'FAIL'}")
-    print(f"  DC 加权公式: {'PASS' if dc_v['dc_weighted_home_win'] else 'FAIL'}")
-
-    print("\n[测试 3] devig_shin 训练/服务不一致")
-    t3 = test_devig_shin_inconsistency()
-    cal = t3["calibration_devig_shin"]
-    print(f"  docstring 描述旧 bug: {'PASS' if cal['docstring_describes_old_bug'] else 'FAIL'}")
-    print(f"  代码已修复为 1.0-1e-12: {'PASS' if cal['code_fixed_upper_bound'] else 'FAIL'}")
-    print(f"  100 轮后 fallback: {'PASS' if cal['has_fallback_after_100'] else 'FAIL'}")
-
-    print("\n[测试 4] 训练/服务 devig 路径不同")
-    t4 = test_train_serving_devig_paths_differ()
-    print("  服务路径: main.py -> select_devig_method -> devig_shin")
-    print("  训练路径: historical_replay.py -> devig('proportional')")
-    print(f"  最终公式相同: {t4['final_verdict']['same_final_formula']}")
-    print(f"  路径相同: {t4['final_verdict']['same_path']}")
-
-    print("\n[测试 5] 赛后信息只在结算阶段使用")
-    t5 = test_postmatch_not_in_prediction()
-    print(f"  预测调用附近含赛后变量: {t5['prediction_phase']['predicts_uses_actual']} (应 False)")
-    print(f"  结算阶段回写 actual_result: {t5['settlement_phase']['writes_actual_after_pred']} (应 True)")
-    print(f"  预测阶段干净: {'PASS' if t5['conclusion']['prediction_clean'] else 'FAIL'}")
-    print(f"  结算阶段使用: {'PASS' if t5['conclusion']['settlement_only'] else 'FAIL'}")
-
-    print("\n" + "=" * 60)
-    print("全部测试完成")
-    print("=" * 60)
+def test_gate_finding_is_based_on_feature_sensitivity(report):
+    f = _finding(report, "lgbm_odds_gate")
+    assert f["set_to_true_at"] == []
+    assert f["leaking_features"] == []
+    assert f["verdict"] == "target_odds_do_not_enter_features"
 
 
-if __name__ == "__main__":
-    main()
+def test_series_is_not_consumed_by_probability_formation(report):
+    f = _finding(report, "odds_series")
+    assert f["fusion_read_lines"] == []
+    assert not f["probabilities_changed_by_series"]
+    assert f["verdict"] == "not_used_in_probability_formation"
+
+
+def test_series_consumers_are_neither_prediction_nor_settlement(report):
+    # 判定：消费者不在概率形成层，也不在结算复盘层（原审计「仅用于结算验证」不确）。
+    f = _finding(report, "odds_series")
+    assert not any(c.startswith(("engine/prediction/", "engine/review/"))
+                   for c in f["consumers"]), f["consumers"]
+
+
+def test_njstats_reads_opening_and_excludes_site_price(report):
+    f = _finding(report, "njstats_opening")
+    assert f["reads_opening_only"]
+    assert not f["site_price_reaches_features"]
+
+
+def test_alignment_is_judged_by_defaults_not_param_counts(report):
+    f = _finding(report, "train_serving_alignment")
+    assert f["missing_required_params"] == []
+    assert f["unknown_params"] == []
+    assert f["feature_diff"] == {}
+    assert f["verdict"] == "no_feature_skew"
+    # 未传参数本身不是问题（都取签名默认值）；加参数、补传参数都不该变红。
+
+
+def test_unverified_notes_never_exceed_info(report):
+    for n in report["unverified_notes"]:
+        assert n["severity"] == "info"
+
+
+def test_duplicate_audit_entrypoint_is_gone():
+    assert not (ROOT / "scripts" / "leak_audit" / "audit_leakage.py").exists()
+    assert (ROOT / "scripts" / "leak_audit_check.py").exists()
+
+
+def test_reported_paths_use_posix_separators(report):
+    text = json.dumps(report, ensure_ascii=False, default=str)
+    assert "\\\\" not in text  # JSON 里的反斜杠 = 非 POSIX 路径
+    for root in (PurePosixPath(ROOT.as_posix()), PureWindowsPath("C:/repo")):
+        p = root / "engine" / "prediction" / "lgbm_model.py"
+        assert p.relative_to(root).as_posix() == "engine/prediction/lgbm_model.py"
