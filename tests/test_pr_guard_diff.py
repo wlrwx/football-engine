@@ -47,7 +47,9 @@ def diff_cmd():
 
 
 def run_diff(repo, base, head, cmd):
-    r = subprocess.run([BASH, "-c", f'BASE_SHA={base} HEAD_SHA={head} {cmd}'],
+    # 必须先 export：`VAR=x cmd "$VAR"` 的参数展开用的是旧值（workflow 里是 env: 块，没这问题）
+    script = f"export BASE_SHA={base}\nexport HEAD_SHA={head}\n{cmd}"
+    r = subprocess.run([BASH, "-c", script],
                        cwd=str(repo), capture_output=True, text=True,
                        encoding="utf-8", errors="replace", check=False, timeout=120)
     assert r.returncode == 0, r.stderr
