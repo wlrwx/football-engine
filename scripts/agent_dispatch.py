@@ -51,6 +51,8 @@ HUMAN_ONLY = {
     "account_gap", "record_fields_missing", "zero_qualify_unexplained",
     "error_mint", "error_credentials", "error_network", "error_djyy",
     "duty_missing_hours",
+    # 分支被切走这件事本身就是 agent 越界造成的，绝不能派给它自己「修」
+    "error_branch",
 }
 CI_KIND = "ci_failure"
 

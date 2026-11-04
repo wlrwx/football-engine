@@ -51,6 +51,8 @@ SECRET_RE = re.compile(r"eyJ[A-Za-z0-9_.\-]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat
 
 # 症状 → 人的动作。照搬原自动化 prompt 的排障对照表，不做自由发挥。
 ERROR_RULES = (
+    ("branch", r"duty 不在 main",
+     "有进程/agent 切走了 duty 仓库的分支；确认已切回 main，并查是谁切的（2026-11-04 是执行器在大号仓库里 checkout）"),
     ("mint", r"需人工登录|mint 失败|\b401\b",
      "需用户跑 ./fe-agent seed（绝不尝试自动过验证码）"),
     ("credentials", r"Bad credentials|push 失败",

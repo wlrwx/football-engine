@@ -24,14 +24,20 @@ def test_only_safe_codes_are_dispatchable():
 
 
 def test_every_digest_red_flag_code_is_classified():
-    # 派单器必须对 ops_digest 会产出的每个 code 都有明确归属，不能漏成「默默不派」
-    known = {"duty_missing_hours", "error_mint", "error_credentials", "error_network",
-             "error_djyy", "prediction_coverage_gap", "zero_qualify_unexplained",
-             "snapshot_not_committed", "today_site_odds_missing", "account_gap",
-             "record_fields_missing"}
+    # 派单器必须对 ops_digest 会产出的每个 code 都有明确归属，不能漏成「默默不派」。
+    # error_* 直接从 ops_digest.ERROR_RULES 推导：以后加症状忘了分类，这条会红。
+    spec = importlib.util.spec_from_file_location("ops_digest_for_dispatch",
+                                                  ROOT / "scripts" / "ops_digest.py")
+    od = importlib.util.module_from_spec(spec)
+    sys.modules["ops_digest_for_dispatch"] = od
+    spec.loader.exec_module(od)
+    known = {f"error_{code}" for code, _pat, _act in od.ERROR_RULES} | {
+        "prediction_coverage_gap", "zero_qualify_unexplained", "snapshot_not_committed",
+        "today_site_odds_missing", "account_gap", "record_fields_missing", "duty_missing_hours"}
     assert known <= (set(disp.DISPATCHABLE) | set(disp.HUMAN_ONLY)), \
         f"未分类: {known - (set(disp.DISPATCHABLE) | set(disp.HUMAN_ONLY))}"
     assert not (set(disp.DISPATCHABLE) & set(disp.HUMAN_ONLY)), "同一 code 不能既派又不派"
+    assert "error_branch" in disp.HUMAN_ONLY, "分支被切走是 agent 越界造成的，不能派给它自己修"
 
 
 def test_ci_only_watched_failures_and_latest_per_workflow():
