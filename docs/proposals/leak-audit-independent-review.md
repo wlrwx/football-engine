@@ -3,16 +3,28 @@
 - 复核基线：上游 `wlrwx/football-engine` main `1bb3ba2`（2026-11-04）。
 - 复核方式：盲测。不假设原审计任何一条成立，逐条追**取数代码 / 开关 / 消费方**；
   不以 docstring、注释或文档措辞作证据。
-- 可复现检查：`tests/test_leak_audit_independent_review.py`（15 个测试，只读，
-  不改任何生产行为）。运行：
+- 可复现检查：`tests/test_leak_audit_independent_review.py`（只读，不改任何生产
+  行为）。运行：
   `.venv/bin/python -m pytest tests/test_leak_audit_independent_review.py -q`
+- **断言口径（2026-11-04 按 review 意见重写）**：测试断言**判定结论**，不断言
+  计数。本文里的「14 字段 / 29 处 / 17+12 / 16 参 15 参 14 参」都是复核当时的
+  **快照数字，只供人读**；代码演进（黑名单加字段、挪行、`build_features` 加带
+  默认值的参数）不会让 CI 变红，只有判定被推翻才红。机器侧断言的是：
+  - 黑名单命中**全部落在允许位置**（黑名单/特征名表定义、受闸赋值、`__main__`
+    自检、`tests/`），且生产特征对目标市场赔率**不敏感**；
+  - 没有任何代码把 `use_odds_features` / `include_market_odds` 设成 `True`；
+  - **规则**：config 开关为 false ⇒ `sina_odds_movement` 不得改变概率、不得进
+    trace（因此该发现的 severity 不得高于 info，规则在审计脚本侧同样落实）；
+  - 概率形成不**消费** `series` 键（按 `x["series"]` / `.get("series")` 判定，
+    不按"提到该词"判定）；
+  - 调用点未传的参数一律有签名默认值，且训练/服务在共同输入下**特征逐位相同**。
 - 本复核由自动化 agent 完成；未改动任何生产代码、配置或状态文件。
 
 ## 判定摘要
 
 | # | 原结论 | 判定 | 一句话理由 |
 |---|--------|------|-----------|
-| 1 | 黑名单 14 字段 29 处命中，全在两文件，均预期 | **成立**（措辞修正） | 计数/分布逐位吻合；但 lgbm 命中是特征名表+受闸赋值，不是"参数注释" |
+| 1 | 黑名单 14 字段 29 处命中，全在两文件，均预期 | **成立**（措辞修正） | 命中全部落在定义/特征名表/受闸赋值/自检演示，生产特征不带市场信息；lgbm 命中不是"参数注释" |
 | 2 | `use_odds_features` 默认 False，无处设 True | **成立** | 默认值、两处 config、生产/训练调用全为 False |
 | 3 | `sina_odds_movement` 用新浪竞彩水位调概率，high 违规 | **不成立** | 取数代码选 Bet365/Pinnacle（参考市场）；且生产开关 false，路径不活 |
 | 4 | `series` 仅用于结算验证，未进入概率形成 | **成立**（措辞修正） | 未进入概率形成属实；实际消费者是页面展示+落盘，找不到结算验证读取代码 |
@@ -55,8 +67,10 @@ else:
 默认 False 且生产中恒 False（见第 2 条），四个字段恒 0.0，无信息泄漏。
 market_isolation 侧的"测试"实为 `__main__` 演示（:199-211），不在 tests/。
 
-复现：`test_claim1_blacklist_scan_29_hits_in_two_files`、
-`test_claim1_odds_features_zero_filled_when_gate_off`。
+复现：`test_claim1_every_blacklist_hit_is_in_an_allowed_location`、
+`test_claim1_classifier_rejects_an_ungated_production_assignment`（防假绿）、
+`test_claim1_production_features_carry_no_target_market_information`。
+上面的 17/12/29 是快照数字，不是断言。
 
 ## 2. `use_odds_features` 开关 —— 成立
 
@@ -69,7 +83,8 @@ market_isolation 侧的"测试"实为 `__main__` 演示（:199-211），不在 t
 - AST 全量扫描 `engine/ scripts/ tests/ evolution/`：没有任何
   `use_odds_features=True` / `include_market_odds=True` 的关键字传参或赋值。
 
-复现：`test_claim2_use_odds_features_false_everywhere`。
+复现：`test_claim2_no_code_turns_the_odds_gate_on`、
+`test_claim2_configured_gate_keeps_target_odds_out_of_features`。
 
 ## 3. `sina_odds_movement` high 违规 —— 不成立
 
@@ -115,8 +130,8 @@ compression 转成 `market_signal` 落盘（:758），`main.py:1096` 在**策略
 （daily-forecast.yml:80、ci-sync.yml:79），仓库内无法核验运行时实际公司。
 但原结论「新浪竞彩水位」的前提不被取数代码支持，且开关关闭，判定不受影响。
 
-复现：`test_claim3_sina_movement_switch_off_in_production_config`、
-`test_claim3_sina_movement_step_fires_only_when_switch_on`、
+复现：`test_claim3_switch_off_implies_probabilities_unchanged`（规则形式）、
+`test_claim3_step_fires_only_when_switch_on`、
 `test_claim3_compression_computed_from_bet365_or_pinnacle`。
 
 ## 4. `series` 未进入概率形成 —— 成立（措辞修正）
@@ -135,7 +150,7 @@ compression 转成 `market_signal` 落盘（:758），`main.py:1096` 在**策略
   即不存在结算验证读取代码。展示+落盘比"结算验证"更不构成泄漏。
 
 复现：`test_claim4_series_built_in_build_sina_data`、
-`test_claim4_fusion_never_reads_series`、
+`test_claim4_fusion_never_consumes_series`、
 `test_claim4_series_does_not_change_probabilities`、
 `test_claim4_no_settlement_reader_of_series`、
 `test_claim4_series_consumed_by_build_site_display`。
@@ -168,7 +183,7 @@ if oh and od and oa:
 故不影响当前生产概率。若将来启用 lgbm_blend，应先在采集侧确认开盘价市场归属。
 
 复现：`test_claim5_extract_record_reads_opening_only`、
-`test_claim5_side_features_exclude_site_fair`。
+`test_claim5_site_price_never_reaches_side_features`。
 
 ## 6. 训练/服务 16 参完全一致 —— 不成立（按字面）
 
@@ -187,8 +202,9 @@ AST 计数（可复现）：
 恒 0.0。因此**不存在实际的训练/服务特征偏移**，"对齐"的实质结论成立，
 但原审计给出的证据（16 参完全一致）不成立。
 
-复现：`test_claim6_signature_16_params_production_call_passes_15`、
-`test_claim6_omitted_is_knockout_defaults_to_zero`。
+复现：`test_claim6_omitted_params_all_have_signature_defaults`、
+`test_claim6_training_and_serving_features_do_not_diverge`。
+16/15/14 是快照数字；断言的是「未传参数都有默认值」+「两端特征逐位相同」。
 
 ---
 
@@ -211,12 +227,25 @@ AST 计数（可复现）：
 
 ```
 $ .venv/bin/python -m pytest tests/test_leak_audit_independent_review.py -q
-...............                                                          [100%]
-15 passed in 1.47s
+..................                                                       [100%]
+18 passed in 1.38s
 
 $ .venv/bin/python -m ruff check --select F engine scripts tests evolution
 All checks passed!
 ```
+
+抗噪声明式验证（本地临时改生产文件做变异，跑完立即 `git checkout --` 还原，
+未提交任何生产改动）：
+
+| 变异 | 期望 | 实测 |
+|------|------|------|
+| 黑名单新增字段 `probe_new_impl` | 不应变红（正常演进） | 18 passed |
+| `build_features` 新增带默认值参数 `probe_flag=False` | 不应变红 | 18 passed |
+| `use_odds_features` 默认改成 `True` | 必须变红（真回归） | 1 failed：`test_claim1_production_features_carry_no_target_market_information` |
+
+路径分隔符：相对路径统一走 `_rel()` → `as_posix()`，并有
+`test_relative_paths_are_posix_under_both_path_flavours` 用 `PurePosixPath`
+与 `PureWindowsPath` 两种语义各验一遍；CI 的 `windows-latest` 跑同一份测试。
 
 ## 局限
 
