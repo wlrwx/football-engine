@@ -47,7 +47,6 @@ REFERENCE_MARKET_FEATURES = {
 def scan_features_in_python_files(directory: Path) -> list[dict]:
     """扫描 .py 文件，检测 build_features / 特征构造处是否出现黑名单字段。"""
     issues: list[dict] = []
-    pattern = re.compile(r'["\'](?P<feature>[a-z_][a-z0-9_]*)["\']', re.IGNORECASE)
 
     for pyfile in directory.rglob("*.py"):
         if "__pycache__" in str(pyfile) or ".git" in str(pyfile):
