@@ -209,8 +209,11 @@ def test_claim2_no_code_turns_the_odds_gate_on():
             if (isinstance(n, ast.keyword) and n.arg in banned
                     and isinstance(n.value, ast.Constant) and n.value.value is True):
                 offenders.append(f"{_rel(p)}:{n.lineno}")
-            if isinstance(n, ast.Assign):
-                for t in n.targets:
+            # AnnAssign 也要看：dataclass 字段默认值
+            # （use_odds_features: bool = False）是带注解的赋值。
+            if isinstance(n, (ast.Assign, ast.AnnAssign)):
+                targets = n.targets if isinstance(n, ast.Assign) else [n.target]
+                for t in targets:
                     name = (t.id if isinstance(t, ast.Name)
                             else t.attr if isinstance(t, ast.Attribute) else "")
                     if (name in banned and isinstance(n.value, ast.Constant)
