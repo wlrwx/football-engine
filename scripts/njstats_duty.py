@@ -466,8 +466,35 @@ def _maybe_agent_dispatch() -> None:
         log(f"⚠ agent_dispatch 退出码 {p.returncode}")
 
 
+def ensure_on_main() -> bool:
+    """duty 必须在 main 上提交；不在就自愈或停下报警。
+
+    2026-11-04 事故：dsh-superagent 的执行器在**大号的仓库**里跑了 `git checkout`，
+    把 /Users/dykily/football-engine 切到了它自己的 agent/ 分支（reflog:
+    `checkout: moving from main to agent/pr-guard-…`）。duty 随后把 3 轮快照提交到
+    那条分支上，`git push origin main` 推的是本地 main（没动），于是快照一直没进仓，
+    而日志只表现为 pull/push 失败。样本差点白丢。
+
+    干净就切回 main（常见情形：duty 自己的改动都已提交）；不干净绝不硬切，
+    停下来报警交给人——硬切会丢掉别人正在做的改动。
+    """
+    branch = sh("git", "branch", "--show-current").stdout.strip()
+    if branch == "main":
+        return True
+    if sh("git", "status", "--porcelain").stdout.strip():
+        log(f"⚠ duty 不在 main（当前 {branch or 'detached'}）且工作区不干净，本轮不提交，需人工处理")
+        return False
+    if sh("git", "checkout", "main").returncode == 0:
+        log(f"⚠ duty 不在 main（当前 {branch or 'detached'}），已切回 main")
+        return True
+    log(f"⚠ duty 不在 main（当前 {branch or 'detached'}）且切回失败，本轮不提交")
+    return False
+
+
 def main() -> int:
     os.chdir(ROOT)
+    if not ensure_on_main():
+        return 22
     sh("git", "pull", "--rebase", "--autostash", "origin", "main")
     for _line in watch_main_writes():
         log(_line)
