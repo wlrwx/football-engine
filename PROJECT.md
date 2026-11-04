@@ -2,6 +2,11 @@
 
 > [!IMPORTANT] 交接卡（收工必更新；冷启动只读这块）
 > 状态: doing　更新: 2026-10-28 16:20（三条 PR 合并 + Windows 门禁 + 模型权重归零研究）
+> 待合并(11-04, 自动化 agent): 泄漏审计 PR #80 + 独立复核 PR #83。审计入口合并成
+>           一份 `scripts/leak_audit_check.py`（原 `scripts/leak_audit/audit_leakage.py`
+>           删除，其未复核观察点降级为报告里的 info 记录）；两份测试改为**断言判定
+>           结论**而非硬编码计数（黑名单允许位置集合、开关规则、未传参数默认值 +
+>           训练/服务特征逐位相同）。只读，未改任何生产行为/配置/状态。
 > 本轮(10-28): 见 `docs/UPGRADE_20261028.md`。① PR #59/#60/#61 全部 cherry-pick 进
 >           `feat/consolidated-upgrade-20261028`（23 条评审项落地；冲突仅 plan_lock/
 >           main.py 导入/fusion.py 的 _djyy_confidence 复用/config 的 rho 保留最新）。
