@@ -241,7 +241,10 @@ All checks passed!
 |------|------|------|
 | 黑名单新增字段 `probe_new_impl` | 不应变红（正常演进） | 18 passed |
 | `build_features` 新增带默认值参数 `probe_flag=False` | 不应变红 | 18 passed |
-| `use_odds_features` 默认改成 `True` | 必须变红（真回归） | 1 failed：`test_claim1_production_features_carry_no_target_market_information` |
+| `use_odds_features: bool = False` 改成 `True` | 必须变红（真回归） | 2 failed：`test_claim1_production_features_carry_no_target_market_information` + `test_claim2_no_code_turns_the_odds_gate_on` |
+
+该变异还暴露了原扫描的一个洞：只看 `ast.Assign` 会漏掉 dataclass 的带注解字段
+默认值（`AnnAssign`），已补齐。
 
 路径分隔符：相对路径统一走 `_rel()` → `as_posix()`，并有
 `test_relative_paths_are_posix_under_both_path_flavours` 用 `PurePosixPath`
