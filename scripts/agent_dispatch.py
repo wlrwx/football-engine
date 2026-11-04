@@ -56,6 +56,7 @@ HUMAN_ONLY = {
 }
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"
+PR_FIX_KIND = "pr_fix"
 
 # 每日探索工单：主动挖掘「能提升预测能力」的东西，而不是只等故障。
 # 这个原型没有自调度能力（worker preset 明确剔除了 scheduling），它的「主动」=
@@ -104,6 +105,60 @@ def record_scout(state: dict, today: str, issue: str) -> dict:
     st["scout_date"] = today
     st["scout_issue"] = issue
     return st
+
+
+def candidates_from_prs(prs: list[dict]) -> list[dict]:
+    """agent 自己的上游 PR 检查红了 → 派修复单。
+
+    为什么需要：它的 Source 是自己的 fork，**看不见上游 PR 的 CI 结果与评论**，
+    所以 PR 红了它自己不知道，只能等人转达。这里把反馈闭上：key 含 head sha，
+    它推了新提交就是新 key，不会把旧失败反复派。
+    """
+    out = []
+    for p in prs or []:
+        failed = p.get("failed_checks") or []
+        if not failed:
+            continue
+        sha = str(p.get("head_sha") or "")
+        out.append({"key": f"prfix:{p.get('number')}:{sha[:8]}", "kind": PR_FIX_KIND,
+                    "title": f"你的 PR #{p.get('number')} 检查未过",
+                    "evidence": (f"{p.get('html_url')} | 标题：{p.get('title')} | "
+                                 f"head={sha[:8]} | 红的检查：{'、'.join(failed)}"),
+                    "pr_number": p.get("number")})
+    return out
+
+
+def fetch_agent_prs(token: str) -> list[dict]:
+    """取小号在上游的开放 PR，并查每个 head 的检查结论。"""
+    def get(path):
+        r = subprocess.run(
+            ["curl", "-sS", "--max-time", "30", "-H", f"Authorization: Bearer {token}",
+             "-H", "Accept: application/vnd.github+json", "https://api.github.com" + path],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+        try:
+            return json.loads(r.stdout)
+        except ValueError:
+            return None
+    prs = get(f"/repos/{UPSTREAM}/pulls?state=open&per_page=20") or []
+    out = []
+    for p in prs:
+        if ((p.get("user") or {}).get("login") or "").lower() != AGENT.lower():
+            continue
+        sha = (p.get("head") or {}).get("sha") or ""
+        runs = get(f"/repos/{UPSTREAM}/commits/{sha}/check-runs") or {}
+        failed, pending = [], False
+        for c in runs.get("check_runs") or []:
+            if c.get("status") != "completed":
+                pending = True
+            elif c.get("conclusion") in ("failure", "timed_out", "action_required"):
+                failed.append(c.get("name") or "?")
+        # 还有检查在跑就先不派，避免把「尚未完成」当成失败
+        if pending:
+            continue
+        out.append({"number": p.get("number"), "title": p.get("title"),
+                    "html_url": p.get("html_url"), "head_sha": sha,
+                    "failed_checks": sorted(set(failed))})
+    return out
 
 
 def candidates_from_flags(flags: list[dict]) -> list[dict]:
@@ -164,7 +219,9 @@ def record(state: dict, key: str, today: str, issue: str) -> dict:
 
 def render_issue(c: dict) -> tuple[str, str]:
     scout = c.get("kind") == SCOUT_KIND
-    title = f"[{'每日探索' if scout else '自动派单'}] {c['title']}"[:120]
+    prfix = c.get("kind") == PR_FIX_KIND
+    prefix = "每日探索" if scout else ("PR 修复" if prfix else "自动派单")
+    title = f"[{prefix}] {c['title']}"[:120]
     if scout:
         task = f"""## 今天的探索主题
 {c['evidence']}
@@ -177,6 +234,19 @@ def render_issue(c: dict) -> tuple[str, str]:
 - 分清「已证实」与「推测」；样本不足就明说不足，不要把噪声当信号。
 - 若量化后没有可行动发现，就如实报告「本轮无可行动发现」并给出数字，**不要硬凑改动**。
 - E8/E10 正在按冻结判据跑样本：**不得改模型特征、门槛、上界、校准参数**，否则整段样本作废。
+"""
+    elif prfix:
+        task = """## 要做的事
+你提的上游 PR 检查没过（见上面「红的检查」）。请到**原来那个 fork 分支**上修，不要新开 PR。
+
+- 先取失败详情：`gh run view --log-failed`（或读 check 的 annotations），定位真实报错，不要猜。
+- **区分两类红**：
+  1. 你自己的问题（lint/测试/逻辑）→ 修掉；
+  2. 闸门误报或基础设施问题（例如报你改了你根本没碰的文件）→ **不要绕过闸门**，
+     在 PR 里说明证据并停下来交给人。
+- 推之前必须在本地跑通：`ruff check --select F engine scripts tests evolution` 与相关测试，
+  并把输出摘要写进 PR 描述。**上一次就是因为没跑 lint 就推，被 F841 拦下。**
+- 若人工已在 issue/PR 里给了复核结论（例如判定某条发现是误报），按结论改正，不要坚持原判。
 """
     else:
         task = f"""## 期望范围
@@ -260,6 +330,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, default=DAILY_LIMIT)
     ap.add_argument("--no-ci", action="store_true", help="只看 ops_digest 红线，不查上游 CI")
     ap.add_argument("--no-scout", action="store_true", help="不派每日探索工单（只派故障/CI）")
+    ap.add_argument("--no-pr-feedback", action="store_true",
+                    help="不查小号自己的上游 PR 检查（关闭 CI 反馈回路）")
     args = ap.parse_args(argv)
 
     today = datetime.now(BJT).date().isoformat()
@@ -283,6 +355,13 @@ def main(argv: list[str] | None = None) -> int:
                 cands += candidates_from_ci(fetch_ci_runs(token))
             except Exception as exc:
                 print(f"派单: 查上游 CI 失败（{type(exc).__name__}），本轮只用红线信号")
+
+    # 闭环：小号看不见上游 PR 的 CI（它的 Source 是 fork），红了必须由这里转达
+    if not args.no_pr_feedback and token:
+        try:
+            cands += candidates_from_prs(fetch_agent_prs(token))
+        except Exception as exc:
+            print(f"派单: 查小号 PR 检查失败（{type(exc).__name__}）")
 
     sent = 0
     for c in cands:
