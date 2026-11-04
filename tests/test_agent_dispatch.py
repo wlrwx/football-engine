@@ -119,3 +119,40 @@ def test_missing_token_does_not_crash(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(disp, "TOKEN_FILE", tmp_path / "nope")
     assert disp.main([]) == 0
     assert "无 GitHub token" in capsys.readouterr().out
+
+
+def test_scout_rotates_and_is_stable_within_a_day():
+    a = disp.scout_candidate("2026-11-04")
+    assert a == disp.scout_candidate("2026-11-04"), "同一天每 30 分钟跑一次却换题了"
+    assert a["kind"] == disp.SCOUT_KIND and a["key"].startswith("scout:2026-11-04:")
+    days = [(disp.scout_candidate(f"2026-11-{d:02d}")["focus"]) for d in range(4, 10)]
+    assert len(set(days)) == len(disp.SCOUT_FOCUS), f"6 天没轮完全部主题: {days}"
+
+
+def test_scout_has_independent_budget():
+    st = {}
+    for k in ("k1", "k2", "k3"):
+        st = disp.record(st, k, TODAY, "u")
+    assert not disp.due(st, "k4", TODAY, limit=3), "故障额度已满"
+    assert disp.scout_due(st, TODAY), "探索工单不该被故障额度挤掉"
+    st = disp.record_scout(st, TODAY, "scout-url")
+    assert not disp.scout_due(st, TODAY), "同一天派了第二条探索工单"
+    assert disp.scout_due(st, "2026-11-05")
+
+
+def test_scout_issue_is_investigation_not_a_gate_change():
+    c = disp.scout_candidate(TODAY)
+    title, body = disp.render_issue(c)
+    assert title.startswith("[每日探索]")
+    for must in ("只读量化", "docs/proposals/", "不要改 `docs/EXPERIMENTS.md`",
+                 "不得改模型特征", "本轮无可行动发现", "不要合并任何 PR",
+                 "禁止在 `/Users/dykily/football-engine`"):
+        assert must in body, f"探索工单缺少边界: {must}"
+
+
+def test_no_scout_flag_suppresses_it(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(disp, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(disp, "DIGEST_FILE", tmp_path / "digest.json")
+    monkeypatch.setattr(disp, "TOKEN_FILE", tmp_path / "nope")
+    assert disp.main(["--dry-run", "--no-ci", "--no-scout"]) == 0
+    assert "探索" not in capsys.readouterr().out
