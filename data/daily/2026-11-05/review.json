@@ -1,0 +1,146 @@
+{
+  "date": "2026-11-05",
+  "n_matches": 7,
+  "hit_rate": 0.4286,
+  "hits": 3,
+  "source_brier": {
+    "model": 0.4907,
+    "market": 0.6649,
+    "djyy": 0.7491,
+    "final": 0.6562
+  },
+  "by_league": {
+    "亚冠乙": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.0866
+    },
+    "欧罗巴": {
+      "n": 5,
+      "hit_rate": 0.4,
+      "wilson_lower": 0.1176,
+      "avg_brier": 0.7703
+    },
+    "欧协联": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.6551
+    }
+  },
+  "by_confidence_tier": {
+    "high": {
+      "n": 5,
+      "hit_rate": 0.6,
+      "wilson_lower": 0.2307,
+      "avg_brier": 0.6081
+    },
+    "mid": {
+      "n": 2,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7764
+    }
+  },
+  "by_odds_band": {
+    "L1 大热(<1.5)": {
+      "n": 4,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.15,
+      "avg_brier": 0.692
+    },
+    "L2 热(1.5-1.8)": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.5851
+    },
+    "L3 中(1.8-2.2)": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.6551
+    }
+  },
+  "score_stats": {
+    "top1": 1,
+    "top3": 1,
+    "top5": 4,
+    "top8": 5,
+    "any": 5
+  },
+  "score_rank_hist": {
+    "7": 1,
+    "4": 2,
+    "5": 1,
+    "1": 1
+  },
+  "score_source_stats": {
+    "djyy": {
+      "n": 0,
+      "hits": 0
+    },
+    "mc": {
+      "n": 5,
+      "hits": 4
+    }
+  },
+  "market_signal_stats": {
+    "n": 7,
+    "hits": 3
+  },
+  "layered": {
+    "log_loss_final": 1.1066,
+    "rps_final": 0.2278,
+    "rps_market": 0.2308,
+    "goal_framework": {
+      "n": 7,
+      "hits": 4
+    },
+    "prob_bands": {
+      "40-50%": {
+        "n": 1,
+        "hit_rate": 0.0
+      },
+      "50-60%": {
+        "n": 2,
+        "hit_rate": 0.5
+      },
+      "60%+": {
+        "n": 4,
+        "hit_rate": 0.5
+      }
+    },
+    "freshness_groups": {
+      "alert": {
+        "n": 3,
+        "hit_rate": 0.3333
+      },
+      "ok": {
+        "n": 3,
+        "hit_rate": 0.3333
+      },
+      "watch": {
+        "n": 1,
+        "hit_rate": 1.0
+      }
+    }
+  },
+  "biases": [
+    {
+      "dimension": "league",
+      "key": "欧罗巴",
+      "outcome": "home",
+      "predicted_avg": 0.5321,
+      "actual_rate": 0.2,
+      "gap": 0.3321,
+      "n": 5,
+      "severity": "critical",
+      "suggested_action": "reduce home_adv_weight"
+    }
+  ],
+  "total_pnl": 0.0,
+  "generated_at": "2026-11-05T21:41:29.334361",
+  "sha256": "c738697c9b1d5eb31c29cedabb37e94f"
+}
