@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-06T03:00:04",
+  "generated_at": "2026-11-06T08:33:47",
   "summary": {
-    "total": 9,
+    "total": 10,
     "critical": 0,
     "healed": 0
   },
@@ -33,16 +33,24 @@
     {
       "id": "data/results",
       "layer": "data",
-      "severity": "warn",
-      "detail": "昨日(2026-11-05)缺 results_sina.json（补抓失败）",
-      "healable": true,
+      "severity": "ok",
+      "detail": "昨日赛果文件在",
+      "healable": false,
       "healed": false
     },
     {
       "id": "data/yesterday",
       "layer": "data",
-      "severity": "info",
-      "detail": "昨日(2026-11-05)无预测或无赛果，跳过结算检查",
+      "severity": "ok",
+      "detail": "昨日(2026-11-05)已结算",
+      "healable": false,
+      "healed": false
+    },
+    {
+      "id": "model/draw",
+      "layer": "model",
+      "severity": "ok",
+      "detail": "平局均值 24.7% 在先验带内",
       "healable": false,
       "healed": false
     },
