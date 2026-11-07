@@ -504,6 +504,12 @@ def main() -> int:
     _code, _msg = _mint_action(tok)
     if _code is not None:
         log(_msg + (_net_fail_note(time.time()) if _code == 0 else ""))
+        # 2026-11-07 事故：监控与派单原来只在成功轮末尾跑，于是 session 一死，
+        # 摘要就停在最后一次成功（实测停在 11-04 16:05、red_flags 为空长达 73 小时），
+        # 每日分诊只能靠「摘要过期」猜成合盖/launchd 掉了，报不出真因；
+        # 每日探索工单也一并断了 3 天。**恰恰在失败轮更需要监控**，所以这里也跑。
+        _maybe_ops_digest()
+        _maybe_agent_dispatch()
         return _code
     _back = _net_fail_clear(time.time())
     if _back:

@@ -57,6 +57,8 @@ HUMAN_ONLY = {
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"
 PR_FIX_KIND = "pr_fix"
+# 人工根因：出现这些时，采集/快照类症状不派给 agent（它修不了登录态）
+ROOT_CAUSES = {"error_mint", "error_credentials"}
 
 # 每日探索工单：主动挖掘「能提升预测能力」的东西，而不是只等故障。
 # 这个原型没有自调度能力（worker preset 明确剔除了 scheduling），它的「主动」=
@@ -340,6 +342,12 @@ def main(argv: list[str] | None = None) -> int:
     cands = candidates_from_flags(digest.get("red_flags") or [])
     skipped = [f.get("code") for f in (digest.get("red_flags") or [])
                if f.get("code") not in DISPATCHABLE]
+    # 登录/凭据类根因存在时，「快照未入库」「预测没落库」只是它的症状，
+    # 修法是人工播种/换 token，派给 agent 只会让它去改不该改的地方。
+    if any(f.get("code") in ROOT_CAUSES for f in (digest.get("red_flags") or [])):
+        if cands:
+            print(f"派单: 存在登录/凭据根因（需人工），症状类不派给 agent: {[c['key'] for c in cands]}")
+        cands = []
 
     token = ""
     if TOKEN_FILE.exists():
