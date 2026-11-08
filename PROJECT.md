@@ -7,6 +7,15 @@
 >           删除，其未复核观察点降级为报告里的 info 记录）；两份测试改为**断言判定
 >           结论**而非硬编码计数（黑名单允许位置集合、开关规则、未传参数默认值 +
 >           训练/服务特征逐位相同）。只读，未改任何生产行为/配置/状态。
+> 复核(11-04, 自动化 agent): 两条「待核」观察点已查清（dykily/football-engine#5），见
+>           `docs/proposals/dc-market-blend-and-devig-review.md` +
+>           `tests/test_dc_market_blend_review.py`（22 项）。判定：DC 内混的来源确是
+>           竞彩(target)，但 `market_blend_weight=0.0`（config/prediction.json:11），
+>           喂任意 target 赔率概率逐位不变 ⇒ 路径不活、封顶 info，**不是违规**；
+>           devig 两套口径作用于不同对象（回放=参考盘收盘基准 / 服务=竞彩融合输入），
+>           裁决开关的 ablation_replay 用冻结 market_fair ⇒ **无漂移**。只读复核。
+>           坑：`DOUBLE_MARKET_BLEND_20261023.md:26` 的「改回 0.28」回滚步骤会同时
+>           制造市场隔离违规与双重计入；MC 的「默认评级→赔率反推 xG」无开关，另列待裁决。
 > 本轮(10-28): 见 `docs/UPGRADE_20261028.md`。① PR #59/#60/#61 全部 cherry-pick 进
 >           `feat/consolidated-upgrade-20261028`（23 条评审项落地；冲突仅 plan_lock/
 >           main.py 导入/fusion.py 的 _djyy_confidence 复用/config 的 rho 保留最新）。
