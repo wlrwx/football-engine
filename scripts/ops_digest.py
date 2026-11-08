@@ -41,6 +41,8 @@ SNAPSHOT_STALE_H = 26.0             # 超过一天没入库就是断链
 GATE_EV_SITE = 2.0                  # 冻结门槛，只用于归因文案，不参与判定
 # duty 每轮自述服务端真值笔数；带「而本地有 N 条注单」后缀的那条就是半失效 token。
 TRUTH_RE = re.compile(r"server-snapshot: 服务端真值 (\d+) 条(?:而本地有 (\d+) 条注单)?")
+# 真值快照每天每轮都会重写，26h 没更新就说明采集中断（11-05→11-07 是整整三天没文件）。
+TRUTH_STALE_H = 26.0
 
 LINE_RE = re.compile(r"^(\d{2}-\d{2}) (\d{2}):\d{2}:\d{2} (.*)$")
 # 「匹配0」那种零合格行**没有**「最高」字段（2026-11-03 实测），所以它必须可选：
@@ -158,11 +160,12 @@ def state_summary(state: dict) -> dict:
 def truth_check(rows: list[tuple[str, str]]) -> dict | None:
     """近 24h 最后一次「服务端真值」自述是不是 0 条而本地有注单。
 
-    2026-11-04→11-07 实测：半失效的旧 JWT 下 msgId=1 全板照常返回 232 场，
-    msgId=11「我已预测」却**静默返回 0 条**。降级探测只看 board 所以照旧放行，
-    账目行按服务端条数遍历所以报「仓库未记 0 条」，于是四天里每轮都「无红线」。
-    空快照这个症状本身必须成一条红线：duty 现在每轮都把两边笔数写进日志，
-    这里只判「最后一次是真 0 还是带注单的 0」。
+    两个同族形状，别混：① 半失效 JWT（2026-11-08 用过期 token 实测）：
+    msgId=1 全板照常 232 场、msgId=11 却 HTTP 200 + 空 body，旧代码把 count=0
+    写进当天快照，覆盖上午的真值；② 私有端点非 200（2026-11-05→11-07 实测）：
+    my_predictions() 返回 None，旧代码**连日志都不写**。本条只认「写进日志的
+    最后一次自述是 0 条而本地有注单」；②那种"没有文件"的静默由
+    truth_snapshot_age_h() + truth_snapshot_stale 兜（文件在不在是不依赖日志排版的事实）。
     """
     last = None
     for _k, body in rows:
@@ -177,6 +180,25 @@ def truth_check(rows: list[tuple[str, str]]) -> dict | None:
     return None
 
 
+def truth_snapshot_age_h(now: datetime | None = None) -> float | None:
+    """最新一份「我已预测」真值快照的年龄（小时）；没有可用快照返回 None。
+
+    取文件而不是取日志：2026-11-05→11-07 那三天既没有日志也没有文件，而摘要
+    仍按「最新的旧文件」报「未记 0 条」。文件时间戳是唯一不依赖日志排版的证据。
+    """
+    d = cr.STATE / "njstats" / "my_predictions"
+    files = sorted(d.glob("*.json")) if d.exists() else []
+    if not files:
+        return None
+    try:
+        snap = json.loads(files[-1].read_text(encoding="utf-8"))
+        ts = datetime.strptime(snap.get("snapshot_at", ""),
+                               "%Y-%m-%d %H:%M:%S").replace(tzinfo=BJT)
+    except (OSError, ValueError, TypeError):
+        return None
+    return ((now or datetime.now(BJT)) - ts).total_seconds() / 3600
+
+
 def snapshot_commit_age_h() -> float | None:
     p = subprocess.run(["git", "log", "-1", "--format=%ct", "--", "data/state/njstats/"],
                        cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
@@ -188,7 +210,8 @@ def snapshot_commit_age_h() -> float | None:
 
 def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
                     snap_age: float | None, account_line: str, today_site_odds: bool,
-                    truth: dict | None = None) -> list[dict]:
+                    truth: dict | None = None,
+                    truth_age: float | None = None) -> list[dict]:
     flags: list[dict] = []
 
     def add(code, detail, action):
@@ -221,6 +244,15 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
             f"最后一次服务端真值 0 条，而本地账已有 {truth['local_records']} 条注单",
             "半失效的旧 JWT 只剩公开接口能用（全板正常、私有端点静默返回空）："
             "让用户在浏览器重新登录再播种，别改账本、也别信这份空快照")
+    # 「文件断更」与「空返回」是两种形状：前者连日志都没有（11-05→11-07 三天没文件），
+    # 只能靠文件时间戳发现。厂商 5xx 已由 error_upstream 报（修法是等），同根因不重复报。
+    if st.get("records") and (truth_age is None or truth_age > TRUTH_STALE_H):
+        if not any(f["code"] == "error_upstream" for f in flags):
+            age = "从未落盘" if truth_age is None else f"已 {truth_age:.0f}h 未更新"
+            add("truth_snapshot_stale",
+                f"服务端真值快照{age}，而本地账已有 {st['records']} 条注单",
+                "私有端点（msgId=11）可能被降级/网关变更，或解析退化：看 duty.log 的 "
+                "server-snapshot 行；修好前别把旧快照当今天的真值，也别改账本")
     if st.get("missing_fields"):
         add("record_fields_missing", f"{st['missing_fields']} 条 ev_site 注缺 gate/ev_site/site_odds 字段",
             "实验采集前提受损，查提交脚本写盘字段")
@@ -274,7 +306,7 @@ def collect(now: datetime | None = None) -> dict:
     ctx["red_flags"] = build_red_flags(
         ctx["rounds"], ctx["errors"], ctx["attribution"], ctx["state"], ctx["snap_age"],
         account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
-        truth=truth_check(rows))
+        truth=truth_check(rows), truth_age=truth_snapshot_age_h())
     ctx["report"] = render(ctx)
     return ctx
 

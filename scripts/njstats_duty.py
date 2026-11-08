@@ -810,6 +810,10 @@ def _maybe_server_records_snapshot() -> None:
         log(f"server-snapshot: 取数失败 {type(e).__name__}")
         return
     if recs is None:
+        # 2026-11-05→11-07 实测形状：私有端点非 200 时 my_predictions() 返回 None，
+        # 旧代码在这里静默 return——没有日志、没有文件，摘要读最新的旧文件照样报
+        # 「仓库未记 0 条」。静默比「写了个 0」更难发现，所以这条必须留字。
+        log("server-snapshot: 私有端点取不到（不写快照，沿用旧文件）")
         return
     day = time.strftime("%Y-%m-%d")
     local_n = len(_local_submits())
@@ -903,7 +907,9 @@ def _maybe_strategy_snapshot() -> None:
                        cwd=ROOT, capture_output=True, text=True, check=False,
                        timeout=180, encoding="utf-8", errors="replace")
     out = (p.stdout or p.stderr).strip().splitlines()
-    log("strategies: " + (out[-1] if out else f"无输出 rc={p.returncode}"))
+    last = out[-1] if out else f"无输出 rc={p.returncode}"
+    # 脚本自己也带 strategies: 前缀（单独跑时用），这里别再叠一层
+    log(last if last.startswith("strategies:") else f"strategies: {last}")
     if p.returncode == 0:
         try:
             marker.write_text(today, encoding="utf-8")
