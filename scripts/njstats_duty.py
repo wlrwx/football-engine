@@ -44,13 +44,14 @@ DAILY_STALE_H = 4.0
 DAILY_COOLDOWN_H = 2.0
 BJT = timezone(timedelta(hours=8))
 # duty 自己拥有的落盘路径。分成两组是因为提交时机不同：state 在投完注就要推
-# （CI 那边靠它去重），三份快照在所有采集步跑完后才齐。
-# 只列这三份，不整目录 add——njstats/ 下还有别的脚本的产物，
+# （CI 那边靠它去重），四类快照在所有采集步跑完后才齐。
+# 只列这四个目录，不整目录 add——njstats/ 下还有别的脚本的产物，
 # 让 duty 顺手提交它们等于替别人决定版本，会和 ci-sync 抢写。
 STATE_PATHS = ["data/state/challenge_state.json"]
 SNAPSHOT_PATHS = ["data/state/njstats/site_odds/",
                   "data/state/njstats/my_predictions/",
-                  "data/state/njstats/community/"]
+                  "data/state/njstats/community/",
+                  "data/state/njstats/strategies/"]
 # DJYY 快照必须由本机住宅网络抓（见 _maybe_djyy_snapshot 的归因）。
 DJYY_PATH = "data/djyy_matches.json"
 DJYY_MAX_AGE_H = 10.0
@@ -622,11 +623,15 @@ def main() -> int:
         _maybe_server_records_snapshot()
     if os.environ.get("DUTY_SKIP_COMMUNITY") != "1":
         _maybe_community_snapshot()
-    # 三份 njstats 快照一写完就先提交，不等 DJYY：后者是 600s 超时的外网抓取，
+    # 站点回测策略快照（store-only，不参与下单）。放在快照组里、DJYY 之前，
+    # 失败只影响这一份数据，不影响提交链。
+    if os.environ.get("DUTY_SKIP_STRATEGIES") != "1":
+        _maybe_strategy_snapshot()
+    # 四份 njstats 快照一写完就先提交，不等 DJYY：后者是 600s 超时的外网抓取，
     # 2026-10-23 00:10 实测把快照落地拖了 10 分钟（文件已写盘，只是没进仓）。
     # 提交失败不影响本轮采集（文件在本地，下一轮再试）——但要可见，否则又回到
     # 「静默不提交、样本只活在笔记本上」。
-    commit_push(SNAPSHOT_PATHS, "duty: njstats 每日快照（站点赔率/服务端真值/社区倾向）")
+    commit_push(SNAPSHOT_PATHS, "duty: njstats 每日快照（站点赔率/服务端真值/社区倾向/回测策略）")
     # 摘要放在快照提交之后、DJYY 之前：快照龄/入库检查要反映本轮，而 DJYY 是
     # 600s 级的外网抓取，不该让摘要等它。
     _maybe_ops_digest()
@@ -774,6 +779,15 @@ def _maybe_dispatch_ci(local_submitted: int) -> None:
             pass
 
 
+def _local_submits() -> set[str]:
+    """本地账本里投过的场次名（"主队 vs 客队"）。读不到就当空——只用于日志与对照。"""
+    try:
+        st = json.loads((ROOT / CHALLENGE_STATE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return {str(r.get("match") or "") for r in (st.get("records") or []) if r.get("match")}
+
+
 def _maybe_server_records_snapshot() -> None:
     """每次把服务端「我已预测」真值落盘，作为账本缺口的对照物。
 
@@ -784,6 +798,11 @@ def _maybe_server_records_snapshot() -> None:
 
     落盘到 data/state/njstats/my_predictions/<YYYY-MM-DD>.json，
     每次覆盖当天（一天内多次轮询以最后一次为准，只会变多不会变少）。
+
+    例外：服务端返回 0 条而本地有注单时**不覆盖**当天快照。半失效的旧 JWT
+    就是这种表现（msgId=1 全板返回 232 场、msgId=11 静默返回 0 条），
+    覆盖会把上午拿到的真值清成空表——对账行按服务端条数遍历，服务端一空
+    它就报「仓库未记 0 条」，看起来一切正常。宁可留下旧快照 + 一条日志红线。
     """
     try:
         recs = api.my_predictions()
@@ -792,21 +811,28 @@ def _maybe_server_records_snapshot() -> None:
         return
     if recs is None:
         return
+    day = time.strftime("%Y-%m-%d")
+    local_n = len(_local_submits())
     out_dir = ROOT / "data" / "state" / "njstats" / "my_predictions"
-    try:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        day = time.strftime("%Y-%m-%d")
-        payload = {
-            "snapshot_at": time.strftime("%F %T"),
-            "count": len(recs),
-            "note": "msgId=11 账号私有「我已预测」服务端真值；与 challenge_state 对照用",
-            "records": recs,
-        }
-        (out_dir / f"{day}.json").write_text(
-            json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
-    except OSError as e:
-        log(f"server-snapshot: 写盘失败 {e}")
-        return
+    if not recs and local_n:
+        log(f"server-snapshot: 服务端真值 0 条而本地有 {local_n} 条注单 → 保留当天旧快照"
+            "（缓存 JWT 可能只剩公开接口可用，见 ops_digest 红线 truth_snapshot_empty）")
+    else:
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "snapshot_at": time.strftime("%F %T"),
+                "count": len(recs),
+                "local_records": local_n,
+                "note": ("msgId=11 账号私有「我已预测」服务端真值；与 challenge_state 对照用。"
+                         "local_records = 写这份快照时本地账本的注单笔数"),
+                "records": recs,
+            }
+            (out_dir / f"{day}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+            log(f"server-snapshot: 服务端真值 {len(recs)} 条")
+        except OSError as e:
+            log(f"server-snapshot: 写盘失败 {e}")
 
     # 站点赔率快照（含让球/大小球场次的 1x2 三档）。
     #
@@ -852,6 +878,32 @@ def _maybe_community_snapshot() -> None:
                        cwd=ROOT, capture_output=True, text=True, check=False, timeout=300, encoding="utf-8", errors="replace")
     out = (p.stdout or p.stderr).strip().splitlines()
     log("community: " + (out[-1] if out else f"无输出 rc={p.returncode}"))
+    if p.returncode == 0:
+        try:
+            marker.write_text(today, encoding="utf-8")
+        except OSError:
+            pass
+
+
+def _maybe_strategy_snapshot() -> None:
+    """每天一轮把站点回测策略的定义与汇总落盘（站点无历史接口，只能自己攒）。
+
+    明细（联赛分布 + 周/月序列）体积 160KB，由脚本按 ISO 周门控，所以这里
+    每天调用一次不会天天变大。marker 与社区快照同理：看日期而不是看文件在不在。
+    """
+    marker = ROOT / "data" / "state" / ".njstats_strategy_done"
+    today = time.strftime("%Y-%m-%d")
+    try:
+        if marker.exists() and marker.read_text(encoding="utf-8").strip() == today:
+            return
+    except OSError:
+        pass
+    p = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"),
+                        "scripts/fetch_njstats_strategies.py"],
+                       cwd=ROOT, capture_output=True, text=True, check=False,
+                       timeout=180, encoding="utf-8", errors="replace")
+    out = (p.stdout or p.stderr).strip().splitlines()
+    log("strategies: " + (out[-1] if out else f"无输出 rc={p.returncode}"))
     if p.returncode == 0:
         try:
             marker.write_text(today, encoding="utf-8")

@@ -55,6 +55,8 @@ HUMAN_ONLY = {
     "error_branch",
     # 厂商 API 5xx：人也修不了，只能等；派给 agent 更没用
     "error_upstream",
+    # 服务端真值 0 条 = token 半失效，修法是用户重新登录，agent 既不能登录也不该碰账本
+    "truth_snapshot_empty",
 }
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"

@@ -427,3 +427,150 @@ def board_with_odds(jwt: str | None = None) -> list[dict] | None:
     if st != 200:
         return None
     return parse_board_with_odds(raw)
+
+
+# ---------- 自建策略回测（modId=1028，2026-11-08 逆向） ----------
+#
+# 口径全部用 5 个基础策略的真实响应互验过（不是猜的）：
+#   胜率 = 胜场 / (总场 - 走盘)          客队不败 251/(442-76)=68.58 ✓
+#   场均收益率 = 累计收益 / (总场 - 走盘) × 100   85.17/366×100=23.27 ✓
+# 其余无 UI 对应值的字段按 raw_fN 原样落盘，不编标签。
+
+STRATEGY_TABS = {"base": 1, "mine": 2}
+# 1028/0 的 f1{1:tab} 是页签选择器（实测 1=基础策略 5 个、2=自建策略；
+# 0 与省略同于 1，2 在本账号返回空——非会员建不了自建策略，不是接口坏了）。
+# 1028/2 的 f1{2:4} 是回测窗口序号，非会员下所有策略都返回同一份全历史。
+WINDOW_ALL = 4
+SERIES_TAGS = {"W": "weekly", "M": "monthly"}
+
+
+def _strf(fields, fn):
+    """length-delimited 文本字段 → str；缺失返回 None。"""
+    b = _get(fields, fn)
+    return None if b is None else b.decode("utf-8", "ignore")
+
+
+def _num(s):
+    """站点把这些列都当字符串传，能转数就转数，转不了原样留着。"""
+    if s is None:
+        return None
+    try:
+        f = float(s)
+    except ValueError:
+        return s
+    return int(f) if f.is_integer() else f
+
+
+def encode_strategy_list(tab: str = "base") -> bytes:
+    return _field(1, _field_v(1, STRATEGY_TABS[tab])) + _field(2, b"")
+
+
+def parse_strategy_list(raw: bytes) -> list[dict]:
+    """1028/0 → [{sid,name,conditions,win_rate,strategy_no}]。纯函数可测。
+
+    conditions 是站点自己那份 JSON 条件树（原样带出，不做任何解释），
+    解不出 JSON 时落成 None——「站点返回了条件」和「条件读不懂」不能混成同一个值。
+    """
+    cont = _get(decode_msg(raw), 5)
+    if not cont:
+        return []
+    out = []
+    for fn, kind, val in decode_msg(cont):
+        if fn != 1 or kind != "s":
+            continue
+        e = decode_msg(val)
+        sid = (_get(e, 1) or b"").decode("utf-8", "ignore")
+        if not sid:
+            continue
+        cond_raw = _get(e, 4)
+        try:
+            conditions = json.loads((cond_raw or b"").decode("utf-8", "ignore"))
+        except ValueError:
+            conditions = None
+        out.append({
+            "sid": sid,
+            "name": (_get(e, 2) or b"").decode("utf-8", "ignore"),
+            "conditions": conditions,
+            "win_rate": _strf(e, 10),
+            "strategy_no": _strf(e, 11),
+        })
+    return out
+
+
+def encode_strategy_detail(sid: str, window: int = WINDOW_ALL) -> bytes:
+    return _field(1, _field(1, sid.encode()) + _field_v(2, window)) + _field(2, b"")
+
+
+def parse_strategy_backtest(raw: bytes) -> dict | None:
+    """1028/2 → 汇总 + 联赛明细 + 周/月序列。解不出 header 返回 None。"""
+    f5 = _get(decode_msg(raw), 5)
+    if not f5:
+        return None
+    hdr_b = _get(decode_msg(f5), 1)
+    if not hdr_b:
+        return None
+    hdr = decode_msg(hdr_b)
+    leagues = []
+    for fn, kind, val in hdr:
+        if fn != 10 or kind != "s":
+            continue
+        r = decode_msg(val)
+        leagues.append({
+            "league_sid": _strf(r, 1), "country": _strf(r, 2), "league": _strf(r, 3),
+            "total": _get(r, 4, "v"), "wins": _get(r, 5, "v"), "push": _get(r, 6, "v"),
+            "win_rate": _num(_strf(r, 9)),
+        })
+    series: dict[str, list[dict]] = {}
+    for fn, kind, val in hdr:
+        if fn != 11 or kind != "s":
+            continue
+        blk = decode_msg(val)
+        tag = (_get(blk, 1) or b"").decode("utf-8", "ignore")
+        rows = []
+        for bfn, bkind, bval in blk:
+            if bfn != 2 or bkind != "s":
+                continue
+            r = decode_msg(bval)
+            period = _get(r, 7, "v")
+            rows.append({
+                "period": period, "total": _get(r, 1, "v"), "wins": _get(r, 2, "v"),
+                "push": _get(r, 8, "v"), "win_rate": _num(_strf(r, 3)),
+                "avg_odds": _num(_strf(r, 4)), "profit": _num(_strf(r, 5)),
+                "roi_pct": _num(_strf(r, 6)),
+            })
+        # W=周(YYYYWW)、M=月(YYYYMM)；未知标签照样落盘，键名带上标签本身。
+        key = SERIES_TAGS.get(tag) or f"raw_{tag or 'unknown'}"
+        series[key] = rows
+    return {
+        "total": _get(hdr, 1, "v"), "wins": _get(hdr, 2, "v"), "push": _get(hdr, 3, "v"),
+        "avg_odds": _num(_strf(hdr, 6)), "win_rate": _num(_strf(hdr, 7)),
+        "roi_pct": _num(_strf(hdr, 8)), "profit": _num(_strf(hdr, 9)),
+        "raw_f5": _get(hdr, 5, "v"), "raw_f12": _get(hdr, 12, "v"),
+        "raw_f13": _get(hdr, 13, "v"), "raw_f15": _get(hdr, 15, "v"),
+        "hit_league_sids": [s.decode("utf-8", "ignore")
+                            for fn, k, s in hdr if fn == 14 and k == "s"],
+        "leagues": leagues,
+        "series": series,
+    }
+
+
+def strategy_list(tab: str = "base", jwt: str | None = None) -> list[dict] | None:
+    """页签下的策略列表；取不到 None，取到空列表是「这个页签真的没有」。"""
+    jwt = jwt or (JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else "")
+    if not jwt:
+        return None
+    st, raw = _post_jwt(jwt, "1028", "0", encode_strategy_list(tab))
+    if st != 200:
+        return None
+    return parse_strategy_list(raw)
+
+
+def strategy_backtest(sid: str, jwt: str | None = None) -> dict | None:
+    jwt = jwt or (JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else "")
+    if not jwt:
+        return None
+    st, raw = _post_jwt(jwt, "1028", "2", encode_strategy_detail(sid))
+    if st != 200:
+        return None
+    return parse_strategy_backtest(raw)
+
