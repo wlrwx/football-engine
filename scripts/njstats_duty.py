@@ -62,6 +62,8 @@ CHALLENGE_STATE = "data/state/challenge_state.json"
 MAIN_WATCH = HOME / ".football-engine" / "main_watch.json"
 MAIN_WATCH_SEED_DAYS = "90.days"
 MINT_NET = "__net__"  # mint 因网络/SSL 拦截失败的哨兵（不是登录问题）
+MINT_SERVER = "__server__"  # mint 因站点 5xx 失败的哨兵（厂商故障，也不是登录问题）
+UPSTREAM_STATE = HOME / ".football-engine" / "upstream_fail_state.json"
 PX = {"http": None, "https": None}  # 直连；显式 None 防环境代理回落
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 
@@ -156,6 +158,12 @@ def mint() -> str | None:
     except requests.RequestException as e:
         log(f"mint 网络异常 {e}")
         return MINT_NET
+    if 500 <= r.status_code < 600:
+        # 2026-11-07：5xx 是厂商网关/后端故障，与登录态无关。实测站点首页 200、
+        # /api/* 全部 502，且**带 cookie 与不带 cookie 都是 502** —— 重新登录修不好。
+        # 原来一律判「session 死」并喊人工登录，导致 11-04→11-07 三天报警指错方向。
+        log(f"mint HTTP {r.status_code}（站点 API 服务端故障，与登录态无关，不做无头续期）")
+        return MINT_SERVER
     if r.status_code != 200:
         log(f"mint HTTP {r.status_code}（session 死，尝试无头续期）")
         if not autoheal_session():
@@ -170,6 +178,9 @@ def mint() -> str | None:
         except requests.RequestException as e:
             log(f"续期后 mint 网络异常 {e}")
             return MINT_NET
+        if 500 <= r.status_code < 600:
+            log(f"续期后仍 HTTP {r.status_code}（站点服务端故障，非登录问题）")
+            return MINT_SERVER
         if r.status_code != 200:
             log(f"续期后仍 HTTP {r.status_code}，需人工登录")
             return None
@@ -181,10 +192,15 @@ def mint() -> str | None:
 def _mint_action(tok):
     """把 mint() 结果翻成 (退出码, 日志)；退出码 None 表示继续本轮。
 
-    网络异常返回 0 而不是 20：让 launchd/巡检能分清「等下轮自愈」和「要人登录」。
+    网络异常与站点 5xx 都返回 0 而不是 20：让 launchd/巡检能分清「等下轮自愈」
+    和「要人登录」。5xx 是厂商故障，喊人工登录只会让人白跑（2026-11-04→11-07 实测）。
     """
     if tok == MINT_NET:
         return 0, "本轮：网络异常导致 mint 失败，跳过（不需人工登录，下轮自动重试）"
+    if tok == MINT_SERVER:
+        return 0, ("本轮：站点 API 服务端故障（5xx）导致 mint 失败，跳过"
+                   "（厂商侧问题，与登录态无关，不需人工登录）"
+                   + _net_fail_note(time.time(), path=UPSTREAM_STATE))
     if not tok:
         return 20, "本轮：mint 失败，需人工登录（跑 njstats_seed_login.py）"
     return None, ""
@@ -503,7 +519,7 @@ def main() -> int:
     tok = mint()
     _code, _msg = _mint_action(tok)
     if _code is not None:
-        log(_msg + (_net_fail_note(time.time()) if _code == 0 else ""))
+        log(_msg + (_net_fail_note(time.time()) if tok == MINT_NET else ""))
         # 2026-11-07 事故：监控与派单原来只在成功轮末尾跑，于是 session 一死，
         # 摘要就停在最后一次成功（实测停在 11-04 16:05、red_flags 为空长达 73 小时），
         # 每日分诊只能靠「摘要过期」猜成合盖/launchd 掉了，报不出真因；
@@ -514,6 +530,9 @@ def main() -> int:
     _back = _net_fail_clear(time.time())
     if _back:
         log("网络恢复" + _back)
+    _up_back = _net_fail_clear(time.time(), path=UPSTREAM_STATE)
+    if _up_back:
+        log("站点 API 恢复" + _up_back)
     old = JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else ""
     JWT_FILE.write_text(tok, encoding="utf-8")
     os.chmod(JWT_FILE, 0o600)
