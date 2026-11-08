@@ -1,13 +1,13 @@
 {
   "date": "2026-11-07",
-  "n_matches": 27,
-  "hit_rate": 0.4815,
-  "hits": 13,
+  "n_matches": 29,
+  "hit_rate": 0.4828,
+  "hits": 14,
   "source_brier": {
-    "model": 0.5383,
-    "market": 0.5723,
+    "model": 0.544,
+    "market": 0.5799,
     "djyy": null,
-    "final": 0.5516
+    "final": 0.5591
   },
   "by_league": {
     "日职": {
@@ -87,6 +87,18 @@
       "hit_rate": 0.0,
       "wilson_lower": 0.0,
       "avg_brier": 0.9124
+    },
+    "巴西杯": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 1.0188
+    },
+    "美职": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.3007
     }
   },
   "by_confidence_tier": {
@@ -103,10 +115,10 @@
       "avg_brier": 0.6372
     },
     "high": {
-      "n": 11,
-      "hit_rate": 0.7273,
-      "wilson_lower": 0.4343,
-      "avg_brier": 0.3741
+      "n": 13,
+      "hit_rate": 0.6923,
+      "wilson_lower": 0.4237,
+      "avg_brier": 0.418
     }
   },
   "by_odds_band": {
@@ -123,31 +135,31 @@
       "avg_brier": 0.6385
     },
     "L2 热(1.5-1.8)": {
-      "n": 6,
-      "hit_rate": 0.3333,
-      "wilson_lower": 0.0968,
-      "avg_brier": 0.7176
+      "n": 7,
+      "hit_rate": 0.4286,
+      "wilson_lower": 0.1582,
+      "avg_brier": 0.6581
     },
     "L1 大热(<1.5)": {
-      "n": 8,
-      "hit_rate": 0.875,
-      "wilson_lower": 0.5291,
-      "avg_brier": 0.2452
+      "n": 9,
+      "hit_rate": 0.7778,
+      "wilson_lower": 0.4526,
+      "avg_brier": 0.3311
     }
   },
   "score_stats": {
     "top1": 4,
     "top3": 7,
-    "top5": 14,
-    "top8": 23,
-    "any": 23
+    "top5": 15,
+    "top8": 25,
+    "any": 25
   },
   "score_rank_hist": {
     "5": 3,
-    "8": 1,
+    "8": 2,
     "7": 8,
     "2": 3,
-    "4": 4,
+    "4": 5,
     "1": 4
   },
   "score_source_stats": {
@@ -156,21 +168,21 @@
       "hits": 0
     },
     "mc": {
-      "n": 23,
-      "hits": 14
+      "n": 25,
+      "hits": 15
     }
   },
   "market_signal_stats": {
-    "n": 27,
+    "n": 29,
     "hits": 11
   },
   "layered": {
-    "log_loss_final": 0.9286,
-    "rps_final": 0.1758,
-    "rps_market": 0.1825,
+    "log_loss_final": 0.9368,
+    "rps_final": 0.1752,
+    "rps_market": 0.1817,
     "goal_framework": {
-      "n": 27,
-      "hits": 14
+      "n": 29,
+      "hits": 15
     },
     "prob_bands": {
       "40-50%": {
@@ -178,12 +190,12 @@
         "hit_rate": 0.3
       },
       "50-60%": {
-        "n": 6,
-        "hit_rate": 0.3333
+        "n": 7,
+        "hit_rate": 0.4286
       },
       "60%+": {
-        "n": 8,
-        "hit_rate": 0.875
+        "n": 9,
+        "hit_rate": 0.7778
       },
       "<40%": {
         "n": 3,
@@ -192,12 +204,12 @@
     },
     "freshness_groups": {
       "alert": {
-        "n": 3,
+        "n": 4,
         "hit_rate": 1.0
       },
       "ok": {
-        "n": 18,
-        "hit_rate": 0.3333
+        "n": 19,
+        "hit_rate": 0.3158
       },
       "watch": {
         "n": 6,
@@ -219,6 +231,6 @@
     }
   ],
   "total_pnl": 0.0,
-  "generated_at": "2026-11-07T23:02:23.856037",
-  "sha256": "f20ca54aceae8b5570acf7ecfcbad784"
+  "generated_at": "2026-11-08T02:30:20.002994",
+  "sha256": "a1e41e525e1a94d6fd4d634038f33855"
 }
