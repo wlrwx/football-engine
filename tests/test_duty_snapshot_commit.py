@@ -347,9 +347,13 @@ def test_server_truth_snapshot_carries_both_sides(tmp_path, monkeypatch):
     assert "server-snapshot: 服务端真值 2 条" in lines
 
 
-def test_unusable_jwt_leaves_snapshots_untouched(tmp_path, monkeypatch):
-    """取不到（None）和取到空表是两件事：前者不写也不喊，交给 mint 侧报。"""
+def test_unusable_private_endpoint_is_logged_and_leaves_snapshot_untouched(tmp_path, monkeypatch):
+    """取不到（None）和取到空表是两件事：都不写文件，但**都必须留字**。
+
+    11-05→11-07 的三天断更就是 None 分支静默返回造成的：没有日志、没有文件，
+    摘要读旧文件照样报「仓库未记 0 条」。
+    """
     duty, lines = _truth_duty(tmp_path, monkeypatch, recs=None, local=["A vs B"])
     duty._maybe_server_records_snapshot()
     assert not _truth_file(tmp_path).exists()
-    assert lines == []
+    assert lines == ["server-snapshot: 私有端点取不到（不写快照，沿用旧文件）"], lines

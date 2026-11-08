@@ -211,3 +211,65 @@ def test_duty_log_line_and_digest_regex_stay_in_lockstep(tmp_path, monkeypatch):
     truth_line = next(l for l in lines if "server-snapshot" in l)
     rows = ops.parse_log(NOW.strftime("%m-%d %H:%M:%S ") + truth_line)
     assert ops.truth_check(rows) == {"count": 0, "local_records": 2}
+
+
+# ---------- 真值快照断更（2026-11-09） ----------
+#
+# 11-05→11-07 的真实形状是**三天没有文件**：私有端点非 200 → my_predictions()
+# 返回 None → 旧代码静默 return，既不写日志也不写文件。只盯日志的规则抓不到这种。
+
+def _snap_dir(tmp_path, monkeypatch, files: dict):
+    state = tmp_path / "state"
+    d = state / "njstats" / "my_predictions"
+    d.mkdir(parents=True)
+    (state / "challenge_state.json").write_text("{}", encoding="utf-8")
+    for name, stamp in files.items():
+        (d / name).write_text(json.dumps({"snapshot_at": stamp, "count": 3}), encoding="utf-8")
+    monkeypatch.setattr(ops.cr, "STATE", state)
+    return d
+
+
+def _flags_with_age(age, records=60, errors=None):
+    return ops.build_red_flags({"missing_count": 0, "missing_hours": []}, errors or {},
+                               None, {"missing_fields": 0, "records": records}, 1.0,
+                               "账目: …", True, truth_age=age)
+
+
+def test_truth_snapshot_age_reads_file_timestamp(tmp_path, monkeypatch):
+    now = datetime(2026, 11, 9, 1, 0, tzinfo=BJT)
+    _snap_dir(tmp_path, monkeypatch, {
+        "2026-11-05.json": "2026-11-05 08:00:00",
+        "2026-11-08.json": "2026-11-08 23:30:00",
+    })
+    assert round(ops.truth_snapshot_age_h(now)) == round(1.5)
+    # 只看最新一份：把最新那份拿掉，年龄就退回到 11-05（89h 前）
+    (tmp_path / "state" / "njstats" / "my_predictions" / "2026-11-08.json").unlink()
+    assert round(ops.truth_snapshot_age_h(now)) == 89
+
+
+def test_truth_snapshot_age_none_without_files_or_timestamp(tmp_path, monkeypatch):
+    monkeypatch.setattr(ops.cr, "STATE", tmp_path / "empty")
+    assert ops.truth_snapshot_age_h() is None
+    _snap_dir(tmp_path, monkeypatch, {"2026-11-09.json": ""})
+    assert ops.truth_snapshot_age_h() is None, "时间戳读不出等于不可判定，按断更处理"
+
+
+def test_stale_truth_snapshot_is_flagged_when_local_bets_exist():
+    codes = {f["code"] for f in _flags_with_age(50.0)}
+    assert "truth_snapshot_stale" in codes
+    assert "truth_snapshot_stale" in {f["code"] for f in _flags_with_age(None)}, "从未落盘同罪"
+    assert "truth_snapshot_stale" not in {f["code"] for f in _flags_with_age(2.0)}
+
+
+def test_stale_truth_not_flagged_without_local_bets():
+    """本地没注单时，旧快照没有对账价值——这是"还没开始玩"，不是故障。"""
+    assert "truth_snapshot_stale" not in {f["code"] for f in _flags_with_age(50.0, records=0)}
+
+
+def test_stale_truth_is_suppressed_when_vendor_5xx_already_reported():
+    """厂商 5xx 已经由 error_upstream 报了（修法是等），不要同一根因报两条。"""
+    errs = {"upstream": {"count": 12, "resolved": False, "action": "等厂商恢复"}}
+    codes = {f["code"] for f in _flags_with_age(50.0, errors=errs)}
+    assert "error_upstream" in codes and "truth_snapshot_stale" not in codes
+    # 厂商恢复后 error_upstream 不再出现，断更快照仍要被抓住
+    assert "truth_snapshot_stale" in {f["code"] for f in _flags_with_age(50.0)}
