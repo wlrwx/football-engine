@@ -49,8 +49,11 @@ ZERO_RE = re.compile(r"零合格.*?池(\d+)/匹配(\d+)/候选(\d+)(?:/最高([+
 ROUND_MARK_RE = re.compile(r"mint\(|需人工登录|下轮自动重试")
 SECRET_RE = re.compile(r"eyJ[A-Za-z0-9_.\-]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}")
 
-# 症状 → 人的动作。照搬原自动化 prompt 的排障对照表，不做自由发挥。
+# 症状 → 人的动作。**顺序即优先级**：每行只取第一个匹配的规则，
+# 因为 5xx 那条消息里也含「mint 失败」字样，排在 mint 后面就会被误分类成登录问题。
 ERROR_RULES = (
+    ("upstream", r"站点 API 服务端故障|站点 API 恢复|HTTP 5\d\d",
+     "厂商 API 网关 5xx，与登录态无关（实测带/不带 cookie 都 502）；等厂商恢复，**不要人工播种**"),
     ("branch", r"duty 不在 main",
      "有进程/agent 切走了 duty 仓库的分支；确认已切回 main，并查是谁切的（2026-11-04 是执行器在大号仓库里 checkout）"),
     ("mint", r"需人工登录|mint 失败|\b401\b",
@@ -100,8 +103,14 @@ def error_summary(rows: list[tuple[str, str]]) -> dict:
     """每类症状的条数，以及「最后一次出错之后是否已有成功轮次」（=已自愈）。"""
     last_ok = max((i for i, (_, b) in enumerate(rows) if SUCCESS_RE.search(b)), default=-1)
     out = {}
-    for code, pattern, action in ERROR_RULES:
-        idx = [i for i, (_, b) in enumerate(rows) if re.search(pattern, b)]
+    hits: dict[str, list[int]] = {}
+    for i, (_, body) in enumerate(rows):
+        for code, pattern, _action in ERROR_RULES:
+            if re.search(pattern, body):
+                hits.setdefault(code, []).append(i)
+                break          # 每行只归一类，按 ERROR_RULES 顺序取优先级最高的
+    for code, _pattern, action in ERROR_RULES:
+        idx = hits.get(code)
         if not idx:
             continue
         out[code] = {"count": len(idx), "resolved": max(idx) < last_ok, "action": action}

@@ -53,12 +53,14 @@ HUMAN_ONLY = {
     "duty_missing_hours",
     # 分支被切走这件事本身就是 agent 越界造成的，绝不能派给它自己「修」
     "error_branch",
+    # 厂商 API 5xx：人也修不了，只能等；派给 agent 更没用
+    "error_upstream",
 }
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"
 PR_FIX_KIND = "pr_fix"
 # 人工根因：出现这些时，采集/快照类症状不派给 agent（它修不了登录态）
-ROOT_CAUSES = {"error_mint", "error_credentials"}
+ROOT_CAUSES = {"error_mint", "error_credentials", "error_upstream"}
 
 # 每日探索工单：主动挖掘「能提升预测能力」的东西，而不是只等故障。
 # 这个原型没有自调度能力（worker preset 明确剔除了 scheduling），它的「主动」=
