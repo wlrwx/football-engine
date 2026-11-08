@@ -220,7 +220,10 @@ def _cached_jwt_usable(probe=None) -> str | None:
         return None
     if not tok:
         return None
-    check = probe or (lambda t: api.list_items(t, page=1, size=1))
+    # 探测端点必须挑**实测可用**的：msgId=11 的 list_items 在厂商故障期返回 None
+    # （端点本身坏了），用它探测会把可用 JWT 误判成不可用、继续停摆。
+    # msgId=1 的 board_items 实测正常（233 场），且正是本轮采集要用的能力。
+    check = probe or (lambda t: api.board_items(t))
     try:
         return tok if check(tok) is not None else None
     except Exception:
@@ -382,8 +385,13 @@ def fix_conflicts() -> None:
 
 
 def _main_rows(rng: str = "", limit: int = 25) -> list[dict]:
-    """读 origin/main 的提交（sha/作者邮箱/标题）。rng 给定时按范围取。"""
-    args = ["git", "log", "--format=%H%x09%ae%x09%s"]
+    """读 origin/main 的提交（sha/**推送者**邮箱/标题）。rng 给定时按范围取。
+
+    用 committer（%ce）而不是 author（%ae）：PR 合并的 author 是 PR 作者（例如小号
+    dykily），committer 才是实际把它推进 main 的人。用 author 会把每个经人审核合并的
+    agent PR 都误报成「陌生作者直推」（2026-11-08 实测误报了 PR #87）。
+    """
+    args = ["git", "log", "--format=%H%x09%ce%x09%s"]
     args += [rng] if rng else [f"-n{limit}"]
     args.append("origin/main")
     rows = []
