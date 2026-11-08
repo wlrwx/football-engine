@@ -61,6 +61,9 @@ CHALLENGE_STATE = "data/state/challenge_state.json"
 # main 写入者监督（见 watch_main_writes）：小号拿到 Write 之后，main 的作者不再是常量。
 MAIN_WATCH = HOME / ".football-engine" / "main_watch.json"
 MAIN_WATCH_SEED_DAYS = "90.days"
+# GitHub 网页/API 执行 squash 合并时的 committer 身份。它不是「陌生人直推」，
+# 而是有合并权的人（或 CI）通过 GitHub 完成的合并；小号对上游零写权限，做不到这件事。
+GITHUB_MERGE_IDENTITIES = {"noreply@github.com"}
 MINT_NET = "__net__"  # mint 因网络/SSL 拦截失败的哨兵（不是登录问题）
 MINT_SERVER = "__server__"  # mint 因站点 5xx 失败的哨兵（厂商故障，也不是登录问题）
 UPSTREAM_STATE = HOME / ".football-engine" / "upstream_fail_state.json"
@@ -434,7 +437,7 @@ def watch_main_writes(path: Path = MAIN_WATCH) -> list[str]:
     except (OSError, ValueError):
         state = None
     if not isinstance(state, dict) or "known_authors" not in state:
-        known = {r["email"] for r in _main_rows(rng=f"--since={MAIN_WATCH_SEED_DAYS}")}
+        known = {r["email"] for r in _main_rows(rng=f"--since={MAIN_WATCH_SEED_DAYS}")} | GITHUB_MERGE_IDENTITIES
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"last_sha": tip, "known_authors": sorted(known)},
@@ -445,7 +448,7 @@ def watch_main_writes(path: Path = MAIN_WATCH) -> list[str]:
         log(f"main 作者基线建立：{len(known)} 个邮箱（近 90 天历史）")
         return []
 
-    known = set(state.get("known_authors") or [])
+    known = set(state.get("known_authors") or []) | GITHUB_MERGE_IDENTITIES
     last = str(state.get("last_sha") or "")
     alerts: list[str] = []
     if last and last != tip and sh("git", "merge-base", "--is-ancestor", last,
@@ -453,7 +456,7 @@ def watch_main_writes(path: Path = MAIN_WATCH) -> list[str]:
         # 非快进：历史被重写或 force-push，基线作废，重建后继续盯。
         alerts.append(f"⚠ main 非快进（{last[:8]} 不在 origin/main 上）——"
                       f"有人 force-push 或重写了历史，作者基线重建")
-        known = {r["email"] for r in _main_rows(rng=f"--since={MAIN_WATCH_SEED_DAYS}")}
+        known = {r["email"] for r in _main_rows(rng=f"--since={MAIN_WATCH_SEED_DAYS}")} | GITHUB_MERGE_IDENTITIES
     elif last:
         rows = _main_rows(rng=f"{last}..origin/main")
         for email in unexpected_authors(rows, known):
@@ -552,6 +555,22 @@ def ensure_on_main() -> bool:
     return False
 
 
+def _log_recovery(minted) -> None:
+    """只有真正 mint 成功才算恢复；降级用缓存 JWT 时厂商其实还没好。
+
+    2026-11-08：降级成功那轮打印了「站点 API 恢复（中断 0.1h 后恢复）」，而 mint
+    仍然 502 —— 假恢复消息会让人以为厂商好了，也会把中断计时清零、丢掉真实停摆时长。
+    """
+    if minted in (None, MINT_NET, MINT_SERVER):
+        return
+    back = _net_fail_clear(time.time())
+    if back:
+        log("网络恢复" + back)
+    up = _net_fail_clear(time.time(), path=UPSTREAM_STATE)
+    if up:
+        log("站点 API 恢复" + up)
+
+
 def main() -> int:
     os.chdir(ROOT)
     if not ensure_on_main():
@@ -561,7 +580,8 @@ def main() -> int:
         log(_line)
     if sh("git", "diff", "--name-only", "--diff-filter=U").stdout.strip():
         fix_conflicts()
-    tok, _code, _msg = _resolve_mint(mint())
+    _minted = mint()
+    tok, _code, _msg = _resolve_mint(_minted)
     if _msg:
         log(_msg)
     if _code is not None:
@@ -572,12 +592,8 @@ def main() -> int:
         _maybe_ops_digest()
         _maybe_agent_dispatch()
         return _code
-    _back = _net_fail_clear(time.time())
-    if _back:
-        log("网络恢复" + _back)
-    _up_back = _net_fail_clear(time.time(), path=UPSTREAM_STATE)
-    if _up_back:
-        log("站点 API 恢复" + _up_back)
+    # 降级用缓存 JWT 也算本轮成功，但**厂商 mint 并没有恢复**，不能报「站点 API 恢复」
+    _log_recovery(_minted)
     old = JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else ""
     JWT_FILE.write_text(tok, encoding="utf-8")
     os.chmod(JWT_FILE, 0o600)
