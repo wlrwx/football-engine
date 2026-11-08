@@ -907,7 +907,9 @@ def _maybe_strategy_snapshot() -> None:
                        cwd=ROOT, capture_output=True, text=True, check=False,
                        timeout=180, encoding="utf-8", errors="replace")
     out = (p.stdout or p.stderr).strip().splitlines()
-    log("strategies: " + (out[-1] if out else f"无输出 rc={p.returncode}"))
+    last = out[-1] if out else f"无输出 rc={p.returncode}"
+    # 脚本自己也带 strategies: 前缀（单独跑时用），这里别再叠一层
+    log(last if last.startswith("strategies:") else f"strategies: {last}")
     if p.returncode == 0:
         try:
             marker.write_text(today, encoding="utf-8")

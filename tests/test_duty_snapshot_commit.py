@@ -357,3 +357,12 @@ def test_unusable_private_endpoint_is_logged_and_leaves_snapshot_untouched(tmp_p
     duty._maybe_server_records_snapshot()
     assert not _truth_file(tmp_path).exists()
     assert lines == ["server-snapshot: 私有端点取不到（不写快照，沿用旧文件）"], lines
+
+
+def test_strategy_log_line_has_a_single_prefix(tmp_path, monkeypatch):
+    """2026-11-09 01:05 实测日志是 `strategies: strategies: base=5 mine=0`：
+    脚本自己带前缀、duty 又拼一层。双前缀不影响判读，但会污染按前缀做的 grep。"""
+    duty, lines = _strategy_duty(tmp_path, monkeypatch, runs=[],
+                                 stdout="strategies: base=5 mine=0 明细=跳过")
+    duty._maybe_strategy_snapshot()
+    assert lines == ["strategies: base=5 mine=0 明细=跳过"], lines
