@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -142,12 +143,45 @@ def test_handicap_sign_guard_rejects_absurd_line():
         """)
 
 
+def _latest_predictions_day() -> str:
+    """最新一个**真的写着 predictions.json** 的日期目录。
+
+    2026-11-09 00:30 实测：daily-forecast 先生成 `import_manifest.json`、后写
+    `predictions.json`，所以 `sorted(...)[-1]` 在北京零点后的窗口里挑到的是个空目录
+    → submit.js 抛「无预测文件」→ 主线 CI 每天凌晨必红两例（ubuntu+windows 各一次）。
+    测试的前提是"仓库里有可解析的预测"，不是"恰好跑到今天这一步"，所以要跳过而不是失败。
+    """
+    daily = ROOT / "data" / "daily"
+    days = [p.name for p in daily.iterdir()
+            if p.is_dir() and (p / "predictions.json").exists()] if daily.exists() else []
+    if not days:
+        pytest.skip("无带 predictions.json 的 data/daily 目录（每日预测尚未落库）")
+    return sorted(days)[-1]
+
+
+def test_latest_predictions_day_skips_half_written_today(tmp_path, monkeypatch):
+    """把 00:30 那个窗口做成用例：今天只有 import_manifest，昨天有预测。"""
+    daily = tmp_path / "data" / "daily"
+    (daily / "2026-11-08").mkdir(parents=True)
+    (daily / "2026-11-08" / "predictions.json").write_text("[]", encoding="utf-8")
+    (daily / "2026-11-09").mkdir()
+    (daily / "2026-11-09" / "import_manifest.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+    assert _latest_predictions_day() == "2026-11-08"
+
+    (daily / "2026-11-09" / "predictions.json").write_text("[]", encoding="utf-8")
+    assert _latest_predictions_day() == "2026-11-09"
+
+    for p in daily.iterdir():
+        for f in p.glob("predictions.json"):
+            f.unlink()
+    with pytest.raises(pytest.skip.Exception):
+        _latest_predictions_day()
+
+
 def test_loadcandidates_on_real_data():
     """用仓库里真实的 predictions.json 跑一遍，确认字段路径没过时。"""
-    daily = ROOT / "data" / "daily"
-    if not daily.exists():
-        pytest.skip("无 data/daily")
-    day = sorted(p.name for p in daily.iterdir() if p.is_dir())[-1]
+    day = _latest_predictions_day()
     out = _node(f"""
     const cands = mod.loadCandidates({day!r});
     console.log(JSON.stringify({{n: cands.length, day: {day!r},
@@ -341,10 +375,7 @@ def test_pick_encoding_is_index_plus_one():
 
     写成 0-based 不会报错，只会静默提交到错误的方向。
     """
-    daily = ROOT / "data" / "daily"
-    if not daily.exists():
-        pytest.skip("无 data/daily")
-    day = sorted(p.name for p in daily.iterdir() if p.is_dir())[-1]
+    day = _latest_predictions_day()
     out = _node(f"""
     const cands = mod.loadCandidates({day!r});
     const bad = cands.filter(c => c.pick < 1 || c.pick > 3);
@@ -568,17 +599,14 @@ def test_real_today_matches_pool():
     这是价值兑付的验收线——从"0 命中"到"有注可提"。
     数据缺失时跳过（CI 上可能没有当日 predictions）。
     """
-    daily = ROOT / "data" / "daily"
     pool_cache = Path.home() / ".football-engine" / "njstats_pool.json"
     if not pool_cache.exists():
         pytest.skip("无池缓存（先跑 --pool）")
-    days = sorted(p.name for p in daily.iterdir() if p.is_dir()) if daily.exists() else []
-    if not days:
-        pytest.skip("无 data/daily")
+    day = _latest_predictions_day()
 
     out = _node(f"""
     const pool = JSON.parse(require('fs').readFileSync(process.env.HOME + '/.football-engine/njstats_pool.json','utf-8')).rows;
-    const cands = mod.loadCandidates({days[-1]!r}).filter(c => c.market === '1x2');
+    const cands = mod.loadCandidates({day!r}).filter(c => c.market === '1x2');
     const r = mod.matchPool(cands, pool);
     const byVia = {{}};
     for (const m of r.matched) byVia[m.matched_via] = (byVia[m.matched_via] || 0) + 1;
