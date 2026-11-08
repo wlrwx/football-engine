@@ -37,6 +37,7 @@ def test_mint_failure_still_runs_digest_and_dispatch(monkeypatch):
     monkeypatch.setattr(duty, "sh", lambda *a, **k: R())
     monkeypatch.setattr(duty, "mint", lambda: None)
     monkeypatch.setattr(duty, "_mint_action", lambda t: (20, "本轮：mint 失败，需人工登录"))
+    monkeypatch.setattr(duty, "_cached_jwt_usable", lambda *a, **k: None)
     monkeypatch.setattr(duty, "_net_fail_note", lambda ts: "")
     monkeypatch.setattr(duty, "log", lambda m: None)
     monkeypatch.setattr(duty, "_maybe_ops_digest", lambda: calls.append("digest"))
