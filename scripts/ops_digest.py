@@ -39,6 +39,8 @@ OUT_JSON = HOME / ".football-engine" / "ops_digest.json"
 EXPECT_ROUNDS_PER_DAY = 48          # launchd :05/:35
 SNAPSHOT_STALE_H = 26.0             # 超过一天没入库就是断链
 GATE_EV_SITE = 2.0                  # 冻结门槛，只用于归因文案，不参与判定
+# duty 每轮自述服务端真值笔数；带「而本地有 N 条注单」后缀的那条就是半失效 token。
+TRUTH_RE = re.compile(r"server-snapshot: 服务端真值 (\d+) 条(?:而本地有 (\d+) 条注单)?")
 
 LINE_RE = re.compile(r"^(\d{2}-\d{2}) (\d{2}):\d{2}:\d{2} (.*)$")
 # 「匹配0」那种零合格行**没有**「最高」字段（2026-11-03 实测），所以它必须可选：
@@ -153,6 +155,28 @@ def state_summary(state: dict) -> dict:
             "records": len(records), "pools": pools, "missing_fields": missing_fields}
 
 
+def truth_check(rows: list[tuple[str, str]]) -> dict | None:
+    """近 24h 最后一次「服务端真值」自述是不是 0 条而本地有注单。
+
+    2026-11-04→11-07 实测：半失效的旧 JWT 下 msgId=1 全板照常返回 232 场，
+    msgId=11「我已预测」却**静默返回 0 条**。降级探测只看 board 所以照旧放行，
+    账目行按服务端条数遍历所以报「仓库未记 0 条」，于是四天里每轮都「无红线」。
+    空快照这个症状本身必须成一条红线：duty 现在每轮都把两边笔数写进日志，
+    这里只判「最后一次是真 0 还是带注单的 0」。
+    """
+    last = None
+    for _k, body in rows:
+        m = TRUTH_RE.search(body)
+        if m:
+            last = m
+    if not last:
+        return None
+    count, local = int(last.group(1)), last.group(2)
+    if count == 0 and local:
+        return {"count": 0, "local_records": int(local)}
+    return None
+
+
 def snapshot_commit_age_h() -> float | None:
     p = subprocess.run(["git", "log", "-1", "--format=%ct", "--", "data/state/njstats/"],
                        cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
@@ -163,7 +187,8 @@ def snapshot_commit_age_h() -> float | None:
 
 
 def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
-                    snap_age: float | None, account_line: str, today_site_odds: bool) -> list[dict]:
+                    snap_age: float | None, account_line: str, today_site_odds: bool,
+                    truth: dict | None = None) -> list[dict]:
     flags: list[dict] = []
 
     def add(code, detail, action):
@@ -191,6 +216,11 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
     m = re.search(r"仓库未记 (\d+) 条", account_line)
     if m and int(m[1]) > 0:
         add("account_gap", account_line, "历史上出过让球注漏记；逐场核对后再决定要不要补")
+    if truth:
+        add("truth_snapshot_empty",
+            f"最后一次服务端真值 0 条，而本地账已有 {truth['local_records']} 条注单",
+            "半失效的旧 JWT 只剩公开接口能用（全板正常、私有端点静默返回空）："
+            "让用户在浏览器重新登录再播种，别改账本、也别信这份空快照")
     if st.get("missing_fields"):
         add("record_fields_missing", f"{st['missing_fields']} 条 ev_site 注缺 gate/ev_site/site_odds 字段",
             "实验采集前提受损，查提交脚本写盘字段")
@@ -243,7 +273,8 @@ def collect(now: datetime | None = None) -> dict:
     }
     ctx["red_flags"] = build_red_flags(
         ctx["rounds"], ctx["errors"], ctx["attribution"], ctx["state"], ctx["snap_age"],
-        account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists())
+        account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
+        truth=truth_check(rows))
     ctx["report"] = render(ctx)
     return ctx
 

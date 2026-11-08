@@ -134,3 +134,80 @@ def test_cli_exit_codes_and_write(tmp_path, monkeypatch):
         raise RuntimeError("炸了")
     monkeypatch.setattr(ops, "collect", boom)
     assert ops.main(["--quiet"]) == 2
+
+
+# ---------- 服务端真值空快照（2026-11-08） ----------
+#
+# 11-04→11-07 实测：半失效的旧 JWT 下 msgId=1 全板返回 232 场，msgId=11
+# 「我已预测」却静默返回 0 条。降级探测只看 board 所以照旧放行，账目行按
+# 服务端条数遍历所以报「仓库未记 0 条」——四天里每轮都「无红线」。
+
+def _flags(rows, **kw):
+    base = {"missing_count": 0, "missing_hours": []}
+    return ops.build_red_flags(base, {}, None, {"missing_fields": 0}, 1.0,
+                               "账目: 快照 60 条/1.0h vs 仓库 60；仓库未记 0 条",
+                               True, **kw)
+
+
+def test_truth_check_flags_only_reported_zero_with_local_bets():
+    rows = rows_of(loglines(["server-snapshot: 服务端真值 0 条而本地有 60 条注单"]))
+    assert ops.truth_check(rows) == {"count": 0, "local_records": 60}
+    codes = {f["code"] for f in _flags(rows, truth=ops.truth_check(rows))}
+    assert "truth_snapshot_empty" in codes
+
+
+def test_truth_check_uses_the_last_self_report_not_the_worst():
+    """一次轮询一条，看最后一次。上午坏、下午好 → 不该再报警。"""
+    bad, good = ("server-snapshot: 服务端真值 0 条而本地有 60 条注单",
+                 "server-snapshot: 服务端真值 60 条")
+    assert ops.truth_check(rows_of(loglines([bad, good]))) is None
+    assert ops.truth_check(rows_of(loglines([good, bad])))["local_records"] == 60
+
+
+def test_truth_check_ignores_clean_and_absent_reports():
+    assert ops.truth_check(rows_of(loglines(["server-snapshot: 服务端真值 60 条"]))) is None
+    # 本地账也是空的 = 账号真没投过，说真话，不是 JWT 半失效
+    assert ops.truth_check(rows_of(loglines(["server-snapshot: 服务端真值 0 条"]))) is None
+    assert ops.truth_check(rows_of(loglines(["1x2: 已推: 2 注"]))) is None
+
+
+def test_truth_flag_action_is_the_human_fix_and_reaches_the_report():
+    rows = rows_of(loglines(["server-snapshot: 服务端真值 0 条而本地有 61 条注单"]))
+    flags = _flags(rows, truth=ops.truth_check(rows))
+    hit = next(f for f in flags if f["code"] == "truth_snapshot_empty")
+    assert "61" in hit["detail"]
+    # 修法是用户重新登录；不能写成「改账本」或「重跑快照」这类自动可做的动作
+    assert "重新登录" in hit["action"] and "别改账本" in hit["action"]
+    ctx = {"rounds": {"rounds": 48, "expect": 48, "missing_count": 0, "missing_hours": []},
+           "errors": {}, "state": {"week": "2026-W45", "used": 0, "quota": 28, "records": 0,
+                                   "pools": {"E8": 0, "E10": 0}, "missing_fields": 0},
+           "snap_age": 1.0, "reconcile": ["账目: …"], "attribution": None, "red_flags": flags}
+    assert any("truth_snapshot_empty" in line for line in ops.render(ctx))
+
+
+def test_duty_log_line_and_digest_regex_stay_in_lockstep(tmp_path, monkeypatch):
+    """跨模块契约：红线读的是 duty 写日志的**原话**，改措辞就得同时改正则。
+
+    这类「一边改文案、一边改解析」的漂移不会报错，只会让红线永远不响——
+    所以这里用真 duty 函数产出真日志，再喂给真 ops.truth_check。
+    """
+    spec = importlib.util.spec_from_file_location(
+        "njstats_duty_for_truth", ROOT / "scripts" / "njstats_duty.py")
+    duty = importlib.util.module_from_spec(spec)
+    sys.modules["njstats_duty_for_truth"] = duty
+    spec.loader.exec_module(duty)
+
+    monkeypatch.setattr(duty, "ROOT", tmp_path)
+    monkeypatch.setattr(duty.api, "my_predictions", lambda *a, **k: [])
+    monkeypatch.setattr(duty.api, "board_with_odds", lambda *a, **k: [])
+    state = tmp_path / "data" / "state"
+    state.mkdir(parents=True, exist_ok=True)
+    (state / "challenge_state.json").write_text(
+        json.dumps({"records": [{"match": "A vs B"}, {"match": "C vs D"}]}), encoding="utf-8")
+    lines = []
+    monkeypatch.setattr(duty, "log", lines.append)
+
+    duty._maybe_server_records_snapshot()
+    truth_line = next(l for l in lines if "server-snapshot" in l)
+    rows = ops.parse_log(NOW.strftime("%m-%d %H:%M:%S ") + truth_line)
+    assert ops.truth_check(rows) == {"count": 0, "local_records": 2}
