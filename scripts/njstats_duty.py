@@ -206,6 +206,43 @@ def _mint_action(tok):
     return None, ""
 
 
+def _cached_jwt_usable(probe=None) -> str | None:
+    """磁盘上的旧 JWT 是否仍被网关接受。
+
+    2026-11-08 实测：`/api/user/current`（mint 换 token 的端点）502 挂了四天，
+    但**真正采数据/投注的 `/njserver/openApi/` 网关返回 200，旧 JWT 照样取到
+    全板 235 场 / 222 场带赔率**。duty 原来把整条链闸在 mint 成功上，于是明明
+    能干活却四天不采集不下注。这里用一次轻量请求（msgId=11, size=1）实测旧 token。
+    """
+    try:
+        tok = JWT_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not tok:
+        return None
+    check = probe or (lambda t: api.list_items(t, page=1, size=1))
+    try:
+        return tok if check(tok) is not None else None
+    except Exception:
+        return None
+
+
+def _resolve_mint(tok):
+    """决定本轮用哪个 token：返回 (可用token, 需退出的码, 日志行)。
+
+    mint 失败不等于不能干活：只要缓存 JWT 经网关实测仍可用就降级继续。
+    只有缓存也不可用时才退出，并且此时才跑监控/派单（失败轮也要留证据）。
+    """
+    code, msg = _mint_action(tok)
+    if code is None:
+        return tok, None, ""
+    cached = _cached_jwt_usable()
+    if cached:
+        return cached, None, ("⚠ mint 端点不可用，但缓存 JWT 经网关实测仍可用 → 本轮改用缓存 JWT 继续"
+                              "（厂商 mint 故障，不是登录态问题，不需人工播种）")
+    return None, code, msg + (_net_fail_note(time.time()) if tok == MINT_NET else "")
+
+
 def _net_fail_note(now_ts: float, path: Path | None = None) -> str:
     """断网计时：让一条日志就能看出「断了多久」，而不是每轮重复同一句话。"""
     p = path or NET_STATE
@@ -516,10 +553,10 @@ def main() -> int:
         log(_line)
     if sh("git", "diff", "--name-only", "--diff-filter=U").stdout.strip():
         fix_conflicts()
-    tok = mint()
-    _code, _msg = _mint_action(tok)
+    tok, _code, _msg = _resolve_mint(mint())
+    if _msg:
+        log(_msg)
     if _code is not None:
-        log(_msg + (_net_fail_note(time.time()) if tok == MINT_NET else ""))
         # 2026-11-07 事故：监控与派单原来只在成功轮末尾跑，于是 session 一死，
         # 摘要就停在最后一次成功（实测停在 11-04 16:05、red_flags 为空长达 73 小时），
         # 每日分诊只能靠「摘要过期」猜成合盖/launchd 掉了，报不出真因；
