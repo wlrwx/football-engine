@@ -358,6 +358,13 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-09 **播种登录「登录成功却保存不了」**：用户登录后跳空白页、脚本不返回成功。
+      根因：旧 `njstats_seed_login.py` 只靠 `/api/user/current` 判成功、且只存 SESSION cookie。
+      厂商那个端点 5xx 时（11-04→07、11-09 都挂过），登录其实成功、token 已写进 localStorage，
+      脚本却永远判不了成功，又因抓不到 SESSION 一直空转到超时。修法：优先读 localStorage 的
+      token（登录成功前端必写，不依赖厂商端点），拿到就**必存 JWT**；SESSION 有则一并存、没有
+      不阻塞。启动时清残留 token，避免把旧 token 误当已登录。本次已用无头浏览器从用户刚登录的
+      profile 里取出 token 存好并实测（私有端点 60 条/全板 44 场）。新增 6 条假浏览器行为测试。
 - 2026-11-09 **「匹配0」被误报成数据洞，还派了张查不出故障的工单**：当天 duty 全天报
       `匹配0/候选0`，`data/daily/2026-11-09/` 只有 `import_manifest.json`、没有 `predictions.json`。
       **实测结论：当日竞彩无在售，属正常，不是数据洞。** 证据：直接调
