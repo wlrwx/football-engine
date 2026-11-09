@@ -85,7 +85,9 @@ def test_save_always_writes_jwt_and_session_when_present(tmp_path, monkeypatch):
     assert seed._save(ctx, "  jwt-token  ") is True
     assert jwt.read_text(encoding="utf-8") == "jwt-token", "要去掉首尾空白"
     assert json.loads(sess.read_text(encoding="utf-8"))["SESSION"] == "s3cret"
-    assert jwt.stat().st_mode & 0o777 == 0o600
+    # 权限位只在 POSIX 有意义；Windows 不映射 Unix mode（chmod 调用本身保留）。
+    if sys.platform != "win32":
+        assert jwt.stat().st_mode & 0o777 == 0o600
 
 
 def test_save_writes_jwt_even_without_session_cookie(tmp_path, monkeypatch):
