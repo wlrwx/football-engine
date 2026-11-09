@@ -130,7 +130,7 @@ def attribution(rows: list[tuple[str, str]]) -> dict | None:
         pool_n, matched, cand = int(m[1]), int(m[2]), int(m[3])
         top = float(m[4]) if m[4] else None
         if matched == 0:
-            kind, detail = "coverage_gap", "匹配0：当天预测没落库或站点无对应赛事（数据洞，不是正常零合格）"
+            kind, detail = "coverage_gap", "匹配0：当天预测没落库（没生成还是回仓被拦，见红线）"
         elif top is None:
             kind, detail = "unknown", f"匹配{matched}/候选{cand}，日志未给最高 ev_site，无法归因"
         elif top < GATE_EV_SITE:
@@ -211,7 +211,8 @@ def snapshot_commit_age_h() -> float | None:
 def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
                     snap_age: float | None, account_line: str, today_site_odds: bool,
                     truth: dict | None = None,
-                    truth_age: float | None = None) -> list[dict]:
+                    truth_age: float | None = None,
+                    today_manifest: bool = False) -> list[dict]:
     flags: list[dict] = []
 
     def add(code, detail, action):
@@ -225,8 +226,18 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
         if not info["resolved"]:
             add(f"error_{code}", f"{code} 出现 {info['count']} 次且之后无成功轮次", info["action"])
     if attr and attr["kind"] == "coverage_gap":
-        add("prediction_coverage_gap", attr["detail"],
-            "查 data/daily/<今天>/predictions.json 是否落库；CI 回仓被拦时会出现这个症状")
+        # 「匹配0」有两种完全不同的成因，用 daily 自己的产物区分（不用猜时钟）：
+        # import_manifest.json 在 = daily 今天跑过并导入了赛程，只是没产出预测
+        # （2026-11-09 实测：体彩当日无在售，4 场的编号日期全是 11-10/11-11 → 无待预测场次）；
+        # manifest 也不在 = 根本没跑/没回仓，那才是 11-04 那种数据洞。
+        if today_manifest:
+            add("prediction_pending",
+                "当天预测未产出：daily 已跑（import_manifest 在）但没有 predictions.json",
+                "先查体彩当天是否有在售（编号日期==今天）：无在售=当日无机会，属正常；"
+                "有在售却没产出，才查那一轮 CI 是否红/回仓是否被拦")
+        else:
+            add("prediction_coverage_gap", attr["detail"],
+                "查 data/daily/<今天>/predictions.json 是否落库；CI 回仓被拦时会出现这个症状")
     if attr and attr["kind"] in ("other", "unknown"):
         add("zero_qualify_unexplained", attr["detail"], "只读排查门槛/上界，绝不为了有注可投而改门槛")
     if snap_age is None or snap_age > SNAPSHOT_STALE_H:
@@ -303,10 +314,12 @@ def collect(now: datetime | None = None) -> dict:
         "snap_age": snapshot_commit_age_h(),
         "reconcile": reconcile,
     }
+    daily_dir = ROOT / "data" / "daily" / today.isoformat()
     ctx["red_flags"] = build_red_flags(
         ctx["rounds"], ctx["errors"], ctx["attribution"], ctx["state"], ctx["snap_age"],
         account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
-        truth=truth_check(rows), truth_age=truth_snapshot_age_h())
+        truth=truth_check(rows), truth_age=truth_snapshot_age_h(),
+        today_manifest=(daily_dir / "import_manifest.json").exists())
     ctx["report"] = render(ctx)
     return ctx
 

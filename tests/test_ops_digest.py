@@ -1,7 +1,8 @@
 """确定性运维摘要（2026-11-03）：把巡检/对账从模型自动化里搬出来。
 
-重点覆盖今天真实踩到的两种「零合格」：匹配5/最高-0.71% 是正常的价差不足，
-匹配0 是数据洞（CI 回仓被拦时就是这个症状）。两者必须区分，否则要么天天误报、
+重点覆盖真实踩到的几种「零合格」：匹配5/最高-0.71% 是正常的价差不足；
+匹配0 还要再分两种——daily 已跑但当天无场次（体彩凌晨未开售，等下一次即可）
+vs manifest 都没有（根本没跑/回仓被拦，才是数据洞）。混在一起要么天天误报、
 要么把真故障当正常。
 """
 import importlib.util
@@ -273,3 +274,43 @@ def test_stale_truth_is_suppressed_when_vendor_5xx_already_reported():
     assert "error_upstream" in codes and "truth_snapshot_stale" not in codes
     # 厂商恢复后 error_upstream 不再出现，断更快照仍要被抓住
     assert "truth_snapshot_stale" in {f["code"] for f in _flags_with_age(50.0)}
+
+
+# ---------- 「匹配0」的两种成因（2026-11-09） ----------
+#
+# 当天实测：体彩只在售 4 场，编号日期全是 11-10/11-11 → 当日竞彩无在售，
+# daily 跑过（import_manifest 在）但没有 predictions.json，属正常。
+# 旧代码一律报 prediction_coverage_gap 并写死「数据洞」，派单器当晚就建了张查不出故障的工单。
+# 区分依据是 daily 自己的产物，不是时钟：manifest 在=跑过没产出；manifest 不在=没跑/没回仓。
+
+def _zero_match_flags(today_manifest):
+    body = "1x2: challenge: 零合格（ev_site 门槛2.0%/池77/匹配0/候选0）——正常"
+    a = ops.attribution(rows_of(loglines([body] * 48)))
+    return ops.build_red_flags({"missing_count": 0, "missing_hours": []}, {}, a,
+                               {"missing_fields": 0}, 1.0, "账目: 仓库未记 0 条：无", True,
+                               today_manifest=today_manifest)
+
+
+def test_daily_ran_but_no_predictions_is_pending_not_a_data_hole():
+    flags = _zero_match_flags(today_manifest=True)
+    codes = {f["code"] for f in flags}
+    assert "prediction_pending" in codes
+    assert "prediction_coverage_gap" not in codes, "daily 已跑过就别喊回仓被拦"
+    hit = next(f for f in flags if f["code"] == "prediction_pending")
+    assert "import_manifest" in hit["detail"]
+    assert "无在售" in hit["action"] and "CI 是否红" in hit["action"]
+
+
+def test_missing_manifest_still_is_the_real_data_hole():
+    """manifest 也不在 = 根本没跑/没回仓（11-04 分支保护那次就是这个形状）。"""
+    codes = {f["code"] for f in _zero_match_flags(today_manifest=False)}
+    assert "prediction_coverage_gap" in codes and "prediction_pending" not in codes
+
+
+def test_pending_flag_reaches_the_report():
+    flags = _zero_match_flags(today_manifest=True)
+    ctx = {"rounds": {"rounds": 48, "expect": 48, "missing_count": 0, "missing_hours": []},
+           "errors": {}, "state": {"week": "2026-W46", "used": 0, "quota": 28, "records": 0,
+                                   "pools": {"E8": 0, "E10": 0}, "missing_fields": 0},
+           "snap_age": 1.0, "reconcile": ["账目: …"], "attribution": None, "red_flags": flags}
+    assert any("prediction_pending" in line for line in ops.render(ctx))

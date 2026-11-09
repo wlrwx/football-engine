@@ -59,6 +59,8 @@ HUMAN_ONLY = {
     # agent 既不能登录也不该碰账本
     "truth_snapshot_empty",
     "truth_snapshot_stale",
+    # 当天预测还没生成（daily 已跑、体彩未开售）：等下一次 daily，派 agent 查不出故障
+    "prediction_pending",
 }
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"
