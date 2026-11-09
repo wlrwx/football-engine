@@ -20,8 +20,6 @@ import sys
 import time
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
-
 HOME = Path.home()
 PROFILE = HOME / ".football-engine" / "pwprofile"
 OUT = HOME / ".football-engine" / "njstats_session.json"
@@ -62,6 +60,9 @@ def _save(ctx, tok: str) -> bool:
 
 
 def main() -> int:
+    # playwright 只在本机播种时用，CI 不装它；延迟导入，_read_token/_save 才能被 CI 真跑。
+    from playwright.sync_api import sync_playwright
+
     PROFILE.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
         ctx = pw.chromium.launch_persistent_context(str(PROFILE), headless=False, viewport={"width": 1100, "height": 800})
