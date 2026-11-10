@@ -230,7 +230,7 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
                     snap_age: float | None, account_line: str, today_site_odds: bool,
                     truth: dict | None = None,
                     truth_age: float | None = None,
-                    today_manifest: bool = False,
+                    daily: dict | None = None,
                     session_dead: dict | None = None) -> list[dict]:
     flags: list[dict] = []
 
@@ -245,11 +245,18 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
         if not info["resolved"]:
             add(f"error_{code}", f"{code} 出现 {info['count']} 次且之后无成功轮次", info["action"])
     if attr and attr["kind"] == "coverage_gap":
-        # 「匹配0」有两种完全不同的成因，用 daily 自己的产物区分（不用猜时钟）：
-        # import_manifest.json 在 = daily 今天跑过并导入了赛程，只是没产出预测
-        # （2026-11-09 实测：体彩当日无在售，4 场的编号日期全是 11-10/11-11 → 无待预测场次）；
-        # manifest 也不在 = 根本没跑/没回仓，那才是 11-04 那种数据洞。
-        if today_manifest:
+        # 「匹配0」有三种完全不同的成因，用 daily 自己的产物区分（不用猜时钟）：
+        # predictions.json 在 = 有预测但零命中 → 多半是译名/覆盖，不是数据洞
+        #   （2026-11-10 实例：我方写"诺茨郡"、站点写"诺斯郡"，别名漏一条就丢一注）；
+        # predictions 缺、manifest 在 = daily 跑过但当天没产出（2026-11-09 实测：体彩当日无在售）；
+        # 两个都缺 = 根本没跑/没回仓，那才是 11-04 那种数据洞。
+        daily = daily or {}
+        if daily.get("predictions"):
+            add("pool_no_overlap",
+                "有预测但今天站点池零命中：预测已产出，是「没对上」而不是「没产出」",
+                "先查译名差异（实例：诺茨郡 vs 诺斯郡），再查站点是否真没覆盖该联赛；"
+                "别当数据洞、别改门槛")
+        elif daily.get("manifest"):
             add("prediction_pending",
                 "当天预测未产出：daily 已跑（import_manifest 在）但没有 predictions.json",
                 "先查体彩当天是否有在售（编号日期==今天）：无在售=当日无机会，属正常；"
@@ -338,12 +345,13 @@ def collect(now: datetime | None = None) -> dict:
         "snap_age": snapshot_commit_age_h(),
         "reconcile": reconcile,
     }
-    daily_dir = ROOT / "data" / "daily" / today.isoformat()
+    day_dir = ROOT / "data" / "daily" / today.isoformat()
     ctx["red_flags"] = build_red_flags(
         ctx["rounds"], ctx["errors"], ctx["attribution"], ctx["state"], ctx["snap_age"],
         account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
         truth=truth_check(rows), truth_age=truth_snapshot_age_h(),
-        today_manifest=(daily_dir / "import_manifest.json").exists(),
+        daily={"predictions": (day_dir / "predictions.json").exists(),
+               "manifest": (day_dir / "import_manifest.json").exists()},
         session_dead=session_health())
     ctx["report"] = render(ctx)
     return ctx
