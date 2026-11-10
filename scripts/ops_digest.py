@@ -36,6 +36,8 @@ HOME = Path.home()
 DUTY_LOG = HOME / ".football-engine" / "duty.log"
 OUT_TXT = HOME / ".football-engine" / "ops_digest.txt"
 OUT_JSON = HOME / ".football-engine" / "ops_digest.json"
+# 无头续期脚本写的健康结论（auth_dead = 登录态已无法自动续期）
+SESSION_HEALTH = HOME / ".football-engine" / "njstats_session_health.json"
 EXPECT_ROUNDS_PER_DAY = 48          # launchd :05/:35
 SNAPSHOT_STALE_H = 26.0             # 超过一天没入库就是断链
 GATE_EV_SITE = 2.0                  # 冻结门槛，只用于归因文案，不参与判定
@@ -199,6 +201,22 @@ def truth_snapshot_age_h(now: datetime | None = None) -> float | None:
     return ((now or datetime.now(BJT)) - ts).total_seconds() / 3600
 
 
+def session_health() -> dict | None:
+    """最近一次无头续期的结论，只认 auth_dead。
+
+    auth_dead = remember-me 也失效了，缓存 JWT 烧完（约 20h）就再也续不上——
+    这是**提前**预警：人还有余量从容播种，不用等 truth_snapshot_* 真正断掉。
+    vendor（厂商 5xx）已有 error_upstream 专门报，ok/文件缺失都无事，不重复。
+    """
+    try:
+        d = json.loads(SESSION_HEALTH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(d, dict) or d.get("result") != "auth_dead":
+        return None
+    return d
+
+
 def snapshot_commit_age_h() -> float | None:
     p = subprocess.run(["git", "log", "-1", "--format=%ct", "--", "data/state/njstats/"],
                        cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
@@ -212,7 +230,8 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
                     snap_age: float | None, account_line: str, today_site_odds: bool,
                     truth: dict | None = None,
                     truth_age: float | None = None,
-                    today_manifest: bool = False) -> list[dict]:
+                    today_manifest: bool = False,
+                    session_dead: dict | None = None) -> list[dict]:
     flags: list[dict] = []
 
     def add(code, detail, action):
@@ -250,6 +269,11 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
     m = re.search(r"仓库未记 (\d+) 条", account_line)
     if m and int(m[1]) > 0:
         add("account_gap", account_line, "历史上出过让球注漏记；逐场核对后再决定要不要补")
+    if session_dead:
+        add("njstats_session_expiring",
+            f"登录态无法自动续期（{session_dead.get('at', '?')}：{session_dead.get('detail', '')}）",
+            "缓存 JWT 还能撑约 20h，但到期就断：择机跑 ./fe-agent seed；"
+            "厂商 5xx 不算此类（已按上游单独报）")
     if truth:
         add("truth_snapshot_empty",
             f"最后一次服务端真值 0 条，而本地账已有 {truth['local_records']} 条注单",
@@ -319,7 +343,8 @@ def collect(now: datetime | None = None) -> dict:
         ctx["rounds"], ctx["errors"], ctx["attribution"], ctx["state"], ctx["snap_age"],
         account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
         truth=truth_check(rows), truth_age=truth_snapshot_age_h(),
-        today_manifest=(daily_dir / "import_manifest.json").exists())
+        today_manifest=(daily_dir / "import_manifest.json").exists(),
+        session_dead=session_health())
     ctx["report"] = render(ctx)
     return ctx
 

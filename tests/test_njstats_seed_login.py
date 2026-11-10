@@ -79,12 +79,16 @@ def test_read_token_none_when_both_empty():
 def test_save_always_writes_jwt_and_session_when_present(tmp_path, monkeypatch):
     jwt = tmp_path / "njstats_jwt"
     sess = tmp_path / "njstats_session.json"
+    health = tmp_path / "njstats_session_health.json"
     monkeypatch.setattr(seed, "JWT_FILE", jwt)
     monkeypatch.setattr(seed, "OUT", sess)
+    monkeypatch.setattr(seed, "HEALTH", health)
     ctx = FakeCtx([{"name": "SESSION", "value": "s3cret", "domain": ".njstats.cn"}])
     assert seed._save(ctx, "  jwt-token  ") is True
     assert jwt.read_text(encoding="utf-8") == "jwt-token", "要去掉首尾空白"
     assert json.loads(sess.read_text(encoding="utf-8"))["SESSION"] == "s3cret"
+    assert json.loads(health.read_text(encoding="utf-8"))["result"] == "ok", \
+        "播种成功要立刻清掉「登录态将失效」预警，别等下一次无头续期"
     # 权限位只在 POSIX 有意义；Windows 不映射 Unix mode（chmod 调用本身保留）。
     if sys.platform != "win32":
         assert jwt.stat().st_mode & 0o777 == 0o600
@@ -96,6 +100,7 @@ def test_save_writes_jwt_even_without_session_cookie(tmp_path, monkeypatch):
     sess = tmp_path / "njstats_session.json"
     monkeypatch.setattr(seed, "JWT_FILE", jwt)
     monkeypatch.setattr(seed, "OUT", sess)
+    monkeypatch.setattr(seed, "HEALTH", tmp_path / "h.json")
     ctx = FakeCtx([{"name": "other", "value": "x", "domain": ".njstats.cn"}])
     assert seed._save(ctx, "jwt-token") is False
     assert jwt.read_text(encoding="utf-8") == "jwt-token"

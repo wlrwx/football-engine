@@ -30,6 +30,12 @@ HOME = Path.home()
 SESS = HOME / ".football-engine" / "njstats_session.json"
 JWT_FILE = HOME / ".football-engine" / "njstats_jwt"
 LOG = HOME / ".football-engine" / "duty.log"
+# 主动续期：距上次**成功**续期超过 12h 才续；未成功时最多每 6h 重试一次
+# （别每轮烧 10s 起浏览器，也别让厂商 5xx 期间每小时起一次）。
+SESSION_REFRESH_H = 12.0
+SESSION_RETRY_GAP_H = 6.0
+SESSION_REFRESH_MARKER = HOME / ".football-engine" / ".njstats_refresh_attempt"
+SESSION_HEALTH = HOME / ".football-engine" / "njstats_session_health.json"
 BASE = "https://www.njstats.cn"
 REPO = "wlrwx/football-engine"
 # GitHub Actions 里 Challenge (1x2) workflow 的数字 ID（gh api 可查）。
@@ -144,6 +150,50 @@ def autoheal_session() -> bool:
     ok = p.returncode == 0
     log(f"续期脚本 rc={p.returncode} {(p.stdout or p.stderr).strip().splitlines()[-1] if (p.stdout or p.stderr).strip() else ''}")
     return ok
+
+
+def _health_ok_age_h() -> float | None:
+    """最近一次**成功**续期距今多少小时；没有成功记录返回 None。"""
+    try:
+        d = json.loads(SESSION_HEALTH.read_text(encoding="utf-8"))
+        if d.get("result") != "ok":
+            return None
+        ts = datetime.strptime(d["at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=BJT)
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+    return (datetime.now(BJT) - ts).total_seconds() / 3600
+
+
+def _maybe_proactive_session_refresh() -> None:
+    """不等 mint 失败，定期把登录态续新（2026-11-09 用户要求「提前解决红线」）。
+
+    为什么单独做：被动续期只在 mint 已经失败时触发，那时缓存 JWT 最多再撑 20h，
+    人去处理已经很赶；而 remember-me 是否失效，也只有真去续一次才知道。
+    这里每 12h 主动续一次：成功=登录态始终新鲜；失败=在 JWT 还活着时就落进
+    health 文件（auth_dead），由 ops_digest 出 njstats_session_expiring 提前预警。
+    厂商 5xx 只记 vendor、不喊人；任何结果都不影响本轮采集与提交。
+    """
+    if os.environ.get("DUTY_SKIP_SESSION_REFRESH") == "1":
+        return
+    ok_age = _health_ok_age_h()
+    if SESS.exists() and ok_age is not None and ok_age < SESSION_REFRESH_H:
+        return
+    try:
+        last = float(SESSION_REFRESH_MARKER.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        last = 0.0
+    if time.time() - last < SESSION_RETRY_GAP_H * 3600:
+        return
+    try:
+        SESSION_REFRESH_MARKER.write_text(str(int(time.time())), encoding="utf-8")
+    except OSError:
+        pass
+    p = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"),
+                        "scripts/njstats_refresh_session.py"],
+                       cwd=ROOT, capture_output=True, text=True, check=False,
+                       timeout=180, encoding="utf-8", errors="replace")
+    out = (p.stdout or p.stderr).strip().splitlines()
+    log(f"session-refresh: {out[-1] if out else f'无输出 rc={p.returncode}'}")
 
 
 def mint() -> str | None:
@@ -632,6 +682,10 @@ def main() -> int:
     # 提交失败不影响本轮采集（文件在本地，下一轮再试）——但要可见，否则又回到
     # 「静默不提交、样本只活在笔记本上」。
     commit_push(SNAPSHOT_PATHS, "duty: njstats 每日快照（站点赔率/服务端真值/社区倾向/回测策略）")
+    # 登录态主动续期（2026-11-09）：放在摘要之前，本轮就能把最新 health 写进去。
+    # 失败只影响这一行日志，不影响采集/提交；厂商 5xx 不喊人。
+    if os.environ.get("DUTY_SKIP_SESSION_REFRESH") != "1":
+        _maybe_proactive_session_refresh()
     # 摘要放在快照提交之后、DJYY 之前：快照龄/入库检查要反映本轮，而 DJYY 是
     # 600s 级的外网抓取，不该让摘要等它。
     _maybe_ops_digest()
