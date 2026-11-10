@@ -283,16 +283,16 @@ def test_stale_truth_is_suppressed_when_vendor_5xx_already_reported():
 # 旧代码一律报 prediction_coverage_gap 并写死「数据洞」，派单器当晚就建了张查不出故障的工单。
 # 区分依据是 daily 自己的产物，不是时钟：manifest 在=跑过没产出；manifest 不在=没跑/没回仓。
 
-def _zero_match_flags(today_manifest):
+def _zero_match_flags(daily):
     body = "1x2: challenge: 零合格（ev_site 门槛2.0%/池77/匹配0/候选0）——正常"
     a = ops.attribution(rows_of(loglines([body] * 48)))
     return ops.build_red_flags({"missing_count": 0, "missing_hours": []}, {}, a,
                                {"missing_fields": 0}, 1.0, "账目: 仓库未记 0 条：无", True,
-                               today_manifest=today_manifest)
+                               daily=daily)
 
 
 def test_daily_ran_but_no_predictions_is_pending_not_a_data_hole():
-    flags = _zero_match_flags(today_manifest=True)
+    flags = _zero_match_flags({"predictions": False, "manifest": True})
     codes = {f["code"] for f in flags}
     assert "prediction_pending" in codes
     assert "prediction_coverage_gap" not in codes, "daily 已跑过就别喊回仓被拦"
@@ -303,12 +303,24 @@ def test_daily_ran_but_no_predictions_is_pending_not_a_data_hole():
 
 def test_missing_manifest_still_is_the_real_data_hole():
     """manifest 也不在 = 根本没跑/没回仓（11-04 分支保护那次就是这个形状）。"""
-    codes = {f["code"] for f in _zero_match_flags(today_manifest=False)}
+    codes = {f["code"] for f in _zero_match_flags({"predictions": False, "manifest": False})}
     assert "prediction_coverage_gap" in codes and "prediction_pending" not in codes
 
 
+def test_predictions_exist_but_zero_overlap_is_not_a_data_hole():
+    """2026-11-10 实例：预测已产出（2 场），但站点池里写的是「诺斯郡」、我们写「诺茨郡」，
+    别名漏一条 → 零命中。这是「没对上」，既不是没产出，也不是数据洞。"""
+    flags = _zero_match_flags({"predictions": True, "manifest": True})
+    codes = {f["code"] for f in flags}
+    assert "pool_no_overlap" in codes
+    assert not ({"prediction_pending", "prediction_coverage_gap"} & codes)
+    hit = next(f for f in flags if f["code"] == "pool_no_overlap")
+    assert "译名" in hit["action"] and "诺茨郡" in hit["action"]
+    assert "别改门槛" in hit["action"]
+
+
 def test_pending_flag_reaches_the_report():
-    flags = _zero_match_flags(today_manifest=True)
+    flags = _zero_match_flags({"predictions": False, "manifest": True})
     ctx = {"rounds": {"rounds": 48, "expect": 48, "missing_count": 0, "missing_hours": []},
            "errors": {}, "state": {"week": "2026-W46", "used": 0, "quota": 28, "records": 0,
                                    "pools": {"E8": 0, "E10": 0}, "missing_fields": 0},

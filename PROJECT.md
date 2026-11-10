@@ -358,6 +358,18 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-10 **别名表漏一条，白丢一注**：当天摘要报「匹配0」，但预测其实已产出（2 场：
+  伯顿 vs 诺茨郡、布罗姆利 vs 米尔顿）。站点挑战池里同一场写的是 **伯顿 vs 诺斯郡**——
+  同一支 Notts County 的两种译名，`engine/team_aliases.py` 没收录 → 归一化后对不上 →
+  该场静默丢失（另一场布罗姆利确实不在站点池，属站点覆盖缺口）。修法：别名表加
+  `"诺茨郡": "诺斯郡"`（带实证注释），`test_team_aliases.py` 的 CONVERGE_PAIRS 同步加配对，
+  防止回退。
+- 2026-11-10 **摘要把「有预测但零命中」也误报成「预测没产出」**：昨天为「无在售」加的
+  `prediction_pending` 只看 `import_manifest` 在不在，今天 predictions.json 明明在，
+  文案却断言「没有 predictions.json」。改成**三分法**（用 daily 自己的产物，不猜时钟）：
+  predictions 在 → `pool_no_overlap`（有预测但零命中，先查译名/站点覆盖，别当数据洞）；
+  predictions 缺、manifest 在 → `prediction_pending`（当日无在售，属正常）；
+  两个都缺 → `prediction_coverage_gap`（真数据洞，11-04 回仓被拦那种）。前两者归 `HUMAN_ONLY`。
 - 2026-11-09 **登录红线改成「提前预警 + 主动续期」**：原先只在 mint 失败后才无头续期，
       等发现时缓存 JWT 最多剩 20h，人去处理已经很赶；而 remember-me 是否还有效，也只有
       真去续一次才知道。现在 duty **每 12h 主动续一次**（距上次成功 >12h 才续；未成功时

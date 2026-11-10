@@ -63,6 +63,8 @@ HUMAN_ONLY = {
     "prediction_pending",
     # 登录态无法自动续期：修法是用户择机播种，agent 不能登录也不该碰凭据
     "njstats_session_expiring",
+    # 有预测但站点池零命中：多半是译名/覆盖问题，改匹配要人判断，别让 agent 动
+    "pool_no_overlap",
 }
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"
