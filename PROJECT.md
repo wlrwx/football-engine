@@ -358,6 +358,16 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-09 **登录红线改成「提前预警 + 主动续期」**：原先只在 mint 失败后才无头续期，
+      等发现时缓存 JWT 最多剩 20h，人去处理已经很赶；而 remember-me 是否还有效，也只有
+      真去续一次才知道。现在 duty **每 12h 主动续一次**（距上次成功 >12h 才续；未成功时
+      最多每 6h 重试一次，避免厂商 5xx 期间每轮起浏览器），结论写
+      `~/.football-engine/njstats_session_health.json`：`ok`=登录态新鲜；`auth_dead`=无法
+      自动续期 → 摘要出 `njstats_session_expiring`（`HUMAN_ONLY`，动作「缓存 JWT 还有约
+      20h，择机 ./fe-agent seed」）；`vendor`=厂商 5xx/网络，**不喊人、不覆盖**登录态
+      （旧版把 502 判成「登录态已失效」，既喊人白跑又会拿空结果覆盖能用的 SESSION）。
+      人工播种成功也会把 health 置回 `ok`，红线立刻消失。2026-11-09 晚 502 实测：
+      续期脚本正确返回 `vendor`（`HTTP 502（5xx/网络，与登录态无关），本次不续不覆盖`）。
 - 2026-11-09 **播种登录「登录成功却保存不了」**：用户登录后跳空白页、脚本不返回成功。
       根因：旧 `njstats_seed_login.py` 只靠 `/api/user/current` 判成功、且只存 SESSION cookie。
       厂商那个端点 5xx 时（11-04→07、11-09 都挂过），登录其实成功、token 已写进 localStorage，

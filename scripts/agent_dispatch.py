@@ -61,6 +61,8 @@ HUMAN_ONLY = {
     "truth_snapshot_stale",
     # 当天预测还没生成（daily 已跑、体彩未开售）：等下一次 daily，派 agent 查不出故障
     "prediction_pending",
+    # 登录态无法自动续期：修法是用户择机播种，agent 不能登录也不该碰凭据
+    "njstats_session_expiring",
 }
 CI_KIND = "ci_failure"
 SCOUT_KIND = "scout"

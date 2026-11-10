@@ -106,6 +106,7 @@ def test_main_wires_the_snapshot_commit(monkeypatch, tmp_path):
     monkeypatch.setattr(duty, "JWT_FILE", tmp_path / "njstats_jwt")
     for name in ("_maybe_server_records_snapshot", "_maybe_community_snapshot",
                  "_maybe_strategy_snapshot", "_maybe_djyy_snapshot",
+                 "_maybe_proactive_session_refresh",
                  "_maybe_dispatch_daily_ci", "_maybe_dispatch_ci"):
         monkeypatch.setattr(duty, name, lambda _n=name: snapshot_steps.append(_n))
 
@@ -124,7 +125,8 @@ def test_main_wires_the_snapshot_commit(monkeypatch, tmp_path):
     assert duty.STATE_PATHS in calls, "state 的提交链不能因为重构而丢"
     # 「函数写了但没人调」是本项目的头号病害：每个采集步都得被 main 真的调到
     assert {"_maybe_server_records_snapshot", "_maybe_community_snapshot",
-            "_maybe_strategy_snapshot"} <= set(snapshot_steps), snapshot_steps
+            "_maybe_strategy_snapshot", "_maybe_proactive_session_refresh"} \
+        <= set(snapshot_steps), snapshot_steps
     assert "_maybe_djyy_snapshot" in snapshot_steps
 
 
@@ -141,6 +143,7 @@ def test_strategy_snapshot_can_be_skipped_by_env(monkeypatch, tmp_path):
         stdout="ok", stderr="", returncode=0))
     for name in ("_maybe_server_records_snapshot", "_maybe_community_snapshot",
                  "_maybe_djyy_snapshot", "_maybe_ops_digest", "_maybe_agent_dispatch",
+                 "_maybe_proactive_session_refresh",
                  "_maybe_dispatch_daily_ci", "_maybe_dispatch_ci"):
         monkeypatch.setattr(duty, name, lambda _n=name: steps.append(_n))
     monkeypatch.setattr(duty, "_maybe_strategy_snapshot",

@@ -314,3 +314,43 @@ def test_pending_flag_reaches_the_report():
                                    "pools": {"E8": 0, "E10": 0}, "missing_fields": 0},
            "snap_age": 1.0, "reconcile": ["账目: …"], "attribution": None, "red_flags": flags}
     assert any("prediction_pending" in line for line in ops.render(ctx))
+
+
+# ---------- 登录态提前预警（2026-11-09） ----------
+#
+# 被动续期要等 mint 失败才跑，那时缓存 JWT 只剩 ≤20h。主动续期每 12h 试一次，
+# 只在「登录态真的无法自动续期」（auth_dead）时提前报——厂商 5xx 不报（已有上游红线）。
+
+def _health(tmp_path, monkeypatch, payload):
+    p = tmp_path / "njstats_session_health.json"
+    if payload is not None:
+        p.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(ops, "SESSION_HEALTH", p)
+
+
+def test_session_health_only_surfaces_auth_dead(tmp_path, monkeypatch):
+    _health(tmp_path, monkeypatch, {"result": "auth_dead", "at": "2026-11-09 19:00:00",
+                                    "detail": "HTTP 401"})
+    assert ops.session_health()["result"] == "auth_dead"
+    for payload in ({"result": "vendor", "at": "x", "detail": "HTTP 502"},
+                    {"result": "ok", "at": "x", "detail": "已续期"}, None):
+        _health(tmp_path, monkeypatch, payload)
+        assert ops.session_health() is None, payload
+
+
+def test_session_expiring_flag_says_seed_is_not_urgent_but_do_it():
+    flags = ops.build_red_flags(
+        {"missing_count": 0, "missing_hours": []}, {}, None, {"missing_fields": 0},
+        1.0, "账目: …", True,
+        session_dead={"result": "auth_dead", "at": "2026-11-09 19:00:00", "detail": "HTTP 401"})
+    hit = next(f for f in flags if f["code"] == "njstats_session_expiring")
+    assert "2026-11-09 19:00:00" in hit["detail"]
+    assert "./fe-agent seed" in hit["action"]
+    assert "20h" in hit["action"] and "厂商 5xx" in hit["action"]
+
+
+def test_no_session_flag_when_healthy():
+    codes = {f["code"] for f in ops.build_red_flags(
+        {"missing_count": 0, "missing_hours": []}, {}, None, {"missing_fields": 0},
+        1.0, "账目: …", True, session_dead=None)}
+    assert "njstats_session_expiring" not in codes

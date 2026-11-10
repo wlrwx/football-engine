@@ -24,6 +24,7 @@ HOME = Path.home()
 PROFILE = HOME / ".football-engine" / "pwprofile"
 OUT = HOME / ".football-engine" / "njstats_session.json"
 JWT_FILE = HOME / ".football-engine" / "njstats_jwt"
+HEALTH = HOME / ".football-engine" / "njstats_session_health.json"
 BASE = "https://www.njstats.cn"
 
 
@@ -46,11 +47,20 @@ def _read_token(page) -> str | None:
 
 
 def _save(ctx, tok: str) -> bool:
-    """存 JWT（必存）+ SESSION（有则存）。返回是否拿到了 SESSION。"""
+    """存 JWT（必存）+ SESSION（有则存），并把健康状态置回 ok。返回是否拿到了 SESSION。"""
     JWT_FILE.write_text(tok.strip(), encoding="utf-8")
     JWT_FILE.chmod(0o600)
     cookies = {c["name"]: c["value"] for c in ctx.cookies([BASE])
                if c["domain"].endswith("njstats.cn")}
+    # 播种成功 = 登录态全新，把摘要的「登录态将失效」预警立刻清掉；
+    # 不等下一次无头续期才恢复，否则手工播种后红线还会挂着误导人。
+    try:
+        HEALTH.write_text(json.dumps(
+            {"result": "ok", "at": time.strftime("%Y-%m-%d %H:%M:%S"),
+             "detail": "人工播种"}, ensure_ascii=False), encoding="utf-8")
+        HEALTH.chmod(0o600)
+    except OSError:
+        pass
     if cookies.get("SESSION"):
         OUT.write_text(json.dumps({"SESSION": cookies["SESSION"],
                                    "seeded_at": time.strftime("%F %T")}), encoding="utf-8")

@@ -34,7 +34,8 @@ def test_every_digest_red_flag_code_is_classified():
     known = {f"error_{code}" for code, _pat, _act in od.ERROR_RULES} | {
         "prediction_coverage_gap", "zero_qualify_unexplained", "snapshot_not_committed",
         "today_site_odds_missing", "account_gap", "record_fields_missing", "duty_missing_hours",
-        "truth_snapshot_empty", "truth_snapshot_stale", "prediction_pending"}
+        "truth_snapshot_empty", "truth_snapshot_stale", "prediction_pending",
+        "njstats_session_expiring"}
     assert known <= (set(disp.DISPATCHABLE) | set(disp.HUMAN_ONLY)), \
         f"未分类: {known - (set(disp.DISPATCHABLE) | set(disp.HUMAN_ONLY))}"
     assert not (set(disp.DISPATCHABLE) & set(disp.HUMAN_ONLY)), "同一 code 不能既派又不派"
