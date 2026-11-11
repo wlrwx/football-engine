@@ -7,10 +7,44 @@
   "bankroll": 3738.3059000000003,
   "breaker_multiplier": 1.0,
   "parlay": [],
-  "parlay_pool_n": 0,
-  "score_parlay": [],
-  "parlay_stake": 0,
-  "total_exposure": 0.0,
+  "parlay_pool_n": 1,
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-11-11_周三001",
+          "home": "横滨水手",
+          "away": "鹿岛鹿角",
+          "league": "日联赛杯",
+          "score": "1-0",
+          "prob": 0.217,
+          "cal_prob": 0.0882,
+          "odds": 12.0
+        },
+        {
+          "match": "2026-11-11_周三006",
+          "home": "巴恩斯利",
+          "away": "奥德汉姆",
+          "league": "英锦标赛",
+          "score": "1-0",
+          "prob": 0.191,
+          "cal_prob": 0.0882,
+          "odds": 18.0
+        }
+      ],
+      "total_odds": 216.0,
+      "hit_prob": 0.0078,
+      "stake": 2.0,
+      "potential": 432.0,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.8% × 赔率 216 倍 = EV +68%）"
+    }
+  ],
+  "parlay_stake": 2.0,
+  "total_exposure": 2.0,
   "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
   "parlay_calibration": {
     "overall": 0.5474,
