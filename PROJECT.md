@@ -358,6 +358,13 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-13 **Clash 进程死停掉整条采集/挑战链（本地单点，非厂商故障）**：02:05 起 duty
+  整轮跳过，表象是 mint 502 + 缓存 JWT 实测失败；实测**直连网关 200、JWT 仍有效**，死因是
+  `njstats_api_submit.PROXY` 在 Mac 写死 7897，代理死后所有请求 ProxyError。修法：改端口探测
+  （环境变量 > 探测 > 直连，与 archive/capture 同约定），直连**显式 None** 屏蔽 macOS 系统
+  代理回落；续期/播种两个 playwright 浏览器加 `--no-proxy-server`（站点国内、直连实测可用）。
+  ssh 别名 likewise 加直连回退（仓库外 ~/.ssh/config，见上一条）。回归
+  `tests/test_njstats_proxy_resolve.py`。URL 全程同一真实地址，未引入任何替代代理。
 - 2026-11-13 **代理进程死致 duty 全轮 push 失败，红线还误分类成 credentials**：01:35 起
   pull/push 全报 `Could not read from remote repository`。根因：ssh 别名
   `github-football-engine` 的 ProxyCommand 依赖本地 Clash（127.0.0.1:7897），代理进程死了；

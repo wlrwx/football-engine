@@ -30,9 +30,27 @@ import requests
 
 API = "https://www.njstats.cn/njserver/openApi/"
 JWT_FILE = Path.home() / ".football-engine" / "njstats_jwt"
-# NJSTATS_NOPROXY=1（CI 端）：显式 None 屏蔽 runner 任何代理环境；Mac 默认走 Clash 7897
-PROXY = {"http": None, "https": None} if os.environ.get("NJSTATS_NOPROXY") \
-    else {"https": os.environ.get("NJSTATS_PROXY", "http://127.0.0.1:7897")}
+# NJSTATS_NOPROXY=1（CI 端）：显式 None 屏蔽 runner 任何代理环境。
+# Mac 默认探测本地代理端口；代理进程死了就直连同一真实地址（2026-11-13 实测：
+# Clash 死 → 写死 7897 使整条采集/挑战链 ProxyError 停摆，而直连网关 200）。
+# 直连必须显式 None：macOS 上 proxies=None 仍会回落系统代理设置（同样指向死 Clash）。
+def _resolve_proxy() -> dict:
+    if os.environ.get("NJSTATS_NOPROXY"):
+        return {"http": None, "https": None}
+    env = os.environ.get("NJSTATS_PROXY", "").strip()
+    if env:
+        return {"http": env, "https": env}
+    import socket
+    for port in (7897, 7890, 1080):     # Clash Verge / ClashX / v2ray 常见口
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return {"http": f"http://127.0.0.1:{port}", "https": f"http://127.0.0.1:{port}"}
+        except OSError:
+            continue
+    return {"http": None, "https": None}
+
+
+PROXY = _resolve_proxy()
 
 
 # ---------- 最小 protobuf wire 编解码（仅 varint / length-delimited） ----------
