@@ -64,8 +64,13 @@ ERROR_RULES = (
      "有进程/agent 切走了 duty 仓库的分支；确认已切回 main，并查是谁切的（2026-11-04 是执行器在大号仓库里 checkout）"),
     ("mint", r"需人工登录|mint 失败|\b401\b",
      "需用户跑 ./fe-agent seed（绝不尝试自动过验证码）"),
-    ("credentials", r"Bad credentials|push 失败",
-     "需更新 ~/.football-engine/github_token（./fe-agent ghtoken）"),
+    ("credentials", r"Bad credentials|Permission denied|Authentication failed",
+     "认证被拒：SSH 先跑 ssh -T git@github-football-engine 查 deploy key；REST 才需更新 github_token（./fe-agent ghtoken）"),
+    # push/pull 失败多是代理/网络，不是凭据（2026-11-13 实测：Clash 进程死 → SSH 全失败，
+    # 旧规则归成 credentials 叫人换 token，而 remote 走 SSH 根本不用 token）。
+    ("git", r"push 失败|pull 失败|Could not read from remote repository",
+     "git 读写失败：多为代理/网络（ssh 配置已带直连回退）；持续不恢复跑 "
+     "ssh -T git@github-football-engine 实测，别先改 token"),
     ("network", r"ReadTimeout|SSLError|CERTIFICATE_VERIFY_FAILED|网络恢复",
      "站点/网络抖动，下轮自愈；持续不恢复才需人看"),
     ("djyy", r"blocked_by_edge|DJYY.*403",

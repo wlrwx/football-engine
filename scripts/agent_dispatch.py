@@ -50,6 +50,8 @@ DISPATCHABLE = {
 HUMAN_ONLY = {
     "account_gap", "record_fields_missing", "zero_qualify_unexplained",
     "error_mint", "error_credentials", "error_network", "error_djyy",
+    # git 读写失败：代理/网络/SSH key 需人实测判断，agent 不该碰凭据与 ssh 配置
+    "error_git",
     "duty_missing_hours",
     # 分支被切走这件事本身就是 agent 越界造成的，绝不能派给它自己「修」
     "error_branch",
