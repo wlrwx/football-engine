@@ -75,7 +75,8 @@ def main() -> int:
 
     PROFILE.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
-        ctx = pw.chromium.launch_persistent_context(str(PROFILE), headless=False, viewport={"width": 1100, "height": 800})
+        ctx = pw.chromium.launch_persistent_context(str(PROFILE), headless=False, viewport={"width": 1100, "height": 800},
+                                                   args=["--no-proxy-server"])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(BASE + "/login", wait_until="domcontentloaded")
         # 清掉残留 token：之后凡是读到 token，必然是这次新登录写进去的，

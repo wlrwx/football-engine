@@ -135,7 +135,9 @@ def refresh(check_only: bool = False) -> int:
 
     with sync_playwright() as pw:
         ctx = pw.chromium.launch_persistent_context(
-            str(PROFILE), headless=True, viewport={"width": 1100, "height": 800}
+            str(PROFILE), headless=True, viewport={"width": 1100, "height": 800},
+            # 站点在国内、直连实测可用；不吃系统代理，Clash 死不能把续期也停掉
+            args=["--no-proxy-server"],
         )
         try:
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
