@@ -307,6 +307,31 @@ def test_missing_manifest_still_is_the_real_data_hole():
     assert "prediction_coverage_gap" in codes and "prediction_pending" not in codes
 
 
+# 2026-11-13 实测：Clash 代理进程死 → ssh 别名全失败，duty 整轮 pull/push 报
+# 「Could not read from remote repository」。旧规则把 push 失败归成 credentials、
+# 叫人更新 github_token——但 remote 走 SSH，token 根本无关，纯误导。
+def test_push_failure_is_git_not_credentials():
+    text = loglines(["1x2: challenge: 零合格（池1/匹配1/候选1/最高-1%）"] * 44
+                    + ["pull 失败（未进入 rebase）: fatal: Could not read from remote repository.（本地提交待下一轮重放）",
+                       "push 失败（3 次重试）: duty: challenge state 更新"] * 2)
+    rows = rows_of(text)
+    e = ops.error_summary(rows)
+    assert "git" in e and "credentials" not in e, e
+    flags = ops.build_red_flags(ops.round_summary(rows, NOW), e, None,
+                                {"missing_fields": 0}, 1.0, "账目: 仓库未记 0 条：无", True)
+    codes = {f["code"] for f in flags}
+    assert "error_git" in codes and "error_credentials" not in codes, codes
+    hit = next(f for f in flags if f["code"] == "error_git")
+    assert "ssh -T" in hit["action"] and "别先改 token" in hit["action"]
+
+
+def test_real_auth_failure_still_credentials():
+    text = loglines(["1x2: challenge: 零合格（池1/匹配1/候选1/最高-1%）"] * 44
+                    + ["ci-sync: Bad credentials"] * 4)
+    e = ops.error_summary(rows_of(text))
+    assert "credentials" in e and "git" not in e, e
+
+
 def test_predictions_exist_but_zero_overlap_is_not_a_data_hole():
     """2026-11-10 实例：预测已产出（2 场），但站点池里写的是「诺斯郡」、我们写「诺茨郡」，
     别名漏一条 → 零命中。这是「没对上」，既不是没产出，也不是数据洞。"""

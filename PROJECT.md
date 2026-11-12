@@ -358,6 +358,14 @@
 - [x] `evolution/` 产物（已 gitignore）
 
 ## 已修（现象 → 根因 → 修法）
+- 2026-11-13 **代理进程死致 duty 全轮 push 失败，红线还误分类成 credentials**：01:35 起
+  pull/push 全报 `Could not read from remote repository`。根因：ssh 别名
+  `github-football-engine` 的 ProxyCommand 依赖本地 Clash（127.0.0.1:7897），代理进程死了；
+  直连 ssh.github.com:443 实测可用。修法：别名改「探测代理活着→走代理，否则回退直连」
+  （代理活着时行为不变），积压提交 rebase 后清掉。同修 `ops_digest` 误分类：旧规则把
+  `push 失败` 归 credentials 叫人换 github_token，而 remote 走 SSH 根本不用 token。现
+  credentials 只匹配真认证失败（Bad credentials/Permission denied/Authentication failed），
+  push/pull 失败归新类 `git`（`error_git`，HUMAN_ONLY，动作「先 ssh -T 实测，别先改 token」）。
 - 2026-11-10 **别名表漏一条，该场零命中**（本次未造成实际损失，但风险真实）：当天摘要报
   「匹配0」，而预测其实已产出（2 场：伯顿 vs 诺茨郡、布罗姆利 vs 米尔顿）。站点挑战池里
   同一场写的是 **伯顿 vs 诺斯郡**——同一支 Notts County 的两种译名，`engine/team_aliases.py`
