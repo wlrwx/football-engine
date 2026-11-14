@@ -8,9 +8,43 @@
   "breaker_multiplier": 0.5,
   "parlay": [],
   "parlay_pool_n": 0,
-  "score_parlay": [],
-  "parlay_stake": 0,
-  "total_exposure": 0.0,
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-11-14_周六003",
+          "home": "日本",
+          "away": "巴西",
+          "league": "国际赛",
+          "score": "1-0",
+          "prob": 0.183,
+          "cal_prob": 0.0873,
+          "odds": 13.0
+        },
+        {
+          "match": "2026-11-14_周六009",
+          "home": "瓦尔韦克",
+          "away": "登博思",
+          "league": "荷乙",
+          "score": "0-1",
+          "prob": 0.199,
+          "cal_prob": 0.0633,
+          "odds": 22.0
+        }
+      ],
+      "total_odds": 286.0,
+      "hit_prob": 0.0055,
+      "stake": 2.0,
+      "potential": 572.0,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.6% × 赔率 286 倍 = EV +58%）"
+    }
+  ],
+  "parlay_stake": 2.0,
+  "total_exposure": 2.0,
   "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
   "parlay_calibration": {
     "overall": 0.5498,
