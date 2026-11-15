@@ -231,6 +231,40 @@ def snapshot_commit_age_h() -> float | None:
     return (datetime.now(BJT).timestamp() - int(p.stdout.strip())) / 3600
 
 
+def daily_products(day_dir: Path, today_iso: str, forecast_last_date: str = "") -> dict:
+    """当天 daily 目录的三个事实：预测在不在、manifest 在不在、今天这一轮 CI 跑过没有。
+
+    `forecast_last_date` 由 duty 传（它本来就为看门狗查这个 API）：最近一次
+    daily-forecast **触发**的北京日期。空串 = 取不到 = 未知，此时判据保守退回
+    「按数据洞报」，绝不因为缺一个输入就静默吞掉真故障。
+    """
+    return {"predictions": (day_dir / "predictions.json").exists(),
+            "manifest": (day_dir / "import_manifest.json").exists(),
+            "forecast_today": (forecast_last_date == today_iso) if forecast_last_date else None,
+            "forecast_last_date": forecast_last_date}
+
+
+def coverage_state(daily: dict | None) -> str:
+    """「匹配0」在 daily 产物侧的形状：overlap / pending / not_due / hole。"""
+    d = daily or {}
+    if d.get("predictions"):
+        return "overlap"
+    if d.get("manifest"):
+        return "pending"
+    if d.get("forecast_today") is False:
+        return "not_due"
+    return "hole"
+
+
+def coverage_note(daily: dict | None) -> str:
+    """not_due 只写进正文、不占红线位：派单器按 code 派单，模型只在有红线时才被叫醒。"""
+    if coverage_state(daily) != "not_due":
+        return ""
+    return (f"当天 data/daily/ 两个产物都不在，但 daily-forecast 今天这一轮还没跑过"
+            f"（上次 {daily.get('forecast_last_date') or '?'}）——新北京日的首轮最早 00:15，"
+            f"这是时序空窗，不是回仓被拦")
+
+
 def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
                     snap_age: float | None, account_line: str, today_site_odds: bool,
                     truth: dict | None = None,
@@ -250,22 +284,30 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
         if not info["resolved"]:
             add(f"error_{code}", f"{code} 出现 {info['count']} 次且之后无成功轮次", info["action"])
     if attr and attr["kind"] == "coverage_gap":
-        # 「匹配0」有三种完全不同的成因，用 daily 自己的产物区分（不用猜时钟）：
+        # 「匹配0」有四种完全不同的成因，用 daily 自己的产物区分（不用猜时钟）：
         # predictions.json 在 = 有预测但零命中 → 多半是译名/覆盖，不是数据洞
         #   （2026-11-10 实例：我方写"诺茨郡"、站点写"诺斯郡"，别名漏一条就丢一注）；
         # predictions 缺、manifest 在 = daily 跑过但当天没产出（2026-11-09 实测：体彩当日无在售）；
-        # 两个都缺 = 根本没跑/没回仓，那才是 11-04 那种数据洞。
-        daily = daily or {}
-        if daily.get("predictions"):
+        # 两个都缺、但今天这一轮 daily-forecast 还没跑过 = 刚翻篇的时序空窗（见下面 not_due）；
+        # 两个都缺且今天已经跑过 = 没产出/没回仓，那才是 11-04 那种数据洞。
+        state = coverage_state(daily)
+        if state == "overlap":
             add("pool_no_overlap",
                 "有预测但今天站点池零命中：预测已产出，是「没对上」而不是「没产出」",
                 "先查译名差异（实例：诺茨郡 vs 诺斯郡），再查站点是否真没覆盖该联赛；"
                 "别当数据洞、别改门槛")
-        elif daily.get("manifest"):
+        elif state == "pending":
             add("prediction_pending",
                 "当天预测未产出：daily 已跑（import_manifest 在）但没有 predictions.json",
                 "先查体彩当天是否有在售（编号日期==今天）：无在售=当日无机会，属正常；"
                 "有在售却没产出，才查那一轮 CI 是否红/回仓是否被拦")
+        elif state == "not_due":
+            # 2026-11-16：每天北京 00:00 后的第一轮 duty（:05）必然看到「两个都缺」——
+            # daily-forecast 是新日 00:15 之后才跑，产物那时还不存在是应该的。
+            # 这一类只在正文留一行（collect 里算进 coverage_note），不喊红线：
+            # 红线会派 agent 工单，而 11-10 起连开七张（#12/#14/#16/#18/#21/#22/#24）
+            # 查的全是同一个不存在的数据洞，真洞反被淹在噪声里。
+            pass
         else:
             add("prediction_coverage_gap", attr["detail"],
                 "查 data/daily/<今天>/predictions.json 是否落库；CI 回仓被拦时会出现这个症状")
@@ -323,6 +365,8 @@ def render(ctx: dict) -> list[str]:
         lines.append(f"归因: {a['detail']}（池{a['pool']}/匹配{a['matched']}/候选{a['candidates']}{top}）")
     else:
         lines.append("归因: 近24h 无零合格轮")
+    if ctx.get("coverage_note"):
+        lines.append(f"当天产物: {ctx['coverage_note']}")
     lines += ctx["reconcile"]
     flags = ctx["red_flags"]
     lines.append(f"红线: {len(flags)} 条" + ("——" + "；".join(f["code"] for f in flags) if flags else "（无需模型介入）"))
@@ -331,7 +375,7 @@ def render(ctx: dict) -> list[str]:
     return [mask(x) for x in lines]
 
 
-def collect(now: datetime | None = None) -> dict:
+def collect(now: datetime | None = None, forecast_last_date: str = "") -> dict:
     now = now or datetime.now(BJT)
     text = DUTY_LOG.read_text(encoding="utf-8", errors="replace") if DUTY_LOG.exists() else ""
     rows = recent(parse_log(text), now)
@@ -351,12 +395,16 @@ def collect(now: datetime | None = None) -> dict:
         "reconcile": reconcile,
     }
     day_dir = ROOT / "data" / "daily" / today.isoformat()
+    daily = daily_products(day_dir, today.isoformat(), forecast_last_date)
+    ctx["daily"] = daily
+    # 时序空窗（not_due）不进红线，只进正文，所以这行得单独算——红线列表里没有它。
+    ctx["coverage_note"] = (coverage_note(daily)
+                            if (ctx["attribution"] or {}).get("kind") == "coverage_gap" else "")
     ctx["red_flags"] = build_red_flags(
         ctx["rounds"], ctx["errors"], ctx["attribution"], ctx["state"], ctx["snap_age"],
         account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
         truth=truth_check(rows), truth_age=truth_snapshot_age_h(),
-        daily={"predictions": (day_dir / "predictions.json").exists(),
-               "manifest": (day_dir / "import_manifest.json").exists()},
+        daily=daily,
         session_dead=session_health())
     ctx["report"] = render(ctx)
     return ctx
@@ -366,9 +414,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="确定性运维摘要（巡检 + 对账）")
     ap.add_argument("--write", action="store_true", help="写 ~/.football-engine/ops_digest.{txt,json}")
     ap.add_argument("--quiet", action="store_true", help="不打印报告，只给退出码")
+    ap.add_argument("--forecast-last-date", default="",
+                    help="最近一次 daily-forecast 触发的北京日期（YYYY-MM-DD，由 duty 传）；"
+                         "留空=未知，此时当天缺产物仍按数据洞保守上报")
     args = ap.parse_args(argv)
     try:
-        ctx = collect()
+        ctx = collect(forecast_last_date=args.forecast_last_date)
     except Exception as exc:
         print(f"ops_digest 自身出错: {type(exc).__name__}: {exc}")
         return 2
