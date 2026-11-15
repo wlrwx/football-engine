@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-15T11:39:48",
+  "generated_at": "2026-11-15T16:07:34",
   "schema": 2,
   "baseline_pre_upgrade": {
     "brier": 0.5575906206419753,
@@ -19,9 +19,9 @@
     "hit_rate": 0.5164
   },
   "v2_clean": {
-    "n": 1058,
-    "brier": 0.5542,
-    "hit_rate": 0.5728
+    "n": 1065,
+    "brier": 0.5544,
+    "hit_rate": 0.5718
   },
   "effective_fusion_weights": {
     "source": "data/state/fusion_weights.json#champion",
@@ -35,29 +35,29 @@
       "market": 0.9375,
       "djyy": 0.0
     },
-    "djyy_hit_rate": 0.2665,
-    "note": "⚠ DJYY 名义权重 0.2 当前完全不生效（v2 链 1058 场中 djyy_prob 命中 282 场，命中率 0%）。名义权重和为 1.0，归一化后真实比例为 model 6.25% / market 93.75%"
+    "djyy_hit_rate": 0.2648,
+    "note": "⚠ DJYY 名义权重 0.2 当前完全不生效（v2 链 1065 场中 djyy_prob 命中 282 场，命中率 0%）。名义权重和为 1.0，归一化后真实比例为 model 6.25% / market 93.75%"
   },
   "verdict": "IMPROVED",
   "paired_vs_legacy": {
-    "delta_brier": 0.063,
+    "delta_brier": 0.0628,
     "t": 3.91,
-    "n_v2": 1058,
+    "n_v2": 1065,
     "n_legacy": 426
   },
   "paired_vs_market": {
-    "n": 992,
-    "brier_final": 0.5617,
-    "brier_market": 0.5618,
-    "delta_brier": -0.0001,
-    "t": -0.13,
+    "n": 999,
+    "brier_final": 0.5618,
+    "brier_market": 0.562,
+    "delta_brier": -0.0002,
+    "t": -0.22,
     "ci95_delta": [
       -0.0018,
       0.0015
     ],
     "significant": false,
-    "matches_better": 460,
-    "matches_worse": 532,
+    "matches_better": 464,
+    "matches_worse": 535,
     "verdict": "TIED"
   },
   "verdict_vs_market": "TIED"
