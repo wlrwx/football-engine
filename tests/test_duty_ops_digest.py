@@ -85,3 +85,40 @@ def test_launch_failure_is_visible(wired):
     setup(exc=OSError("no python"))
     duty._maybe_ops_digest()
     assert any("跑不起来" in x for x in logs), logs
+
+
+# ---------- 把 daily-forecast 的最近触发日期传给摘要（2026-11-16） ----------
+#
+# 摘要自己离线，分不清「今天的产物没落库」和「今天这一轮 CI 还没跑」，
+# 于是北京 00:05 那轮每晚必报数据洞、连派七张查不出故障的工单。
+# duty 本来就为看门狗查这个 API，把日期捎给它即可，判定仍留在摘要侧。
+
+def test_forecast_last_date_is_passed_to_the_digest(wired, monkeypatch):
+    logs, setup = wired
+    calls = setup(rc=0, ctx={"red_flags": []})
+    monkeypatch.setattr(duty, "_daily_last_run_info", lambda: (4.5, "2026-11-15"))
+    duty._maybe_ops_digest()
+    assert "--forecast-last-date" in calls[0], calls[0]
+    assert calls[0][calls[0].index("--forecast-last-date") + 1] == "2026-11-15", calls[0]
+
+
+def test_unknown_forecast_date_is_not_fabricated(wired, monkeypatch):
+    """API 取不到就别传参数：摘要那边要按「未知」保守喊洞，不能拿到一个假日期。"""
+    logs, setup = wired
+    calls = setup(rc=0, ctx={"red_flags": []})
+    monkeypatch.setattr(duty, "_daily_last_run_info", lambda: None)
+    duty._maybe_ops_digest()
+    assert "--forecast-last-date" not in calls[0], calls[0]
+
+
+def test_api_shape_change_does_not_kill_the_round(wired, monkeypatch):
+    """摘要在失败轮也要跑（11-07 事故的教训），所以多带这一个输入绝不能成为新的崩点。"""
+    logs, setup = wired
+    calls = setup(rc=0, ctx={"red_flags": []})
+
+    def weird():
+        raise AttributeError("'list' object has no attribute 'get'")
+    monkeypatch.setattr(duty, "_daily_last_run_info", weird)
+    duty._maybe_ops_digest()                      # 不抛
+    assert len(calls) == 1 and "--forecast-last-date" not in calls[0], calls
+    assert any("触发日期取不到" in x for x in logs), logs

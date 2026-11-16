@@ -535,9 +535,22 @@ def _maybe_ops_digest() -> None:
     """
     if os.environ.get("DUTY_SKIP_OPS_DIGEST") == "1":
         return
+    # 把「daily-forecast 今天到底跑过没有」一起传给摘要：只有 Actions API 知道答案，
+    # 而摘要是离线的。北京 00:00 后第一轮 duty（:05）必然看到当天目录是空的，但那
+    # 是新日首轮（最早 00:15）还没跑的时序空窗，不是 11-04 那种回仓被拦——缺这个输入
+    # 摘要只能保守喊数据洞，11-10 起每晚自动派一张查不出故障的工单。
+    args = [str(ROOT / ".venv" / "bin" / "python3"), "scripts/ops_digest.py", "--write", "--quiet"]
     try:
-        p = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"), "scripts/ops_digest.py",
-                            "--write", "--quiet"], cwd=ROOT, capture_output=True, text=True,
+        _daily = _daily_last_run_info()
+    except Exception as exc:  # noqa: BLE001
+        # 这只是给摘要多带一个输入。API 返回形状变了也不能拖垮本轮——摘要拿不到
+        # 日期时会自己按「未知」保守判洞，宁可多报一行，不可少跑一轮。
+        _daily = None
+        log(f"⚠ daily-forecast 触发日期取不到（{type(exc).__name__}），摘要按未知保守判")
+    if _daily:
+        args += ["--forecast-last-date", _daily[1]]
+    try:
+        p = subprocess.run(args, cwd=ROOT, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", check=False, timeout=180)
     except (OSError, subprocess.SubprocessError) as exc:
         log(f"⚠ ops_digest 跑不起来: {type(exc).__name__}")
