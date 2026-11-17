@@ -569,6 +569,59 @@ def _maybe_ops_digest() -> None:
         return
     for f in flags:
         log(f"⚠ 运维红线 {f.get('code')}: {f.get('detail')} → {f.get('action')}")
+    _notify_human_flags(flags)
+
+
+def _notify_human_flags(flags: list[dict]) -> None:
+    """HUMAN_ONLY 红线立刻弹 macOS 通知并留痕。
+
+    2026-11-17 前的形状：「只报给人」的红线只写 duty.log，等人看——而看的行为
+    发生在 22:40 的分诊会话里，机器那时睡着就整体顺延，像登录到期这种带时限的
+    预警会被静默压掉。通知与派单同一份 HUMAN_ONLY 名单（agent_dispatch），
+    名单变化即自动跟随。任何失败只写一行日志，绝不影响本轮采集与提交。
+    osascript 走 argv 传参：红线文本只当数据，不会进 AppleScript 源码被执行。
+    """
+    if os.environ.get("DUTY_SKIP_HUMAN_NOTIFY") == "1":
+        return
+    try:
+        import agent_dispatch as dispatch_mod
+    except Exception:  # noqa: BLE001  拿不到名单就不推，不拖垮 duty
+        return
+    human = [{"code": str(f.get("code")),
+              "detail": " ".join(str(f.get("detail") or "").split())[:80]}
+             for f in flags if str(f.get("code")) in dispatch_mod.HUMAN_ONLY]
+    codes = {h["code"] for h in human}
+    state = HOME / ".football-engine" / "human_redline_notified.json"
+    try:
+        prev = set(json.loads(state.read_text(encoding="utf-8")).get("codes") or [])
+    except (OSError, ValueError, AttributeError):
+        prev = set()
+    if not codes and not prev:
+        return
+    if codes != prev or codes:
+        if codes and codes != prev:
+            msg = (human[0]["detail"] if len(codes) == 1
+                   else f"{len(codes)} 条：{'、'.join(sorted(codes))}")
+            script = ("on run argv\ndisplay notification (item 1 of argv) "
+                      "with title (item 2 of argv)\nend run")
+            try:
+                p = subprocess.run(["osascript", "-e", script, msg,
+                                    "football-engine 运维红线（需人处理）"],
+                                   capture_output=True, text=True, encoding="utf-8",
+                                   errors="replace", timeout=15, check=False)
+                ok = p.returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                ok = False
+            log(f"红线推送: {'已通知' if ok else 'osascript 失败'}"
+                f"（{'、'.join(sorted(codes))}）")
+        elif not codes:
+            log(f"红线推送: 已解除（{'、'.join(sorted(prev))}），不再提醒")
+    try:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps({"codes": sorted(codes), "at": time.strftime("%F %T")},
+                                    ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _maybe_agent_dispatch() -> None:
