@@ -70,10 +70,11 @@ def item(home, away, kickoff, odds=(1.8, 3.5, 4.2), sid="s001"):
 
 # ------------------------------------------------------------------ 相似度
 def test_side_similarity_covers_transliteration_but_not_squads():
-    # 生产四档（精确/归一化/互含）都对不上，只有相似度能捞回来的一条：实测 10-24 板
-    assert mga.side_similarity("沃尔夫斯堡", "沃夫斯堡") == "similar"
-    # 「布里斯托城 / 布里斯托尔城」：中间插一个字，互含失效，只能靠相似度
-    assert mga.side_similarity("布里斯托城", "布里斯托尔城") == "similar"
+    """队名一律用**编造**的名字：PR #107 之后真实译名会不断进 TEAM_ALIASES，
+    拿真实队名写断言 = 断言会随别名表补录而失效（本文件第一版就踩到了：
+    沃夫斯堡/沃尔夫斯堡 被 #107 收进表后，same 抢在 similar 前面命中）。"""
+    # 同音换字、互含失效：生产三档都捞不到，只有 ratio 能捞
+    assert mga.side_similarity("阿法贝塔", "阿发贝塔") == "similar"
     # 成年队与 U19 永远不算同一支队（10-21 板上两者同时在售）
     assert mga.side_similarity("皇家贝蒂斯U19", "皇家贝蒂斯") is None
     # 不同球队不得被 ratio 捞成同一支
@@ -81,9 +82,9 @@ def test_side_similarity_covers_transliteration_but_not_squads():
 
 
 def test_pair_similarity_requires_both_sides():
-    ok, differs = mga.pair_similarity("波鸿", "沃尔夫斯堡", "波鸿", "沃夫斯堡")
+    ok, differs = mga.pair_similarity("鸿雁城", "阿法贝塔", "鸿雁城", "阿发贝塔")
     assert (ok, differs) == (True, True)
-    assert mga.pair_similarity("波鸿", "沃尔夫斯堡", "波鸿", "汉堡") == (False, False)
+    assert mga.pair_similarity("鸿雁城", "阿法贝塔", "鸿雁城", "乙贝塔") == (False, False)
 
 
 # ------------------------------------------------------------------ 池侧归因
@@ -100,16 +101,16 @@ def test_production_match_is_counted_as_production_not_alias(tmp_path):
 
 def test_alias_bucket_needs_kickoff_agreement(tmp_path):
     """同名不同写 + 开赛时刻一致 = 别名可挽回；时刻差几小时 = 只算疑似。"""
-    pool = [item("波鸿", "沃尔夫斯堡", "2026-11-02 03:00:00", sid="a1"),
-            item("谢周三", "阿克林顿", "2026-11-02 03:00:00", sid="a2")]
-    preds = {DAY: [], "2026-11-02": [pred("波鸿", "沃夫斯堡", "2026-11-02 03:05:00"),
-                                     pred("谢周三", "阿克宁顿", "2026-11-02 19:00:00")]}
+    pool = [item("鸿雁城", "阿法贝塔", "2026-11-02 03:00:00", sid="a1"),
+            item("铁岭开原", "乙贝塔城", "2026-11-02 03:00:00", sid="a2")]
+    preds = {DAY: [], "2026-11-02": [pred("鸿雁城", "阿发贝塔", "2026-11-02 03:05:00"),
+                                     pred("铁岭开原", "以贝塔城", "2026-11-02 19:00:00")]}
     r = mga.classify_day(make_repo(tmp_path, pool, preds), DAY)
     assert r["pool_buckets"]["5_alias_recoverable"] == 1
     assert r["pool_buckets"]["6_alias_unconfirmed"] == 1
     levels = {e["pool"]: e["level"] for e in r["alias_evidence"]}
-    assert levels["波鸿 vs 沃尔夫斯堡"] == "time"
-    assert levels["谢周三 vs 阿克林顿"] == "no_time"
+    assert levels["鸿雁城 vs 阿法贝塔"] == "time"
+    assert levels["铁岭开原 vs 乙贝塔城"] == "no_time"
 
 
 def test_youth_squad_entry_is_not_an_alias(tmp_path):
@@ -189,15 +190,18 @@ def test_missing_predictions_day_is_recorded(tmp_path):
     r = mga.classify_day(tmp_path, DAY)
     assert r["missing_pred_days"] == ["2026-11-02"]
     assert r["pred_days"]["2026-11-02"] is None
+    # 覆盖漏斗必须能把「没落库」与「开售 0 场」区分开（前者是数据洞，后者可能真的没比赛）
+    row = next(x for x in mga.build_report(tmp_path, [DAY])["coverage"]["per_day"] if x["day"] == "2026-11-02")
+    assert row["pred_missing"] is True and row["pred"] == 0
 
 
 # ------------------------------------------------------------------ 预测侧
 def test_prediction_side_separates_past_and_absent(tmp_path):
     """已开赛、板上没这场、别名丢的，三种「没匹配上」在预测侧必须分得开。"""
-    pool = [item("波鸿", "沃尔夫斯堡", "2026-11-02 03:05:00")]
+    pool = [item("鸿雁城", "阿法贝塔", "2026-11-02 03:05:00")]
     preds = {DAY: [pred("凌晨早场", "已结束队", "2026-11-01 20:00:00"),
                    pred("站点没有", "也没有", "2026-11-02 06:00:00")],
-             "2026-11-02": [pred("波鸿", "沃夫斯堡", "2026-11-02 03:05:00")]}
+             "2026-11-02": [pred("鸿雁城", "阿发贝塔", "2026-11-02 03:05:00")]}
     r = mga.classify_day(make_repo(tmp_path, pool, preds), DAY)
     assert r["pred_buckets"]["3_kickoff_already_past"] == 1
     assert r["pred_buckets"]["6_not_on_pool_board"] == 1
@@ -253,19 +257,39 @@ def test_alias_candidates_only_take_time_verified_rows(tmp_path):
 
 
 def test_derived_ratios_and_totals(tmp_path):
-    pool = [item("波鸿", "沃尔夫斯堡", "2026-11-02 03:05:00"),
+    pool = [item("鸿雁城", "阿法贝塔", "2026-11-02 03:05:00"),
             item("佩雷拉", "茨高", "2026-11-02 08:00:00")]
-    preds = {DAY: [], "2026-11-02": [pred("波鸿", "沃夫斯堡", "2026-11-02 03:05:00")]}
+    preds = {DAY: [], "2026-11-02": [pred("鸿雁城", "阿发贝塔", "2026-11-02 03:05:00")]}
     make_repo(tmp_path, pool, preds, policy={"gate_mode": "ev_site", "ev_floor": 0.02,
                                              "min_sporttery_odds": 0.0})
     rep = mga.build_report(tmp_path, [DAY])
     assert rep["n_days"] == 1 and rep["pool_board_total"] == 2
     assert rep["derived"]["alias_time_verified"] == 1
     assert rep["derived"]["pred_bettable"] == 1
-    assert rep["alias_candidates"][0]["pool_name"] == "沃尔夫斯堡"
+    assert rep["alias_candidates"][0]["pool_name"] == "阿法贝塔"
     assert mga.missing_snapshot_days(["2026-11-01", "2026-11-04"]) == ["2026-11-02", "2026-11-03"]
     text = mga.render_text(rep)
     assert "【关键比率】" in text and "别名可挽回" in text
+
+
+def test_coverage_report_counts_sold_pred_matched(tmp_path):
+    """销售日覆盖漏斗：开售（赛果∪预测去重对）→ 落库预测 → 被池子匹配上，三段都要能对上。"""
+    pool = [item("鸿雁城", "阿法贝塔", "2026-11-02 03:05:00", sid="v1"),
+            item("新开售", "没预测", "2026-11-02 06:00:00", sid="v2")]
+    make_repo(tmp_path, pool, {DAY: [], "2026-11-02": [pred("鸿雁城", "阿法贝塔", "2026-11-02 03:05:00")]},
+              results={"2026-11-02": [
+                  # 赛果用**异写**（阿发贝塔）：必须与预测那场并成同一场，否则 sold 会虚高一倍
+                  {"match_id": "2026-11-02_周日001", "home_team": "鸿雁城", "away_team": "阿发贝塔",
+                   "home_score": 1, "away_score": 0},
+                  {"match_id": "2026-11-02_周日002", "home_team": "新开售", "away_team": "没预测",
+                   "home_score": 0, "away_score": 2},
+              ]})
+    cov = mga.build_report(tmp_path, [DAY])["coverage"]
+    row = next(r for r in cov["per_day"] if r["day"] == "2026-11-02")
+    assert row["sold"] == 2, row        # 赛果里的两场
+    assert row["pred"] == 1, row        # 只预测了一场
+    assert row["matched"] == 1, row     # 那场被池子匹配上
+    assert cov["sold"] >= 2 and cov["pred"] >= 1
 
 
 def test_parse_duty_log_counts_rounds_without_echoing_secrets(tmp_path):

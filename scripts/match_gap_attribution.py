@@ -31,8 +31,8 @@ issue #28（2026-11-17 派单）：站点池子里有上百场，日志常年只
   「里尔U19 vs 加拉塔萨雷U19」同时存在，只看队名会把青年队当成年队）。
 - 「别名可挽回」= 两侧都相似、至少一侧写法不同、**且开赛时刻相差 ≤20 分钟**。
   时刻对不上只算「疑似」，不计入可挽回——这是与「同名不同场」的唯一可靠分界。
-- 「竞彩开售」按开赛日 kd 及 kd±1 三个销售日查（实测 1520 条预测里，销售日 D 的
-  比赛开球落在 D 的 572 场、落在 D+1 凌晨的 876 场，没有 D+2 的）。
+- 「竞彩开售」按开赛日 kd 及 kd-1 两个销售日查（实测 1538 条预测里，销售日 D 的比赛
+  开球落在 D 的 577 场、落在 D+1 的 889 场，**没有落在 D-1 或 D+2 的**）。
 """
 from __future__ import annotations
 
@@ -185,33 +185,38 @@ def load_preds(root: Path, day: str) -> list[dict[str, Any]] | None:
     return [p for p in ps if isinstance(p, dict) and p.get("home_team") and p.get("away_team")]
 
 
-def load_sold_pairs(root: Path, day: str) -> set[tuple[str, str]]:
-    """销售日 `day` 的竞彩开售名单，键为 `_canon` 后的 (主, 客)。
-
-    取两份的并集：当天落库的预测，和 `results.json` 里 match_id 前缀属于该日的赛果。
-    赛果与赛程的译名可能不同（实测 2026-11-15 预测写「神户胜利」、赛果写「神户胜利船」），
-    只读一份会把开售名单算小。
-    """
-    out: set[tuple[str, str]] = set()
-    for p in load_preds(root, day) or []:
-        out.add((_canon(p["home_team"]), _canon(p["away_team"])))
+def load_results_pairs(root: Path, day: str) -> set[tuple[str, str]]:
+    """`results.json` 里 match_id 前缀属于销售日 `day` 的赛果队名对（已结算 = 硬证据）。"""
     f = root / "data" / "daily" / day / "results.json"
-    if f.exists():
-        try:
-            rs = json.loads(f.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            rs = []
-        rs = rs.get("results", rs) if isinstance(rs, dict) else rs
-        for r in rs or []:
-            if not isinstance(r, dict):
-                continue
-            mid = str(r.get("match_id") or "")
-            if mid and not mid.startswith(f"{day}_"):
-                continue
-            h, a = r.get("home_team"), r.get("away_team")
-            if h and a:
-                out.add((_canon(h), _canon(a)))
+    if not f.exists():
+        return set()
+    try:
+        rs = json.loads(f.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return set()
+    rs = rs.get("results", rs) if isinstance(rs, dict) else rs
+    out: set[tuple[str, str]] = set()
+    for r in rs or []:
+        if not isinstance(r, dict):
+            continue
+        mid = str(r.get("match_id") or "")
+        if mid and not mid.startswith(f"{day}_"):
+            continue
+        h, a = r.get("home_team"), r.get("away_team")
+        if h and a:
+            out.add((_canon(h), _canon(a)))
     return out
+
+
+def load_sold_pairs(root: Path, day: str) -> set[tuple[str, str]]:
+    """销售日 `day` 的竞彩开售名单（`_canon` 后的 (主, 客) 对）。
+
+    取两份的并集：当天落库的预测 + 当天赛果。赛果与赛程的译名可能不同
+    （实测 2026-11-15 预测写「神户胜利」、赛果写「神户胜利船」），只读一份会把开售名单算小。
+    需要「一场只算一次」的计数请用 `coverage_report`，它会把异写并成一簇。
+    """
+    out = {(_canon(p["home_team"]), _canon(p["away_team"])) for p in load_preds(root, day) or []}
+    return out | load_results_pairs(root, day)
 
 
 def load_bet_pairs(root: Path, day: str) -> set[tuple[str, str]]:
@@ -232,7 +237,7 @@ def load_bet_pairs(root: Path, day: str) -> set[tuple[str, str]]:
 
 
 def _kickoff_dt(p: dict[str, Any]) -> datetime | None:
-    """预测的 kickoff 字符串 → BJT datetime。缺字段返回 None（实测 72/1520 条没有）。"""
+    """预测的 kickoff 字符串 → BJT datetime。缺字段返回 None（实测 72/1538 条没有）。"""
     k = p.get("kickoff")
     if not k:
         return None
@@ -422,6 +427,7 @@ def classify_day(root: Path, day: str) -> dict[str, Any] | None:
                            "qualified": sum(1 for r in matched_replay if r.get("qualified")),
                            "low_price": sum(1 for r in matched_replay if r.get("e10_low_price"))},
         "alias_evidence": alias_evidence,
+        "matched_pairs": sorted([h, a] for h, a in matched_pred_keys),
     }
 
 
@@ -590,6 +596,62 @@ def _derive(per_day: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _fixture_clusters(pairs: list[tuple[str, str]]) -> list[list[int]]:
+    """把「同一场的不同写法」并成一簇（队名相似度两侧都成立即同一场）。
+
+    为什么要并：赛果与赛程是两套译名（预测写「神户胜利」、赛果写「神户胜利船」），
+    直接按 `_canon` 去重会把一场算成两场，`开售 → 预测` 的比率就会虚低。
+    """
+    clusters: list[list[int]] = []
+    for i, (h, a) in enumerate(pairs):
+        placed = False
+        for cl in clusters:
+            ch, ca = pairs[cl[0]]
+            ok, _ = pair_similarity(h, a, ch, ca)
+            if ok:
+                cl.append(i)
+                placed = True
+                break
+        if not placed:
+            clusters.append([i])
+    # 一次并簇可能就够（簇内队名差异都很小），不做多轮合并以免把不同场并到一起
+    return clusters
+
+
+def coverage_report(root: Path, per_day: list[dict[str, Any]]) -> dict[str, Any]:
+    """按**竞彩销售日**算我们这一侧的漏斗：开售 → 落库预测 → 被池子匹配上。
+
+    这是回答「池子上百场、匹配只有 5~7」时唯一有意义的一侧：板面多大我们管不着，
+    但「开售了却没预测」和「预测了却没进池」都是自家漏斗。
+    开售场数 = 当天赛果 ∪ 当天预测，按 `_fixture_clusters` 把异写并成一场后计数
+    （赛果是事后写入的，对已开赛的日子是硬证据；未开赛日只有预测，会低估开售数）。
+    """
+    matched_all: set[tuple[str, str]] = set()
+    for r in per_day:
+        for h, a in (r.get("matched_pairs") or []):
+            matched_all.add((_canon(h), _canon(a)))
+    days = {r["day"] for r in per_day}
+    days |= {(date.fromisoformat(d) + timedelta(days=1)).strftime("%Y-%m-%d") for d in days}
+    rows, tot = [], {"sold": 0, "pred": 0, "matched": 0}
+    for day in sorted(days):
+        preds = load_preds(root, day)
+        pred_pairs = [(_canon(p["home_team"]), _canon(p["away_team"])) for p in preds or []]
+        res_pairs = sorted(load_results_pairs(root, day))
+        universe = pred_pairs + [x for x in res_pairs if x not in set(pred_pairs)]
+        clusters = _fixture_clusters(universe)
+        pred_idx = set(range(len(pred_pairs)))
+        n_sold = len(clusters)
+        n_pred = sum(1 for cl in clusters if set(cl) & pred_idx)
+        n_matched = sum(1 for cl in clusters
+                        if any(i in pred_idx and universe[i] in matched_all for i in cl))
+        rows.append({"day": day, "sold": n_sold, "pred": n_pred, "matched": n_matched,
+                     "pred_missing": preds is None})
+        tot["sold"] += n_sold
+        tot["pred"] += n_pred
+        tot["matched"] += n_matched
+    return {"per_day": rows, **tot}
+
+
 def build_report(root: Path, days: list[str] | None = None,
                  duty_log: Path | None = None) -> dict[str, Any]:
     all_days = days if days is not None else snapshot_days(root)
@@ -619,6 +681,7 @@ def build_report(root: Path, days: list[str] | None = None,
         "alias_evidence": [e for r in per_day for e in r["alias_evidence"]],
         "alias_candidates": alias_candidates(per_day),
         "derived": derived,
+        "coverage": coverage_report(root, per_day),
         "duty_log": parse_duty_log(duty_log) if duty_log else {"available": False, "reason": "未指定 --duty-log"},
         "per_day": per_day,
     }
@@ -646,6 +709,18 @@ def render_text(rep: dict[str, Any]) -> str:
     for k in sorted(rep["pred_buckets"]):
         v = rep["pred_buckets"][k]
         L.append(f"  {k:<28} {v:6d}  {_pct(v, rep['pred_total'])}")
+    L.append("")
+    cov = rep["coverage"]
+    L.append("【销售日覆盖漏斗】分母 = 该销售日竞彩开售场数（results ∪ predictions 去重队名对）；")
+    L.append("  「匹配」只统计有快照的那些时刻，缺快照的日子会低估")
+    L.append(f"  开售 {cov['sold']} → 落库预测 {cov['pred']}（{cov['pred'] / cov['sold']:.1%}）"
+             f" → 被池子匹配上 {cov['matched']}（占开售 {cov['matched'] / cov['sold']:.1%}、"
+             f"占预测 {cov['matched'] / cov['pred']:.1%}）")
+    for r in cov["per_day"]:
+        if r["sold"] - r["pred"] >= 3 or r["pred_missing"]:
+            L.append(f"    ▸ {r['day']} 开售{r['sold']:>3} 预测{r['pred']:>3} 匹配{r['matched']:>3}"
+                     + ("   ← predictions.json 没落库（新北京日不算，见文档 §5）"
+                        if r["pred_missing"] else ""))
     L.append("")
     dv = rep["derived"]
     L.append("【关键比率】")
