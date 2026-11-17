@@ -292,6 +292,22 @@ def test_coverage_report_counts_sold_pred_matched(tmp_path):
     assert cov["sold"] >= 2 and cov["pred"] >= 1
 
 
+def test_prediction_side_ignores_pool_item_already_inside_guard(tmp_path):
+    """板上那场距快照只有 35 分钟（不足 45 分钟门槛）时，不能把预测算成「补别名就能投」。
+
+    预测自己 00:25 开球（> 门槛），池子条目 00:10 开球（< 门槛）——两侧相差 15 分钟，
+    队名只是异写。少了这道过滤，别名可挽回会被高估成「本可投」的场次。
+    """
+    pool = [item("鸿雁城", "阿法贝塔", "2026-11-02 00:10:00")]
+    preds = {DAY: [], "2026-11-02": [pred("鸿雁城", "阿发贝塔", "2026-11-02 00:25:00")]}
+    r = mga.classify_day(make_repo(tmp_path, pool, preds), DAY)
+    assert r["pred_buckets"].get("4_alias_recoverable", 0) == 0
+    assert r["pred_buckets"]["6_not_on_pool_board"] == 1
+    # 池侧同样不会把它算成别名：00:10 开球的条目在 23:35 那一刻已过 45 分钟门槛
+    assert r["pool_buckets"]["2_kickoff_too_close"] == 1
+    assert "5_alias_recoverable" not in r["pool_buckets"]
+
+
 def test_parse_duty_log_counts_rounds_without_echoing_secrets(tmp_path):
     """日志行只有 MM-DD：这里验证按天聚合与「≤7 轮次占比」，并确认 JWT 串不会被带出。"""
     log = tmp_path / "duty.log"

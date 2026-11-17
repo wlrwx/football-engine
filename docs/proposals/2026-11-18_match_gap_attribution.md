@@ -28,7 +28,7 @@
 .venv/bin/python scripts/match_gap_attribution.py --json              # 机器可读（含逐条别名证据）
 # 可选：拿本机 duty.log 交叉核对「每轮匹配数」。日志不在仓库里，缺了不影响主口径
 .venv/bin/python scripts/match_gap_attribution.py --duty-log ~/.football-engine/duty.log
-./.venv/bin/python -m pytest tests/test_match_gap_attribution.py -q   # 20 项口径回归
+./.venv/bin/python -m pytest tests/test_match_gap_attribution.py -q   # 21 项口径回归
 ```
 
 | 输入 | 路径 | 用途 |
@@ -43,6 +43,7 @@
 板面累计 **6495 场**（日均 260），带赔率池条目 5077，两个销售日目录里落库预测 **581 条**。
 匹配器**直接 import 生产的 `challenge_hourly.match_prediction`**（`scripts/challenge_hourly.py:60`），
 分子分母都与下单一致；诊断规则只在生产判「匹配不上」之后才跑（#102 教训：同口径不许两处实现）。
+「别名可挽回」一律只看**那一刻还投得出去**的条目（45 分钟门槛），已开赛的相似场次不算可挽回。
 
 ## 2. 池子侧漏斗（分母 = 板面 6495 场）
 

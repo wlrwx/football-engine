@@ -295,8 +295,8 @@ def classify_day(root: Path, day: str) -> dict[str, Any] | None:
             pred.setdefault(k, p)
             pred_src.setdefault(k, dd)
     missing_pred_days = [dd for dd, ps in preds_dirs.items() if ps is None]
-    # 「当天没落库」单独计一类：challenge_hourly 读不到文件时是 `continue`，
-    # 静默少一整天（11-16 快照因此匹配 0）。
+    # 「当天没落库」单独计一类并显式记进结果：challenge_hourly 读不到文件时只是 `continue`
+    # （`:183-184`），日志里最后只剩一个无法归因的 `匹配0`——11-18 那张快照就是这样（两个目录都空）。
 
     bet = load_bet_pairs(root, day)
     gates = load_policy_gates(root)
@@ -407,7 +407,7 @@ def classify_day(root: Path, day: str) -> dict[str, Any] | None:
         elif kt is not None and kt < snap_at + timedelta(minutes=KICKOFF_GUARD_MIN):
             k = "3_kickoff_already_past"
         else:
-            hit = _nearest_pool(snap["matches"], p)
+            hit = _nearest_pool(snap["matches"], p, snap_at)
             k = {"time": "4_alias_recoverable", "no_time": "5_alias_unconfirmed"}.get(hit or "", "6_not_on_pool_board")
         pred_buckets[k] = pred_buckets.get(k, 0) + 1
 
@@ -447,13 +447,22 @@ def _nearest_pred(pred: dict[tuple[str, str], dict[str, Any]], h: str, a: str,
     return fallback
 
 
-def _nearest_pool(matches: list[dict[str, Any]], p: dict[str, Any]) -> str | None:
-    """反向：一条没匹配上的预测，在池子里找最相似的条目 → time / no_time / None。"""
+def _nearest_pool(matches: list[dict[str, Any]], p: dict[str, Any],
+                  snap_at: datetime | None = None) -> str | None:
+    """反向：一条没匹配上的预测，在池子里找最相似的条目 → time / no_time / None。
+
+    带 `snap_at` 时只看**那一刻还投得出去**的板面条目（同一场如果快照里已开赛或不足
+    45 分钟，就不能算「补个别名就能挽回」）。`_nearest_pred` 一侧不需要这个过滤：
+    池条目在主循环里已经过同一道门槛，只剩 ±20 分钟容差带来的极小边界。
+    """
     kt = _kickoff_dt(p)
     out: str | None = None
+    guard = None if snap_at is None else snap_at + timedelta(minutes=KICKOFF_GUARD_MIN)
     for it in matches:
         h, a = it.get("home"), it.get("away")
         if not h or not a:
+            continue
+        if guard is not None and it.get("kick_ts") and datetime.fromtimestamp(it["kick_ts"], BJT) < guard:
             continue
         ok, differs = pair_similarity(h, a, p["home_team"], p["away_team"])
         if not ok or not differs:
