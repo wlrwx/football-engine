@@ -535,9 +535,22 @@ def _maybe_ops_digest() -> None:
     """
     if os.environ.get("DUTY_SKIP_OPS_DIGEST") == "1":
         return
+    # 把「daily-forecast 今天到底跑过没有」一起传给摘要：只有 Actions API 知道答案，
+    # 而摘要是离线的。北京 00:00 后第一轮 duty（:05）必然看到当天目录是空的，但那
+    # 是新日首轮（最早 00:15）还没跑的时序空窗，不是 11-04 那种回仓被拦——缺这个输入
+    # 摘要只能保守喊数据洞，11-10 起每晚自动派一张查不出故障的工单。
+    args = [str(ROOT / ".venv" / "bin" / "python3"), "scripts/ops_digest.py", "--write", "--quiet"]
     try:
-        p = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"), "scripts/ops_digest.py",
-                            "--write", "--quiet"], cwd=ROOT, capture_output=True, text=True,
+        _daily = _daily_last_run_info()
+    except Exception as exc:  # noqa: BLE001
+        # 这只是给摘要多带一个输入。API 返回形状变了也不能拖垮本轮——摘要拿不到
+        # 日期时会自己按「未知」保守判洞，宁可多报一行，不可少跑一轮。
+        _daily = None
+        log(f"⚠ daily-forecast 触发日期取不到（{type(exc).__name__}），摘要按未知保守判")
+    if _daily:
+        args += ["--forecast-last-date", _daily[1]]
+    try:
+        p = subprocess.run(args, cwd=ROOT, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", check=False, timeout=180)
     except (OSError, subprocess.SubprocessError) as exc:
         log(f"⚠ ops_digest 跑不起来: {type(exc).__name__}")
@@ -556,6 +569,59 @@ def _maybe_ops_digest() -> None:
         return
     for f in flags:
         log(f"⚠ 运维红线 {f.get('code')}: {f.get('detail')} → {f.get('action')}")
+    _notify_human_flags(flags)
+
+
+def _notify_human_flags(flags: list[dict]) -> None:
+    """HUMAN_ONLY 红线立刻弹 macOS 通知并留痕。
+
+    2026-11-17 前的形状：「只报给人」的红线只写 duty.log，等人看——而看的行为
+    发生在 22:40 的分诊会话里，机器那时睡着就整体顺延，像登录到期这种带时限的
+    预警会被静默压掉。通知与派单同一份 HUMAN_ONLY 名单（agent_dispatch），
+    名单变化即自动跟随。任何失败只写一行日志，绝不影响本轮采集与提交。
+    osascript 走 argv 传参：红线文本只当数据，不会进 AppleScript 源码被执行。
+    """
+    if os.environ.get("DUTY_SKIP_HUMAN_NOTIFY") == "1":
+        return
+    try:
+        import agent_dispatch as dispatch_mod
+    except Exception:  # noqa: BLE001  拿不到名单就不推，不拖垮 duty
+        return
+    human = [{"code": str(f.get("code")),
+              "detail": " ".join(str(f.get("detail") or "").split())[:80]}
+             for f in flags if str(f.get("code")) in dispatch_mod.HUMAN_ONLY]
+    codes = {h["code"] for h in human}
+    state = HOME / ".football-engine" / "human_redline_notified.json"
+    try:
+        prev = set(json.loads(state.read_text(encoding="utf-8")).get("codes") or [])
+    except (OSError, ValueError, AttributeError):
+        prev = set()
+    if not codes and not prev:
+        return
+    if codes != prev or codes:
+        if codes and codes != prev:
+            msg = (human[0]["detail"] if len(codes) == 1
+                   else f"{len(codes)} 条：{'、'.join(sorted(codes))}")
+            script = ("on run argv\ndisplay notification (item 1 of argv) "
+                      "with title (item 2 of argv)\nend run")
+            try:
+                p = subprocess.run(["osascript", "-e", script, msg,
+                                    "football-engine 运维红线（需人处理）"],
+                                   capture_output=True, text=True, encoding="utf-8",
+                                   errors="replace", timeout=15, check=False)
+                ok = p.returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                ok = False
+            log(f"红线推送: {'已通知' if ok else 'osascript 失败'}"
+                f"（{'、'.join(sorted(codes))}）")
+        elif not codes:
+            log(f"红线推送: 已解除（{'、'.join(sorted(prev))}），不再提醒")
+    try:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps({"codes": sorted(codes), "at": time.strftime("%F %T")},
+                                    ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def _maybe_agent_dispatch() -> None:

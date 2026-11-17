@@ -1,0 +1,122 @@
+{
+  "date": "2026-11-16",
+  "n_matches": 8,
+  "hit_rate": 0.875,
+  "hits": 7,
+  "source_brier": {
+    "model": 0.4711,
+    "market": 0.2956,
+    "djyy": null,
+    "final": 0.3035
+  },
+  "by_league": {
+    "欧国联": {
+      "n": 8,
+      "hit_rate": 0.875,
+      "wilson_lower": 0.5291,
+      "avg_brier": 0.3035
+    }
+  },
+  "by_confidence_tier": {
+    "high": {
+      "n": 6,
+      "hit_rate": 0.8333,
+      "wilson_lower": 0.4365,
+      "avg_brier": 0.2865
+    },
+    "mid": {
+      "n": 2,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.3424,
+      "avg_brier": 0.3547
+    }
+  },
+  "by_odds_band": {
+    "L2 热(1.5-1.8)": {
+      "n": 5,
+      "hit_rate": 0.8,
+      "wilson_lower": 0.3755,
+      "avg_brier": 0.4317
+    },
+    "L1 大热(<1.5)": {
+      "n": 3,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.4385,
+      "avg_brier": 0.0899
+    }
+  },
+  "score_stats": {
+    "top1": 1,
+    "top3": 3,
+    "top5": 4,
+    "top8": 6,
+    "any": 6
+  },
+  "score_rank_hist": {
+    "2": 1,
+    "8": 1,
+    "3": 1,
+    "5": 1,
+    "6": 1,
+    "1": 1
+  },
+  "score_source_stats": {
+    "djyy": {
+      "n": 0,
+      "hits": 0
+    },
+    "mc": {
+      "n": 6,
+      "hits": 4
+    }
+  },
+  "market_signal_stats": {
+    "n": 8,
+    "hits": 5
+  },
+  "layered": {
+    "log_loss_final": 0.5761,
+    "rps_final": 0.0943,
+    "rps_market": 0.0908,
+    "goal_framework": {
+      "n": 8,
+      "hits": 5
+    },
+    "prob_bands": {
+      "50-60%": {
+        "n": 4,
+        "hit_rate": 0.75
+      },
+      "60%+": {
+        "n": 4,
+        "hit_rate": 1.0
+      }
+    },
+    "freshness_groups": {
+      "ok": {
+        "n": 6,
+        "hit_rate": 1.0
+      },
+      "watch": {
+        "n": 2,
+        "hit_rate": 0.5
+      }
+    }
+  },
+  "biases": [
+    {
+      "dimension": "league",
+      "key": "欧国联",
+      "outcome": "home",
+      "predicted_avg": 0.5124,
+      "actual_rate": 0.75,
+      "gap": -0.2376,
+      "n": 8,
+      "severity": "critical",
+      "suggested_action": "increase home_adv_weight"
+    }
+  ],
+  "total_pnl": 0.0,
+  "generated_at": "2026-11-17T16:08:16.509235",
+  "sha256": "c2f12d906e9122273e2ebdf874f08ab9"
+}

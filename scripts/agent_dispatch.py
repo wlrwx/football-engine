@@ -102,13 +102,24 @@ SCOUT_FOCUS = (
 )
 
 
-def scout_candidate(today: str) -> dict:
-    """按天轮换主题，同一天内稳定（duty 每 30 分钟跑一次，不能每次换题）。"""
+def scout_candidate(today: str, busy: set[str] | None = None) -> dict | None:
+    """按天轮换主题，同一天内稳定（duty 每 30 分钟跑一次，不能每次换题）。
+
+    busy = fork 上仍未关闭的探索工单标题集。主题只有 6 个、按天轮转，而旧工单
+    常常长期不关——不去重就会每 6 天叠一份同题工单（2026-11-17 实测 open 列表
+    里 6 个主题几乎全 doubled），小号队列被重复任务淹没。全部在办时返回 None。
+    """
     from datetime import date
-    idx = date.fromisoformat(today).toordinal() % len(SCOUT_FOCUS)
-    fid, title, brief = SCOUT_FOCUS[idx]
-    return {"key": f"scout:{today}:{fid}", "kind": SCOUT_KIND,
-            "title": title, "evidence": brief, "focus": fid}
+    n = len(SCOUT_FOCUS)
+    start = date.fromisoformat(today).toordinal() % n
+    busy = busy or set()
+    for off in range(n):
+        fid, title, brief = SCOUT_FOCUS[(start + off) % n]
+        if f"[每日探索] {title}"[:120] in busy:
+            continue
+        return {"key": f"scout:{today}:{fid}", "kind": SCOUT_KIND,
+                "title": title, "evidence": brief, "focus": fid}
+    return None
 
 
 def scout_due(state: dict, today: str) -> bool:
@@ -340,6 +351,26 @@ def create_issue(token: str, title: str, body: str) -> str:
     return d.get("html_url") or ""
 
 
+def open_scout_titles(token: str) -> set[str]:
+    """fork 上仍未关闭的探索工单标题（选题去重用）。取不到就当没有——
+    宁可偶尔叠一张，也不要因为 API 抖动把当天的挖掘机会整个跳过。"""
+    if not token:
+        return set()
+    r = subprocess.run(
+        ["curl", "-sS", "--max-time", "40",
+         "-H", f"Authorization: Bearer {token}", "-H", "Accept: application/vnd.github+json",
+         f"https://api.github.com/repos/{FORK}/issues?state=open&per_page=100"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+    try:
+        items = json.loads(r.stdout)
+    except ValueError:
+        return set()
+    if not isinstance(items, list):
+        return set()
+    return {i.get("title", "") for i in items
+            if isinstance(i, dict) and i.get("title", "").startswith("[每日探索]")}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="把生产信号派成 agent 工单")
     ap.add_argument("--dry-run", action="store_true", help="只打印将要派什么，不建 issue、不写状态")
@@ -409,21 +440,28 @@ def main(argv: list[str] | None = None) -> int:
 
     # 每日探索：独立预算，不占故障派单额度；这是「主动找活」的来源——
     # 原型自身没有调度能力，由这里每天产生一条可观察事件，主题按天轮换。
+    # 2026-11-17：主题只有 6 个且按天轮回，而旧工单常常不关——派单前先跳过
+    # 「在办」主题；全部在办就不派（也不记 scout_date，当天任何时候有工单关闭，
+    # 下一轮即可补派，不浪费当天的挖掘机会）。
     if not args.no_scout and scout_due(state, today):
-        c = scout_candidate(today)
-        title, body = render_issue(c)
-        if args.dry_run:
-            print(f"派单[dry-run]: 将建探索 issue「{title}」 key={c['key']}")
-            state = record_scout(state, today, "(dry-run)")
-        elif not token:
-            print("派单: 无 token，探索工单跳过")
+        busy = set() if args.dry_run else open_scout_titles(token)
+        c = scout_candidate(today, busy)
+        if c is None:
+            print("派单: 探索主题全部在办（去重），今日不派新单")
         else:
-            url = create_issue(token, title, body)
-            if url:
-                state = record_scout(state, today, url)
-                print(f"派单: 已建每日探索 {url} 主题={c['focus']}")
+            title, body = render_issue(c)
+            if args.dry_run:
+                print(f"派单[dry-run]: 将建探索 issue「{title}」 key={c['key']}")
+                state = record_scout(state, today, "(dry-run)")
+            elif not token:
+                print("派单: 无 token，探索工单跳过")
             else:
-                print("派单: 探索 issue 建失败（不记状态，下轮重试）")
+                url = create_issue(token, title, body)
+                if url:
+                    state = record_scout(state, today, url)
+                    print(f"派单: 已建每日探索 {url} 主题={c['focus']}")
+                else:
+                    print("派单: 探索 issue 建失败（不记状态，下轮重试）")
     elif not args.no_scout:
         print("派单: 今日探索工单已派过，跳过")
 

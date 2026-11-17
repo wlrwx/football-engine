@@ -142,6 +142,38 @@ def test_scout_has_independent_budget():
     assert disp.scout_due(st, "2026-11-05")
 
 
+def test_scout_skips_open_topics_and_holds_when_all_busy():
+    """2026-11-17 实测 bug：6 主题按天轮回、旧工单常不关 → open 列表几乎全 doubled
+    （#15/#27 样本完整性、#13/#25 泄漏、#9/#23 候选漏斗…）。选题必须跳过在办主题；
+    全部在办返回 None（调用方不派单也不记 scout_date，有单关闭时下轮可补派）。"""
+    a = disp.scout_candidate(TODAY)
+    b = disp.scout_candidate(TODAY, {f"[每日探索] {a['title']}"})
+    assert b is not None and b["focus"] != a["focus"], "在办主题应轮转到下一个未办的"
+    all_titles = {f"[每日探索] {t}" for _fid, t, _brief in disp.SCOUT_FOCUS}
+    assert disp.scout_candidate(TODAY, all_titles) is None, "全部在办就该停派，不叠单"
+
+
+def test_open_scout_titles_filters_open_scouts_and_degrades(monkeypatch):
+    def fake_run(cmd, **kw):
+        class R:
+            stdout = json.dumps([
+                {"title": "[每日探索] 匹配缺口归因"},
+                {"title": "[自动派单] 当天预测没落库（CI 回仓链路）"},
+                {"title": "[每日探索] 样本完整性"},
+            ] + ["raw-string-item"])
+        return R()
+    monkeypatch.setattr(disp.subprocess, "run", fake_run)
+    assert disp.open_scout_titles("tok") == {"[每日探索] 匹配缺口归因", "[每日探索] 样本完整性"}
+
+    def bad(cmd, **kw):
+        class R:
+            stdout = "5xx html"
+        return R()
+    monkeypatch.setattr(disp.subprocess, "run", bad)
+    assert disp.open_scout_titles("tok") == set(), "API 坏了要当没有在办：宁可偶尔叠一张，不可整日停派"
+    assert disp.open_scout_titles("") == set(), "无 token 不发请求"
+
+
 def test_scout_issue_is_investigation_not_a_gate_change():
     c = disp.scout_candidate(TODAY)
     title, body = disp.render_issue(c)

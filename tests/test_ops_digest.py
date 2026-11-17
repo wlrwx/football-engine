@@ -123,18 +123,29 @@ def test_cli_exit_codes_and_write(tmp_path, monkeypatch):
     monkeypatch.setattr(ops, "OUT_TXT", txt)
     monkeypatch.setattr(ops, "OUT_JSON", js)
     clean = {"red_flags": [], "report": ["巡检: 48/48"]}
-    monkeypatch.setattr(ops, "collect", lambda: clean)
+    monkeypatch.setattr(ops, "collect", lambda **kw: clean)
     assert ops.main(["--write", "--quiet"]) == 0
     assert json.loads(js.read_text(encoding="utf-8"))["red_flags"] == []
     assert "48/48" in txt.read_text(encoding="utf-8")
 
-    monkeypatch.setattr(ops, "collect", lambda: {"red_flags": [{"code": "x"}], "report": ["红线: 1 条"]})
+    monkeypatch.setattr(ops, "collect", lambda **kw: {"red_flags": [{"code": "x"}], "report": ["红线: 1 条"]})
     assert ops.main(["--quiet"]) == 1
 
-    def boom():
+    def boom(**kw):
         raise RuntimeError("炸了")
     monkeypatch.setattr(ops, "collect", boom)
     assert ops.main(["--quiet"]) == 2
+
+
+def test_cli_forwards_forecast_last_date(monkeypatch):
+    """duty 传进来的日期必须落到 collect，否则那四种形状永远分不开。"""
+    seen = {}
+    monkeypatch.setattr(ops, "collect",
+                        lambda **kw: seen.update(kw) or {"red_flags": [], "report": []})
+    assert ops.main(["--quiet", "--forecast-last-date", "2026-11-15"]) == 0
+    assert seen == {"forecast_last_date": "2026-11-15"}, seen
+    assert ops.main(["--quiet"]) == 0
+    assert seen["forecast_last_date"] == "", seen
 
 
 # ---------- 服务端真值空快照（2026-11-08） ----------
@@ -305,6 +316,87 @@ def test_missing_manifest_still_is_the_real_data_hole():
     """manifest 也不在 = 根本没跑/没回仓（11-04 分支保护那次就是这个形状）。"""
     codes = {f["code"] for f in _zero_match_flags({"predictions": False, "manifest": False})}
     assert "prediction_coverage_gap" in codes and "prediction_pending" not in codes
+
+
+# ---------- 北京日刚翻篇的时序空窗（2026-11-16） ----------
+#
+# 实测 11-10~11-16 连续七晚，00:05 那轮 duty 必报 prediction_coverage_gap，
+# 派单机连建 #12/#14/#16/#18/#21/#22/#24 七张工单，而每天查下去都是同一句结论：
+# 回仓没被拦，11-15 的 predictions.json 好好的（11 场），daily-forecast 全绿。
+# 真因是顺序：daily-forecast 的 cron 是 `15,45 * * * *`，新北京日最早 00:15 才跑，
+# duty 却在 :05 就审计「今天的产物在不在」——那时产物不该在。
+# 判据用 CI 自己报的「最近一次触发日期」（duty 传给摘要），不猜时钟。
+
+def _hole_products(tmp_path, today_iso, forecast_last_date):
+    """真造一份仓库骨架，看 daily_products 读出什么——不靠手搭 dict。"""
+    day_dir = tmp_path / "data" / "daily" / today_iso
+    day_dir.mkdir(parents=True)
+    return ops.daily_products(day_dir, today_iso, forecast_last_date)
+
+
+def test_daily_products_reports_the_three_facts(tmp_path):
+    d = _hole_products(tmp_path, "2026-11-16", "2026-11-15")
+    assert d == {"predictions": False, "manifest": False,
+                 "forecast_today": False, "forecast_last_date": "2026-11-15"}, d
+    (tmp_path / "data" / "daily" / "2026-11-16" / "import_manifest.json").write_text("{}", encoding="utf-8")
+    d2 = ops.daily_products(tmp_path / "data" / "daily" / "2026-11-16", "2026-11-16", "2026-11-16")
+    assert d2["manifest"] is True and d2["forecast_today"] is True, d2
+
+
+def test_missing_forecast_date_keeps_the_conservative_verdict(tmp_path):
+    """duty 取不到 API（离线/限流）时宁可照旧喊洞，也不能把真故障判成时序空窗。"""
+    assert ops.daily_products(tmp_path, "2026-11-16", "")["forecast_today"] is None
+    codes = {f["code"] for f in _zero_match_flags(
+        {"predictions": False, "manifest": False, "forecast_today": None})}
+    assert "prediction_coverage_gap" in codes
+
+
+def test_first_duty_round_after_midnight_is_not_a_data_hole():
+    """00:05 那轮的形状：当天目录空的 + CI 最近一次触发还是昨天 → 时序空窗。"""
+    daily = {"predictions": False, "manifest": False,
+             "forecast_today": False, "forecast_last_date": "2026-11-15"}
+    assert ops.coverage_state(daily) == "not_due"
+    assert ops.build_red_flags({"missing_count": 0, "missing_hours": []}, {},
+                               ops.attribution(rows_of(loglines(
+                                   ["1x2: challenge: 零合格（ev_site 门槛2.0%/池59/匹配0/候选0）——正常"] * 48))),
+                               {"missing_fields": 0}, 1.0, "账目: 仓库未记 0 条：无", True,
+                               daily=daily) == []
+
+
+def test_ci_ran_today_and_still_nothing_landed_is_the_real_hole():
+    daily = {"predictions": False, "manifest": False,
+             "forecast_today": True, "forecast_last_date": "2026-11-16"}
+    assert ops.coverage_state(daily) == "hole"
+    codes = {f["code"] for f in _zero_match_flags(daily)}
+    assert "prediction_coverage_gap" in codes
+
+
+def test_not_due_is_written_into_the_report_without_a_red_flag():
+    """不喊红线不等于瞒着人：正文要留一行，否则排障时看不到这轮为什么没报。"""
+    daily = {"predictions": False, "manifest": False,
+             "forecast_today": False, "forecast_last_date": "2026-11-15"}
+    ctx = {"rounds": {"rounds": 48, "expect": 48, "missing_count": 0, "missing_hours": []},
+           "errors": {}, "state": {"week": "2026-W47", "used": 0, "quota": 28, "records": 0,
+                                   "pools": {"E8": 0, "E10": 0}, "missing_fields": 0},
+           "snap_age": 0.0, "reconcile": ["账目: …"], "attribution": None,
+           "daily": daily, "coverage_note": ops.coverage_note(daily), "red_flags": []}
+    text = "\n".join(ops.render(ctx))
+    assert "时序空窗" in text and "红线: 0 条" in text, text
+    assert ops.coverage_note({"predictions": True, "manifest": True}) == ""
+
+
+def test_not_due_produces_no_dispatchable_ticket():
+    """派单机只认 DISPATCHABLE 里的 code；这一类必须一张都派不出去。"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("agent_dispatch", ROOT / "scripts" / "agent_dispatch.py")
+    ad = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ad)
+    not_due = {"predictions": False, "manifest": False,
+               "forecast_today": False, "forecast_last_date": "2026-11-15"}
+    hole = dict(not_due, forecast_today=True, forecast_last_date="2026-11-16")
+    assert ad.candidates_from_flags(_zero_match_flags(not_due)) == []
+    got = ad.candidates_from_flags(_zero_match_flags(hole))
+    assert [c["key"] for c in got] == ["flag:prediction_coverage_gap"], got
 
 
 # 2026-11-13 实测：Clash 代理进程死 → ssh 别名全失败，duty 整轮 pull/push 报
