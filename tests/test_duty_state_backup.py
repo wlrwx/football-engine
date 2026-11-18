@@ -4,6 +4,7 @@
 路径必须只写一行日志（绝不拖垮采集链），当天已成功不许重跑，超额旧档要滚掉。
 """
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,7 +42,9 @@ def test_first_backup_writes_archive_and_marker(env):
     _real_tar(tmp_path, fe, logs)
     archives = list((tmp_path / "Backups" / "football-engine").glob("fe-state-*.tar.gz"))
     assert len(archives) == 1
-    assert oct(archives[0].stat().st_mode & 0o777) == "0o600", "凭据备份必须收紧权限"
+    if os.name == "posix":
+        # Windows 不映射 Unix 权限位（实测 st_mode=0o666）——#95 同款坑，断言仅限 POSIX
+        assert oct(archives[0].stat().st_mode & 0o777) == "0o600", "凭据备份必须收紧权限"
     # tar 里能看到源目录（POSIX 归档名 = 相对 -C 的 .football-engine）
     listing = subprocess.run(["tar", "-tzf", str(archives[0])], capture_output=True,
                              text=True, encoding="utf-8", check=True).stdout
