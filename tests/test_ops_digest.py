@@ -475,7 +475,7 @@ def test_session_expiring_flag_says_seed_is_not_urgent_but_do_it():
     hit = next(f for f in flags if f["code"] == "njstats_session_expiring")
     assert "2026-11-09 19:00:00" in hit["detail"]
     assert "./fe-agent seed" in hit["action"]
-    assert "20h" in hit["action"] and "厂商 5xx" in hit["action"]
+    assert "7 天" in hit["action"] and "厂商 5xx" in hit["action"]
 
 
 def test_no_session_flag_when_healthy():
