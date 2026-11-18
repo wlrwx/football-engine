@@ -4,7 +4,6 @@
 路径必须只写一行日志（绝不拖垮采集链），当天已成功不许重跑，超额旧档要滚掉。
 """
 import importlib.util
-import json
 import subprocess
 import sys
 from pathlib import Path
