@@ -326,8 +326,8 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
     if session_dead:
         add("njstats_session_expiring",
             f"登录态无法自动续期（{session_dead.get('at', '?')}：{session_dead.get('detail', '')}）",
-            "缓存 JWT 还能撑约 20h，但到期就断：择机跑 ./fe-agent seed；"
-            "厂商 5xx 不算此类（已按上游单独报）")
+            "网关 JWT 实测可活 7 天+（20h 只是 mint 续期上限、不是失效时间）：不用抢时间但别拖，"
+            "择机跑 ./fe-agent seed；厂商 5xx 不算此类（已按上游单独报）")
     if truth:
         add("truth_snapshot_empty",
             f"最后一次服务端真值 0 条，而本地账已有 {truth['local_records']} 条注单",

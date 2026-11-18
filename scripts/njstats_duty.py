@@ -36,6 +36,10 @@ SESSION_REFRESH_H = 12.0
 SESSION_RETRY_GAP_H = 6.0
 SESSION_REFRESH_MARKER = HOME / ".football-engine" / ".njstats_refresh_attempt"
 SESSION_HEALTH = HOME / ".football-engine" / "njstats_session_health.json"
+# 本地状态日备（2026-11-17）：只落同盘、绝不进仓/网络——目录里有凭据。
+STATE_BACKUP_DIR = HOME / "Backups" / "football-engine"
+STATE_BACKUP_MARKER = HOME / ".football-engine" / ".state_backup_date"
+STATE_BACKUP_KEEP = 7
 BASE = "https://www.njstats.cn"
 REPO = "wlrwx/football-engine"
 # GitHub Actions 里 Challenge (1x2) workflow 的数字 ID（gh api 可查）。
@@ -167,8 +171,10 @@ def _health_ok_age_h() -> float | None:
 def _maybe_proactive_session_refresh() -> None:
     """不等 mint 失败，定期把登录态续新（2026-11-09 用户要求「提前解决红线」）。
 
-    为什么单独做：被动续期只在 mint 已经失败时触发，那时缓存 JWT 最多再撑 20h，
-    人去处理已经很赶；而 remember-me 是否失效，也只有真去续一次才知道。
+    为什么单独做：被动续期只在 mint 已经失败时触发，那时只能赌网关的未记录寿命
+    （2026-11-17 实测：11-09 播种的 JWT 到 11-17 仍被网关接受——「20h 过期」只是
+    mint 侧续期上限，不是失效证明；但没记录的行为不能当依赖）；而 remember-me
+    是否失效，也只有真去续一次才知道。
     这里每 12h 主动续一次：成功=登录态始终新鲜；失败=在 JWT 还活着时就落进
     health 文件（auth_dead），由 ops_digest 出 njstats_session_expiring 提前预警。
     厂商 5xx 只记 vendor、不喊人；任何结果都不影响本轮采集与提交。
@@ -624,6 +630,45 @@ def _notify_human_flags(flags: list[dict]) -> None:
         pass
 
 
+def _maybe_state_backup() -> None:
+    """每天把 ~/.football-engine 压成 tar.gz 备到 ~/Backups/football-engine，留 7 份。
+
+    2026-11-17：Time Machine 从未配置（tmutil: No destinations），会话/JWT/健康/
+    看门狗 marker 这些本地状态零副本——一次误删就是整条登录/续期链人工重建
+    （10-20 旧 SESSION 失踪那种账）。**只备同盘：防误删防损坏，不防丢盘；
+    目录含凭据，绝不进仓库、绝不过网络。** 失败只记一行，不影响本轮。
+    """
+    if os.environ.get("DUTY_SKIP_STATE_BACKUP") == "1":
+        return
+    today = datetime.now(BJT).date().isoformat()
+    try:
+        if STATE_BACKUP_MARKER.exists() and STATE_BACKUP_MARKER.read_text(
+                encoding="utf-8").strip() == today:
+            return
+    except OSError:
+        pass
+    src = HOME / ".football-engine"
+    dst = STATE_BACKUP_DIR / f"fe-state-{today}.tar.gz"
+    try:
+        STATE_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        p = subprocess.run(["tar", "-czf", str(dst), "-C", str(src.parent), src.name],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120, check=False)
+        if p.returncode != 0 or not dst.exists():
+            log(f"⚠ state-backup 失败 rc={p.returncode} {(p.stderr or '').strip()[:80]}")
+            return
+        os.chmod(dst, 0o600)
+        for old in sorted(STATE_BACKUP_DIR.glob("fe-state-*.tar.gz"))[:-STATE_BACKUP_KEEP]:
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        STATE_BACKUP_MARKER.write_text(today, encoding="utf-8")
+        log(f"state-backup: {dst.name}（{dst.stat().st_size // 1024} KiB，留 {STATE_BACKUP_KEEP} 份）")
+    except (OSError, subprocess.SubprocessError) as exc:
+        log(f"⚠ state-backup 异常: {type(exc).__name__}")
+
+
 def _maybe_agent_dispatch() -> None:
     """把可安全自动修的信号派成 dsh-superagent 工单（fork 上的 issue）。
 
@@ -756,6 +801,10 @@ def main() -> int:
     # 600s 级的外网抓取，不该让摘要等它。
     _maybe_ops_digest()
     _maybe_agent_dispatch()
+    # 本地状态日备（2026-11-17）：放在派发之后、DJYY 长抓取之前——
+    # 备份要抓「本轮已落盘」的状态，又不能排在整条链最后被 DJYY 超时拖住。
+    if os.environ.get("DUTY_SKIP_STATE_BACKUP") != "1":
+        _maybe_state_backup()
     if os.environ.get("DUTY_SKIP_DJYY") != "1":
         _maybe_djyy_snapshot()
     # CI 看门狗：平台定时任务限流严重，CI 长时间没跑时补一轮。
