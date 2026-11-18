@@ -91,6 +91,31 @@ HIGH_DRAW_LEAGUES = frozenset({"芬超", "美职联", "巴甲", "葡超"})
 # 联赛平局率锚定表 + 融合后处理链：2026-08-29 迁移到 engine/prediction/fusion.py
 # （LEAGUE_DRAW_ANCHOR / DRAW_ANCHOR_W / fuse_probabilities，每步独立开关 + trace）
 
+# 富化字段保全清单（2026-10-10；2026-11-17 提为模块级并配行为测试）。
+# market_fair_method（#102 草案 D，纯观测）必须与 market_fair **成对**回填：
+# 只带锚不带方法，跨 2026-10-14 口径切换（proportional→Shin）又会失配。
+_ENRICH_FIELDS = ("djyy_enriched", "djyy_model_prob", "context",
+                  "djyy_top_scores", "sina_odds", "market_fair",
+                  "market_fair_method")
+
+
+def _carry_enrich_fields(predictions: list[dict], prev_by_mid: dict) -> int:
+    """CI 重写 predictions 时从历史条目回填富化字段（只填空不覆盖，新值优先）。
+
+    纯函数：返回回填的字段个数。djyylive 屏蔽 runner IP（CI fetch_fixtures=0）时，
+    本地监控（中国 IP）产出的富化不被 CI 空值抹掉——2026-10-10 的教训。
+    """
+    carried = 0
+    for np_ in predictions:
+        op = prev_by_mid.get(np_.get("match_id"))
+        if not op:
+            continue
+        for f in _ENRICH_FIELDS:
+            if not np_.get(f) and op.get(f):
+                np_[f] = op[f]
+                carried += 1
+    return carried
+
 
 def run_daily_pipeline(target_date: date, predict_only: bool = False):
     """执行每日完整流水线"""
@@ -733,6 +758,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "market_fair": (
                 [round(x, 4) for x in calibrated_probs] if calibrated_probs else None
             ),
+            # 去水口径标记（2026-11-17，#102 草案 D，纯观测不参与任何判定）：
+            # 落盘 market_fair 在 2026-10-14 及以前是 proportional、10-15 起是 Shin，
+            # 历史记录无字段标明（配对 Brier 检不出差异但口径确实换过）——此后每行自证。
+            "market_fair_method": "shin" if calibrated_probs else None,
             # 市场锚是否真实（2026-10-09）：合成赔率场次 market_fair 由模型概率反推，
             # 去水后≈模型自身，非真实市场。此标记供账本/页面识别裸奔场次，
             # 避免把裸模型概率误当市场公允概率混入 EV 计算与校准。
@@ -1242,18 +1271,9 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # 2026-10-10 富化字段保全: djyylive 屏蔽 GitHub runner IP 段(CI fetch_fixtures=0),
             # 本地监控(中国IP)可获取 DJYY 增强。CI 重写 predictions 时若新条目缺这些字段,
             # 从历史条目回填(只填空不覆盖, 赔率等快变字段新值优先)——本地富化不再被 CI 抹掉。
+            # 2026-11-17 提为 _carry_enrich_fields 纯函数（tests/test_market_fair_method_marker.py）。
             _prev_by_mid = {p.get("match_id"): p for p in _prev_preds}
-            _ENRICH_FIELDS = ("djyy_enriched", "djyy_model_prob", "context",
-                              "djyy_top_scores", "sina_odds", "market_fair")
-            _carried = 0
-            for _np in predictions:
-                _op = _prev_by_mid.get(_np.get("match_id"))
-                if not _op:
-                    continue
-                for _f in _ENRICH_FIELDS:
-                    if not _np.get(_f) and _op.get(_f):
-                        _np[_f] = _op[_f]
-                        _carried += 1
+            _carried = _carry_enrich_fields(predictions, _prev_by_mid)
             if _carried:
                 print(f"  ✓ 富化字段保全: 回填 {_carried} 个字段（CI 无法访问 DJYY 时保留本地富化）")
             if _kept:
