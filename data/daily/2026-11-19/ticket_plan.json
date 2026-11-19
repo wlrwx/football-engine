@@ -6,57 +6,45 @@
   "expected_roi": 0.0,
   "bankroll": 3686.3059000000003,
   "breaker_multiplier": 1.0,
-  "parlay": [
+  "parlay": [],
+  "parlay_pool_n": 1,
+  "score_parlay": [
     {
-      "type": "2串1",
+      "type": "比分2串1",
       "legs": [
         {
           "match": "2026-11-19_周四003",
           "home": "奥兰多",
           "away": "辛辛那提",
           "league": "美职",
-          "sel": "home",
-          "odds": 2.25,
-          "prob": 0.401,
-          "cal_prob": 0.475,
-          "market_prob": 0.39,
-          "source": "fusion",
-          "hit_prob": 0.475
+          "score": "1-0",
+          "prob": 0.184,
+          "cal_prob": 0.088,
+          "odds": 17.0
         },
         {
-          "match": "2026-11-19_周四002",
-          "home": "圣保罗",
-          "away": "弗鲁米嫩塞",
-          "league": "巴甲",
-          "sel": "home",
-          "odds": 2.42,
-          "prob": 0.349,
-          "cal_prob": 0.553,
-          "market_prob": 0.363,
-          "source": "fusion",
-          "hit_prob": 0.553
+          "match": "2026-11-19_周四004",
+          "home": "西雅图",
+          "away": "皇家盐湖城",
+          "league": "美职",
+          "score": "0-1",
+          "prob": 0.26,
+          "cal_prob": 0.0624,
+          "odds": 17.5
         }
       ],
-      "total_odds": 5.45,
-      "model_ev": -0.48,
-      "cal_ev": 5.71,
-      "cal_roi": 0.4303,
-      "market_ev": -0.46,
-      "market_roi": -0.2296,
-      "hit_prob_cal": 0.263,
-      "recommended": true,
-      "stake": 13.27,
-      "n_bets": 1,
-      "potential": 72.26,
+      "total_odds": 297.5,
+      "hit_prob": 0.0055,
+      "stake": 2.0,
+      "potential": 595.0,
       "worst_win": 0.0,
-      "note": "两场全中才赢",
-      "source": "calibrated"
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.5% × 赔率 298 倍 = EV +63%）"
     }
   ],
-  "parlay_pool_n": 2,
-  "score_parlay": [],
-  "parlay_stake": 13.27,
-  "total_exposure": 13.27,
+  "parlay_stake": 2.0,
+  "total_exposure": 2.0,
   "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
   "parlay_calibration": {
     "overall": 0.553,
