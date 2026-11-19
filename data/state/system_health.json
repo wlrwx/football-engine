@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-19T20:12:50",
+  "generated_at": "2026-11-20T05:03:23",
   "summary": {
-    "total": 9,
-    "critical": 0,
+    "total": 10,
+    "critical": 1,
     "healed": 0
   },
   "findings": [
@@ -33,16 +33,24 @@
     {
       "id": "data/results",
       "layer": "data",
-      "severity": "ok",
-      "detail": "昨日赛果文件在",
-      "healable": false,
+      "severity": "warn",
+      "detail": "昨日(2026-11-19)缺 results_sina.json（补抓失败）",
+      "healable": true,
       "healed": false
     },
     {
       "id": "data/yesterday",
       "layer": "data",
+      "severity": "critical",
+      "detail": "昨日(2026-11-19) 4 场有赛果但账本未结算（补结算失败，需人工检查）",
+      "healable": true,
+      "healed": false
+    },
+    {
+      "id": "model/draw",
+      "layer": "model",
       "severity": "ok",
-      "detail": "昨日(2026-11-18)已结算",
+      "detail": "平局均值 21.2% 在先验带内",
       "healable": false,
       "healed": false
     },
