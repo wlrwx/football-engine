@@ -95,6 +95,27 @@ def test_snapshot_line_reports_age_and_gap(tmp_path, monkeypatch):
     assert "仓库未记 1 条" in line and "Foo vs Bar" in line
 
 
+def test_snapshot_line_ignores_non_challenge_markets(tmp_path, monkeypatch):
+    """2026-11-22 实锤：服务端真值含人工手打的大小球/半全场(market 4/5)，
+    与仓库（只记胜平负/让球）不同市场不可比——混比会报假「仓库未记」。"""
+    _use_tmp(tmp_path, monkeypatch)
+    _w(cr.STATE / "challenge_state.json",
+       {"records": [{"match": "Keep vs Home", "gate": "ev_site", "exp": "E8",
+                     "site_odds": 1.9, "ev_site": 0.05}]})
+    _w(cr.STATE / "njstats" / "my_predictions" / "2026-11-22.json",
+       {"snapshot_at": "2026-11-22 21:21:53",
+        "records": [
+            {"home": "Keep", "away": "Home", "market": 1},
+            {"home": "马竞", "away": "曼联", "market": 4},      # 人工大小球：不参与对账
+            {"home": "阿森纳", "away": "里尔", "market": "5"},   # 字符串也要认
+            {"home": "旧版", "away": "无字段"},                  # 历史快照缺 market → 默认按挑战市场
+        ]})
+    line = cr.snapshot_line()
+    assert "仓库未记 1 条" in line and "旧版 vs 无字段" in line, line
+    assert "马竞" not in line and "阿森纳" not in line, line
+    assert "非挑战市场注 2 条" in line, line
+
+
 def test_missing_files_do_not_crash(tmp_path, monkeypatch, capsys):
     _use_tmp(tmp_path, monkeypatch)
     assert cr.main([]) == 0
