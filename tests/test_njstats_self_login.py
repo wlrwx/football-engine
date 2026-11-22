@@ -116,3 +116,12 @@ def test_duty_skips_without_creds_and_with_env(tmp_path, monkeypatch):
     monkeypatch.setenv("DUTY_SKIP_SELF_LOGIN", "1")
     duty2._maybe_proactive_session_refresh()
     assert not any("self_login" in c for c in calls2), "总开关必须能关"
+
+
+def test_clears_stale_token_before_submit():
+    """登录通路必须自证拿的是**本次**提交的新 token，不能读 profile 残留旧 JWT
+    （#116/#120 同款自欺坑）。goto 后必须 removeItem('token') + captured.clear()。"""
+    src = (ROOT / "scripts" / "njstats_self_login.py").read_text(encoding="utf-8")
+    pre = src.split('btn.click()')[0]
+    assert "removeItem('token')" in pre, "提交前没清残留 token → 可能假成功"
+    assert "captured.clear()" in pre, "提交前没清响应缓存 → 可能读到上一轮残留"
