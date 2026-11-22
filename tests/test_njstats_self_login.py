@@ -54,6 +54,16 @@ def test_captcha_detection_only_recognizes():
         assert not selflogin._looks_like_captcha(ok), ok
 
 
+def test_captcha_never_aborts_before_submit():
+    """2026-11-23 演练实锤：手机号 tab 的隐藏 DOM 含图形验证码控件，
+    拿全量 HTML 预检会把正常密码页误判成 21。验证码判定只能作为
+    **提交超时后的分类器**——源码里不得再有提交前的 _looks_like_captcha 调用。"""
+    src = (ROOT / "scripts" / "njstats_self_login.py").read_text(encoding="utf-8")
+    pre_click = src.split('btn.click()')[0]
+    assert "_looks_like_captcha(" not in pre_click.replace("def _looks_like_captcha(", "")
+    assert "page.content()" not in src, "全量 HTML 判定已废弃，只准用可见文本"
+
+
 # ---- duty 钩子 ----
 
 def _duty_env(tmp_path, monkeypatch, *, refresh_rc=1, creds=True):
