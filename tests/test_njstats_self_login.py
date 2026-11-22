@@ -144,3 +144,11 @@ def test_ocr_attempts_counted_per_try_not_success():
     seg = src.split("if ocr_tries < MAX_OCR_ATTEMPTS")[1].split("time.sleep(2)")[0]
     assert "ocr_tries += 1" in seg.split("_solve_image_captcha")[0], \
         "必须先计数再求解——写在 if solve() 分支里就是失败不计数"
+
+
+def test_headful_by_default():
+    """2026-11-23 真机对比：无头点击发不出登录 POST（bot 检测吞点击），默认必须有头；
+    无头只留 SELF_LOGIN_HEADLESS=1 调试通道。"""
+    src = (ROOT / "scripts" / "njstats_self_login.py").read_text(encoding="utf-8")
+    assert 'headless = os.environ.get("SELF_LOGIN_HEADLESS") == "1"' in src
+    assert "headless=headless" in src
