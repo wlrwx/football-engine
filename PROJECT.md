@@ -631,3 +631,4 @@
 - 开 PR 前先 rebase 到最新 main：`data/`+`web/` 有每小时自动提交，落后 6~14 笔就会带上几千行噪音 diff
 - 合并顺序 #29 → #28 → #27（三者互不冲突，但 #27 的 `docs/EXPERIMENTS.md` 与另两者无交集，顺序不影响）
 - 合并 #29 后头几天重点看：巴甲平局概率是否回升、总进球类指标是否短期偏高（`xg_calibration` 回收的已知代价）
+- 2026-11-23 **自助重登 v2：DrissionPage 接管真实 Chrome，一次通过（用户点破 playwright 被识别）**：真机对比——playwright 无头点击发不出登录 POST、有头也空转，用户手开浏览器秒登；换 DrissionPage 驱动本机真实 Chrome（独立 user-data-dir + 9666 端口）后 **rc=0 且 JWT 指纹变化=本次真登录**，私有真值当场可查。选择器全部改走真机验证过的稳定路径（遍历 tag:input 按 attr 归组；CSS 属性选择器在 DP4 `.ele()` 行为不稳，弃用）。纪律新增：每次运行前重置 DP 临时 profile——残留 cookie 会让 /login 跳已登录页、表单根本不存在（当晚实锤的假「形状变了」）。护栏不变：清残留在前、OCR≤2、密码错误即停不连发、失败叫人工。
