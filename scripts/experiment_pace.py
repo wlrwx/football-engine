@@ -62,7 +62,11 @@ def summarize(recs: list[dict], exp: str, today: date) -> dict:
     ext_projected = n + pace * ext_left
     required = (TARGET_N - n) / days_left if days_left > 0 else None
 
-    if n >= TARGET_N:
+    # 已终判的实验不再喊「可收尾」——E10 于 2026-11-16 满 60 注按冻结判据终判失败
+    # （ROI +6.07% 但单侧 p=0.289≥0.10），旧筛已恢复；n≥60 对它只意味着历史记录。
+    if exp == "E10":
+        status = "已终判关闭（11-16 失败：p=0.289≥0.10），仅历史口径"
+    elif n >= TARGET_N:
         status = "已达 n=60，可按判据收尾"
     elif today > EXTENSION:
         status = "延期届满仍 n<60 → 证据不足/无结论（不自动回退 edge）"

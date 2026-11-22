@@ -32,6 +32,18 @@ def test_pools_split_by_exp_and_gate():
     assert len(ep.pool(recs, "E10")) == 1
 
 
+def test_e10_closed_never_says_can_close():
+    """E10 已于 2026-11-16 终判失败关闭——n≥60 对它只是历史，不得再喊「可收尾」。"""
+    recs = [_rec(f"2026-11-{d:02d}", "E10") for d in range(1, 20)] * 4   # 76 注
+    s = ep.summarize(recs, "E10", date(2026, 11, 20))
+    assert "已终判关闭" in s["status"] and "收尾" not in s["status"], s["status"]
+    line = ep.format_line(s)
+    assert "已终判关闭" in line, line
+    # E8 同形状仍走原分支——关闭语义不许传染给活跃实验
+    e8 = ep.summarize([_rec("2026-11-01", "E8") for _ in range(61)], "E8", date(2026, 11, 20))
+    assert "可按判据收尾" in e8["status"], e8["status"]
+
+
 def test_early_days_do_not_extrapolate():
     recs = [_rec("2026-10-22")]
     s = ep.summarize(recs, "E8", date(2026, 10, 22))
