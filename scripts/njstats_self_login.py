@@ -93,7 +93,15 @@ def main() -> int:
                 time.sleep(1)
             page.locator("input[type='email']").first.fill(email)
             page.locator("input[type='password']").first.fill(pwd)
-            btn = page.get_by_text("登录 / 注册", exact=False).first
+            # 提交按钮文案跟模式走（2026-11-23 实测定案）：邮箱验证码模式=「登录 / 注册」，
+            # **密码模式=「登录」**——只找前者永远 count=0。exact 匹配防「密码登录/验证码登录」
+            # 标签误点；两种都试，兼容停在任一模式渲染的情况。
+            btn = page.get_by_role("button", name="登录", exact=True).first
+            for _ in range(20):
+                if btn.count():
+                    break
+                btn = page.get_by_role("button", name="登录 / 注册", exact=True).first
+                time.sleep(1)
             if not btn.count():
                 print("找不到提交按钮，登录页形状变了（退出 1）")
                 return 1
