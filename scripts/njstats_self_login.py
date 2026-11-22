@@ -86,6 +86,14 @@ def main() -> int:
         page.on("response", on_resp)
         try:
             page.goto(BASE + "/login", wait_until="domcontentloaded", timeout=45000)
+            # 关键：先清掉残留 token——否则 profile 里上一次登录的旧 JWT 会被
+            # _read_token 直接读到，「假成功」自欺（#116/#120 同款坑，验证登录
+            # 通路必须确认拿到的是**本次**提交产物）。清完再等，任何读到的都只能是新 token。
+            try:
+                page.evaluate("() => localStorage.removeItem('token')")
+            except Exception:  # noqa: BLE001
+                pass
+            captured.clear()
             time.sleep(2)
             switch = page.get_by_text("密码登录", exact=False).first
             if switch.count():
