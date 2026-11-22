@@ -165,12 +165,18 @@ def snapshot_line() -> str:
     except (ValueError, TypeError):
         pass
     repo = {str(r.get("match") or "") for r in _records()}
-    missing = [f"{s.get('home')} vs {s.get('away')}" for s in recs
+    # 同市场才可比（2026-11-22 分页修好后第一次真对账揭示）：服务端真值是全账号的，
+    # 包含大小球/半全场（market 4/5）等人工手打注；挑战系统只投胜平负(1)/让球(2)。
+    # 混在一起比会把人手的单报成「仓库未记」假缺口（历史快照缺 market 字段时默认 1，向后兼容）。
+    chal = [s for s in recs if str(s.get("market", "1")) in ("1", "2")]
+    missing = [f"{s.get('home')} vs {s.get('away')}" for s in chal
                if f"{s.get('home')} vs {s.get('away')}" not in repo]
     age = f"{age_h:.1f}h" if age_h is not None else "龄未知"
     stale = "（可能过期）" if age_h is not None and age_h > 12 else ""
     names = "、".join(missing[:3]) + (" 等" if len(missing) > 3 else "") if missing else "无"
-    return (f"账目: 快照 {len(recs)} 条/{age}{stale} vs 仓库 {len(repo)}；"
+    other = len(recs) - len(chal)
+    scope = f"（另有非挑战市场注 {other} 条不参与对账）" if other else ""
+    return (f"账目: 快照 {len(chal)} 条/{age}{stale} vs 仓库 {len(repo)}{scope}；"
             f"仓库未记 {len(missing)} 条：{names}")
 
 
