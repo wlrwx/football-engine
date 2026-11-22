@@ -104,13 +104,23 @@ def main() -> int:
                                                    args=["--no-proxy-server"])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto(BASE + "/login", wait_until="domcontentloaded")
+        # 2026-11-22 实测修复：登录页默认是「邮箱验证码」模式，DOM 里没有密码框，
+        # 用户输不进去、脚本也等不到 token——「登录了却白屏/超时」的真根因
+        # （厂商登录接口本身一直是好的）。必须先点「密码登录」切换模式。
+        try:
+            switch = page.get_by_text("密码登录", exact=False).first
+            if switch.count():
+                switch.click()
+        except Exception:  # noqa: BLE001  模式切换失败不致命：用户仍可手动点
+            pass
         # 清掉残留 token：之后凡是读到 token，必然是这次新登录写进去的，
         # 不会把上一轮的旧 token 误当成「已登录」。
         try:
             page.evaluate("() => localStorage.removeItem('token')")
         except Exception:
             pass
-        print("浏览器已弹出：请完成登录（邮箱+密码+验证码），成功后本窗口自动关闭并保存（最长 5 分钟）")
+        print("浏览器已弹出（已自动切到密码登录模式）：请输入邮箱+密码完成登录，"
+              "成功后本窗口自动关闭并保存（最长 5 分钟）")
         # 白屏兜底：登录/换发接口的响应体里只要有 JWT 就直接截获，
         # 不依赖前端把 token 写进 localStorage（2026-11-22 实测白屏形状）。
         captured: dict = {}
