@@ -28,6 +28,31 @@ HEALTH = HOME / ".football-engine" / "njstats_session_health.json"
 BASE = "https://www.njstats.cn"
 
 
+def _jwt_from_body(text: str) -> str | None:
+    """从登录响应 JSON 里递归找第一枚像 JWT 的字符串（eyJ 前缀即可信凭据特征）。
+
+    为什么要这层兜底（2026-11-22 实测）：登录接口已发回成功，但前端跳转撞上
+    厂商 /api/user/* 502 白屏，localStorage 永远写不上 token——只轮询页面的
+    老实现只能干等超时。响应体不依赖前端状态，拿到即存。
+    """
+    import json as _json
+
+    try:
+        node = _json.loads(text)
+    except ValueError:
+        return None
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, dict):
+            stack.extend(cur.values())
+        elif isinstance(cur, list):
+            stack.extend(cur)
+        elif isinstance(cur, str) and cur.startswith("eyJ") and cur.count(".") == 2 and len(cur) > 40:
+            return cur
+    return None
+
+
 def _read_token(page) -> str | None:
     """先读 localStorage（不依赖厂商端点），读不到再退回 /api/user/current。"""
     try:
@@ -86,9 +111,22 @@ def main() -> int:
         except Exception:
             pass
         print("浏览器已弹出：请完成登录（邮箱+密码+验证码），成功后本窗口自动关闭并保存（最长 5 分钟）")
+        # 白屏兜底：登录/换发接口的响应体里只要有 JWT 就直接截获，
+        # 不依赖前端把 token 写进 localStorage（2026-11-22 实测白屏形状）。
+        captured: dict = {}
+
+        def _on_response(resp):
+            try:
+                if not captured.get("tok") and "/api/user/" in resp.url and resp.status == 200:
+                    tok = _jwt_from_body(resp.text())
+                    if tok:
+                        captured["tok"] = tok
+            except Exception:
+                pass  # 导航后 body 读不到是常态，还有 localStorage 轮询兜底
+        page.on("response", _on_response)
         deadline = time.time() + 300
         while time.time() < deadline:
-            tok = _read_token(page)
+            tok = captured.get("tok") or _read_token(page)
             if tok:
                 has_session = _save(ctx, tok)
                 print("✅ JWT 已保存 →", JWT_FILE)

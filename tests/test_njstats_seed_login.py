@@ -105,3 +105,21 @@ def test_save_writes_jwt_even_without_session_cookie(tmp_path, monkeypatch):
     assert seed._save(ctx, "jwt-token") is False
     assert jwt.read_text(encoding="utf-8") == "jwt-token"
     assert not sess.exists(), "没有 SESSION 就不该写 session 文件"
+
+
+# ---- 白屏兜底：从登录响应体截 JWT（2026-11-22 实测：登录成功但前端卡白屏，
+# localStorage 永远写不上；响应体不依赖前端状态，拿到即存）----
+JWT_A = "eyJhbGciOiJIUzI1NiJ9." + "e" * 30 + "." + "s" * 30
+JWT_B = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9." + "x" * 40 + "." + "y" * 40
+
+
+def test_jwt_from_body_finds_nested_shapes():
+    assert seed._jwt_from_body(json.dumps({"data": {"token": JWT_A}})) == JWT_A
+    assert seed._jwt_from_body(json.dumps({"result": [{"jwt": JWT_B}]})) == JWT_B
+
+
+def test_jwt_from_body_rejects_non_jwt_shapes():
+    assert seed._jwt_from_body("not json") is None
+    assert seed._jwt_from_body(json.dumps({"code": 401, "msg": "bad"})) is None
+    assert seed._jwt_from_body(json.dumps({"token": "short.not.jwt"})) is None
+    assert seed._jwt_from_body(json.dumps({"data": {"token": "eyJx.y"} })) is None
