@@ -125,3 +125,22 @@ def test_clears_stale_token_before_submit():
     pre = src.split('btn.click()')[0]
     assert "removeItem('token')" in pre, "提交前没清残留 token → 可能假成功"
     assert "captured.clear()" in pre, "提交前没清响应缓存 → 可能读到上一轮残留"
+
+
+# ---- 图形码离线 OCR（2026-11-23 用户裁决解禁；护栏必须钉死） ----
+def test_ocr_attempt_cap_is_two():
+    """第 3 次试码就疑似暴力破解 → 封号/封 IP 会连累整条链的出口 IP。"""
+    assert selflogin.MAX_OCR_ATTEMPTS == 2
+
+
+def test_ocr_switch_off_env_short_circuits(tmp_path, monkeypatch):
+    monkeypatch.setenv("SELF_LOGIN_NO_OCR", "1")
+    assert selflogin._solve_image_captcha(object()) is False  # 不碰 page
+
+
+def test_ocr_attempts_counted_per_try_not_success():
+    """尝试计数在调用求解前就 +1：识别失败也消耗额度，杜绝失败后无限重试。"""
+    src = (ROOT / "scripts" / "njstats_self_login.py").read_text(encoding="utf-8")
+    seg = src.split("if ocr_tries < MAX_OCR_ATTEMPTS")[1].split("time.sleep(2)")[0]
+    assert "ocr_tries += 1" in seg.split("_solve_image_captcha")[0], \
+        "必须先计数再求解——写在 if solve() 分支里就是失败不计数"
