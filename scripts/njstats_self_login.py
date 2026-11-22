@@ -43,15 +43,18 @@ def read_creds() -> tuple[str, str] | None:
     return lines[0].strip(), lines[1].strip()
 
 
-def _looks_like_captcha(snapshot: str) -> bool:
-    """页面是否存在**真人机会验证**元素。只识别，绝不尝试通过。
+def _looks_like_captcha(visible_text: str) -> bool:
+    """**可见文本**里是否有真人机验证提示。只识别，绝不尝试通过。
 
-    教训（写测试时抓到的假阳性）：登录页本身带「邮箱验证码/验证码登录」字样
-    （模式切换标签），拿「验证码」三字当特征会把正常密码页误判成captcha。
-    只认硬特征：图形/滑块/拼图/人机 等控件名与三方验证服务域名。
+    两层教训：
+    1) 「邮箱验证码/验证码登录」是模式切换标签，不是人机验证——只认硬特征词；
+    2) 2026-11-23 演练实锤：**不能拿全量渲染 HTML 判定**——手机号
+       登录 tab 的隐藏 DOM 里带图形验证码控件，正常密码页会被误判成 captcha。
+       因此本函数只喂 `inner_text('body')`（渲染后可见文本），且只在
+       「提交后拿不到 token」时用来区分 21/1，**绝不作为提交前的中止条件**。
     """
-    return bool(re.search(r"滑块|拖动|拼图|人机验证|图形|captcha|geetest|recaptcha|hcaptcha",
-                          snapshot, re.I))
+    return bool(re.search(r"滑块|拖动|拼图|人机验证|图形验证|captcha|geetest|recaptcha|hcaptcha",
+                          visible_text, re.I))
 
 
 def main() -> int:
@@ -90,14 +93,6 @@ def main() -> int:
                 time.sleep(1)
             page.locator("input[type='email']").first.fill(email)
             page.locator("input[type='password']").first.fill(pwd)
-            snap = ""
-            try:
-                snap = page.content()
-            except Exception:  # noqa: BLE001
-                pass
-            if _looks_like_captcha(snap):
-                print("检测到人机验证元素——我不自动解，交人处理（退出 21）")
-                return 21
             btn = page.get_by_text("登录 / 注册", exact=False).first
             if not btn.count():
                 print("找不到提交按钮，登录页形状变了（退出 1）")
@@ -112,8 +107,17 @@ def main() -> int:
                           f"SESSION {'已存' if has_sess else '站点未给，duty 用 JWT 即可'}）")
                     return 0
                 time.sleep(2)
-            print("提交后超时未拿到 token（可能被验证码拦或凭证错误，不猜测）")
-            return 21
+            # 超时才分类：可见文本有人机验证特征 → 21（叫人）；否则 1（网络/凭证问题，下轮重试）
+            visible = ""
+            try:
+                visible = page.inner_text("body")
+            except Exception:  # noqa: BLE001
+                pass
+            if _looks_like_captcha(visible):
+                print("提交后超时，且可见文本含人机验证特征——我不自动解，交人处理（退出 21）")
+                return 21
+            print("提交后超时未拿到 token，页面无验证码特征（凭证/网络问题，退出 1，下轮重试）")
+            return 1
         finally:
             ctx.close()
 
