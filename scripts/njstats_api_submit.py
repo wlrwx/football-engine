@@ -368,15 +368,28 @@ def parse_my_predictions(raw: bytes) -> list[dict]:
 
 
 def my_predictions(jwt: str | None = None) -> list[dict] | None:
-    """本账号已预测场次（服务端真值）。取不到返回 None。"""
+    """本账号已预测场次（服务端真值）。取不到返回 **None**（绝不满页假象）。
+
+    2026-11-22（小号审计 #104 实锤）：原实现写死 page=1/size=60，本地账过 60 注后
+    服务端真值永远只看到前 60 条——跨机去重与对账的分母被悄悄砍半，快照里
+    「恰好 60 条」连续数周就是这个截断的形状。现在逐页翻到短页为止；
+    **任何一页非 200 都整体返 None**：宁缺毋缺半截，静默的部分真值比没有更危险
+    （它会把「没见过这注」当成事实去重复下单）。
+    """
     jwt = jwt or (JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else "")
     if not jwt:
         return None
-    body = _field(2, _field_v(1, 1) + _field_v(2, 60))
-    st, raw = _post_jwt(jwt, "1012", "11", body)
-    if st != 200:
-        return None
-    return parse_my_predictions(raw)
+    size, out = 60, []
+    for page in range(1, 21):        # 20 页 = 1200 条上限，现实远小于此，防御性封顶
+        body = _field(2, _field_v(1, page) + _field_v(2, size))
+        st, raw = _post_jwt(jwt, "1012", "11", body)
+        if st != 200:
+            return None
+        rows = parse_my_predictions(raw)
+        out.extend(rows)
+        if len(rows) < size:
+            return out
+    return out
 
 def parse_board_with_odds(raw: bytes) -> list[dict]:
     """msgId=1 全板响应 → [{sid,home,away,kick_ts,odds}]，odds 为站点口径。
