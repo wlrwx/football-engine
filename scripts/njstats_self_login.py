@@ -106,8 +106,13 @@ def main() -> int:
         print("playwright 未安装（CI 环境），跳过自助重登")
         return 1
     with sync_playwright() as pw:
+        # 2026-11-23 真机对比实锤：**无头模式下点「登录」发不出登录 POST**（疑似被
+        # bot 检测吞掉），有头才走通。默认有头——触发频率是 12h/6h 级，窗口闪几秒
+        # 可接受；无显示器/launchd 无 GUI 会话时启动会抛错 → 退 1 叫人工，安全兜底。
+        # `SELF_LOGIN_HEADLESS=1` 可切回无头（仅调试用）。
+        headless = os.environ.get("SELF_LOGIN_HEADLESS") == "1"
         ctx = pw.chromium.launch_persistent_context(
-            str(seed.PROFILE), headless=True, args=["--no-proxy-server"],
+            str(seed.PROFILE), headless=headless, args=["--no-proxy-server"],
             viewport={"width": 1200, "height": 900})
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         captured: dict = {}
