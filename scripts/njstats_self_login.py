@@ -8,13 +8,15 @@ seed 同款 _save（必存 JWT、有 SESSION 也存、健康置 ok 清红线）�
 凭据读 `~/.football-engine/njstats_account`（第一行邮箱、第二行密码，0600，
 **永不进仓库/日志/对话**）。
 
-红线：**绝不自动解验证码**——页面上出现人机验证元素、或提交后 90s 拿不到
-token，即退出码 21，由 duty.log/摘要红线叫人（这是唯一允许打扰人的形状）。
-退出码：0 成功；1 一般失败（网络/按钮找不到）；21 需要人工（验证码）。
+红线：图形码按 2026-11-23 用户裁决解禁——**离线 ddddocr 识别、上限 2 次、
+失败立刻退 21 叫人工**（反复试码会触发风控，封号/封 IP 连累整条链的出口）；
+图片与凭据不出本机，不接任何第三方打码服务。滑块/点选类人机验证仍然**绝不尝试**。
+退出码：0 成功；1 一般失败（网络/按钮找不到）；21 需要人工（OCR 两次未过或非图形码）。
 """
 from __future__ import annotations
 
 import importlib.util
+import os
 import re
 import sys
 import time
@@ -44,17 +46,52 @@ def read_creds() -> tuple[str, str] | None:
 
 
 def _looks_like_captcha(visible_text: str) -> bool:
-    """**可见文本**里是否有真人机验证提示。只识别，绝不尝试通过。
+    """**可见文本**里是否有人机验证提示（用于超时后的失败分类）。
 
     两层教训：
     1) 「邮箱验证码/验证码登录」是模式切换标签，不是人机验证——只认硬特征词；
     2) 2026-11-23 演练实锤：**不能拿全量渲染 HTML 判定**——手机号
        登录 tab 的隐藏 DOM 里带图形验证码控件，正常密码页会被误判成 captcha。
-       因此本函数只喂 `inner_text('body')`（渲染后可见文本），且只在
-       「提交后拿不到 token」时用来区分 21/1，**绝不作为提交前的中止条件**。
+       因此本函数只喂 `inner_text('body')`（渲染后可见文本）。
     """
     return bool(re.search(r"滑块|拖动|拼图|人机验证|图形验证|captcha|geetest|recaptcha|hcaptcha",
                           visible_text, re.I))
+
+
+# 试码硬上限：第 3 次起疑似暴力破解，会招风控封号/封 IP；采集与下单共用同一
+# 出口，赌不起。测死在 tests/test_njstats_self_login.py。
+MAX_OCR_ATTEMPTS = 2
+
+
+def _solve_image_captcha(page) -> bool:
+    """图形码求解：img[alt=验证码]（实测为 base64 PNG）→ 离线 OCR → 填输入框。
+
+    由调用方在填好后重新点提交。上一轮填过还停在验证码页 = 认错，先点图刷新。
+    `SELF_LOGIN_NO_OCR=1` 或 ddddocr 缺失（CI）→ 直接放弃，走叫人兜底。
+    """
+    if os.environ.get("SELF_LOGIN_NO_OCR") == "1":
+        return False
+    try:
+        import ddddocr
+    except ImportError:
+        print("ddddocr 未安装：不解图形码，交人工")
+        return False
+    try:
+        img = page.locator("img[alt='验证码']").first
+        box = page.locator("input[placeholder*='图形验证码']").first
+        if not img.count() or not box.count():
+            return False
+        if (box.input_value() or "").strip():          # 上一发码错了：点图换一张
+            img.click()
+            time.sleep(1.2)
+        code = (ddddocr.DdddOcr(show_ad=False).classification(img.screenshot()) or "").strip()
+        if not code:
+            return False
+        box.fill(code)
+        print(f"图形码已离线识别填入（{len(code)} 位，内容不落日志）")
+        return True
+    except Exception:  # noqa: BLE001  识别链路任何异常都不升级成风险
+        return False
 
 
 def main() -> int:
@@ -115,6 +152,7 @@ def main() -> int:
                 return 1
             btn.click()
             deadline = time.time() + TOKEN_WAIT_S
+            ocr_tries = 0
             while time.time() < deadline:
                 tok = captured.get("tok") or seed._read_token(page)
                 if tok and str(tok).startswith("eyJ"):
@@ -122,6 +160,21 @@ def main() -> int:
                     print(f"✅ 自助重登成功（JWT {len(str(tok))} 字符已存；"
                           f"SESSION {'已存' if has_sess else '站点未给，duty 用 JWT 即可'}）")
                     return 0
+                # 图形码行出现且没超试码上限：离线识别→重提交（用户裁决 2026-11-23）。
+                # 计数按「尝试」不按「成功」——识别失败也算一次，杜绝无限重试招风控。
+                if ocr_tries < MAX_OCR_ATTEMPTS:
+                    try:
+                        cap = page.locator("input[placeholder*='图形验证码']").first
+                        if cap.count() and cap.is_visible():
+                            ocr_tries += 1
+                            if _solve_image_captcha(page):
+                                btn.click()
+                                time.sleep(2)
+                            else:
+                                time.sleep(2)
+                            continue
+                    except Exception:  # noqa: BLE001
+                        pass
                 time.sleep(2)
             # 超时才分类：可见文本有人机验证特征 → 21（叫人）；否则 1（网络/凭证问题，下轮重试）
             visible = ""
