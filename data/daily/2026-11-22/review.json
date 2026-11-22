@@ -1,13 +1,13 @@
 {
   "date": "2026-11-22",
-  "n_matches": 9,
-  "hit_rate": 0.6667,
-  "hits": 6,
+  "n_matches": 15,
+  "hit_rate": 0.6,
+  "hits": 9,
   "source_brier": {
-    "model": 0.5921,
-    "market": 0.5609,
-    "djyy": 0.5848,
-    "final": 0.467
+    "model": 0.5566,
+    "market": 0.5312,
+    "djyy": 0.5557,
+    "final": 0.4826
   },
   "by_league": {
     "K1联赛": {
@@ -23,10 +23,10 @@
       "avg_brier": 0.1564
     },
     "意甲": {
-      "n": 3,
-      "hit_rate": 0.6667,
-      "wilson_lower": 0.2077,
-      "avg_brier": 0.5646
+      "n": 4,
+      "hit_rate": 0.75,
+      "wilson_lower": 0.3006,
+      "avg_brier": 0.4729
     },
     "英冠": {
       "n": 1,
@@ -35,10 +35,28 @@
       "avg_brier": 0.8485
     },
     "西甲": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.5134
+    },
+    "德甲": {
+      "n": 2,
+      "hit_rate": 0.5,
+      "wilson_lower": 0.0945,
+      "avg_brier": 0.467
+    },
+    "英超": {
       "n": 1,
       "hit_rate": 1.0,
       "wilson_lower": 0.2065,
-      "avg_brier": 0.1351
+      "avg_brier": 0.3049
+    },
+    "挪超": {
+      "n": 1,
+      "hit_rate": 0.0,
+      "wilson_lower": 0.0,
+      "avg_brier": 0.7079
     }
   },
   "by_confidence_tier": {
@@ -49,16 +67,16 @@
       "avg_brier": 0.6159
     },
     "mid": {
-      "n": 2,
-      "hit_rate": 0.5,
-      "wilson_lower": 0.0945,
-      "avg_brier": 0.6866
+      "n": 6,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0968,
+      "avg_brier": 0.6693
     },
     "high": {
-      "n": 5,
-      "hit_rate": 0.8,
-      "wilson_lower": 0.3755,
-      "avg_brier": 0.3196
+      "n": 7,
+      "hit_rate": 0.8571,
+      "wilson_lower": 0.4869,
+      "avg_brier": 0.2845
     }
   },
   "by_odds_band": {
@@ -69,36 +87,36 @@
       "avg_brier": 0.6159
     },
     "L3 中(1.8-2.2)": {
-      "n": 1,
-      "hit_rate": 1.0,
-      "wilson_lower": 0.2065,
-      "avg_brier": 0.5247
+      "n": 3,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0615,
+      "avg_brier": 0.6569
     },
     "L1 大热(<1.5)": {
-      "n": 5,
-      "hit_rate": 0.8,
-      "wilson_lower": 0.3755,
-      "avg_brier": 0.3196
+      "n": 7,
+      "hit_rate": 0.8571,
+      "wilson_lower": 0.4869,
+      "avg_brier": 0.2845
     },
     "L2 热(1.5-1.8)": {
-      "n": 1,
-      "hit_rate": 0.0,
-      "wilson_lower": 0.0,
-      "avg_brier": 0.8485
+      "n": 3,
+      "hit_rate": 0.3333,
+      "wilson_lower": 0.0615,
+      "avg_brier": 0.6817
     }
   },
   "score_stats": {
     "top1": 0,
     "top3": 2,
-    "top5": 3,
-    "top8": 5,
-    "any": 5
+    "top5": 4,
+    "top8": 6,
+    "any": 6
   },
   "score_rank_hist": {
     "3": 2,
     "8": 1,
     "6": 1,
-    "5": 1
+    "5": 2
   },
   "score_source_stats": {
     "djyy": {
@@ -106,30 +124,34 @@
       "hits": 0
     },
     "mc": {
-      "n": 5,
-      "hits": 3
+      "n": 6,
+      "hits": 4
     }
   },
   "market_signal_stats": {
-    "n": 9,
-    "hits": 2
+    "n": 15,
+    "hits": 3
   },
   "layered": {
-    "log_loss_final": 0.8047,
-    "rps_final": 0.1474,
-    "rps_market": 0.1756,
+    "log_loss_final": 0.8265,
+    "rps_final": 0.1809,
+    "rps_market": 0.1997,
     "goal_framework": {
-      "n": 9,
-      "hits": 5
+      "n": 15,
+      "hits": 8
     },
     "prob_bands": {
       "40-50%": {
+        "n": 4,
+        "hit_rate": 0.25
+      },
+      "50-60%": {
         "n": 2,
         "hit_rate": 0.5
       },
       "60%+": {
-        "n": 5,
-        "hit_rate": 0.8
+        "n": 7,
+        "hit_rate": 0.8571
       },
       "<40%": {
         "n": 2,
@@ -138,21 +160,21 @@
     },
     "freshness_groups": {
       "alert": {
-        "n": 1,
+        "n": 2,
         "hit_rate": 0.0
       },
       "ok": {
-        "n": 7,
-        "hit_rate": 0.7143
+        "n": 10,
+        "hit_rate": 0.6
       },
       "watch": {
-        "n": 1,
+        "n": 3,
         "hit_rate": 1.0
       }
     }
   },
   "biases": [],
   "total_pnl": 0.0,
-  "generated_at": "2026-11-22T16:08:45.512468",
-  "sha256": "970036e03587b0d51391f74fb7a93ea3"
+  "generated_at": "2026-11-22T20:37:12.630025",
+  "sha256": "353ee6ac60b011c213980369499c14e0"
 }
