@@ -168,6 +168,18 @@ def _health_ok_age_h() -> float | None:
     return (datetime.now(BJT) - ts).total_seconds() / 3600
 
 
+def _self_login_available() -> bool:
+    """凭据文件形状校验（只查形状与权限意图，**绝不读进日志/异常栈**）。"""
+    if os.environ.get("DUTY_SKIP_SELF_LOGIN") == "1":
+        return False
+    try:
+        lines = (HOME / ".football-engine" / "njstats_account").read_text(
+            encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    return len(lines) >= 2 and "@" in lines[0] and bool(lines[1].strip())
+
+
 def _maybe_proactive_session_refresh() -> None:
     """不等 mint 失败，定期把登录态续新（2026-11-09 用户要求「提前解决红线」）。
 
@@ -200,6 +212,19 @@ def _maybe_proactive_session_refresh() -> None:
                        timeout=180, encoding="utf-8", errors="replace")
     out = (p.stdout or p.stderr).strip().splitlines()
     log(f"session-refresh: {out[-1] if out else f'无输出 rc={p.returncode}'}")
+    # 2026-11-22 用户裁决：登录态死了先拿存的账号密码**自助重登**，不再叫人手工会话。
+    # refresh rc=1 = remember-me 死（auth_dead 已落 health）。自助登录成功会经 seed
+    # 的 _save 把 health 置回 ok，红线自动清；只有验证码（rc=21）才喊人。
+    if p.returncode == 1 and _self_login_available():
+        q = subprocess.run([str(ROOT / ".venv" / "bin" / "python3"),
+                            "scripts/njstats_self_login.py"],
+                           cwd=ROOT, capture_output=True, text=True, check=False,
+                           timeout=240, encoding="utf-8", errors="replace")
+        qout = (q.stdout or q.stderr).strip().splitlines()
+        log(f"self-login: {qout[-1] if qout else f'无输出 rc={q.returncode}'}")
+        if q.returncode == 21:
+            log("⚠ 运维红线 njstats_session_expiring: 自助重登被人机验证拦住（我不自动解验证码）"
+                " → 需人工跑 ./.venv/bin/python scripts/njstats_seed_login.py")
 
 
 def mint() -> str | None:
