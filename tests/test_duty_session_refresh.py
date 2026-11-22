@@ -44,6 +44,7 @@ def _setup(tmp_path, monkeypatch, runs, *, health=None, health_h=0.0, rc=0,
     marker = tmp_path / ".refresh_attempt"
     if marker_h is not None:
         marker.write_text(str(int(time.time() - marker_h * 3600)), encoding="utf-8")
+    monkeypatch.setattr(duty, "HOME", tmp_path)   # 隔离真实 ~/.football-engine（凭据探测不许摸真文件）
     monkeypatch.setattr(duty, "SESS", sess_path)
     monkeypatch.setattr(duty, "SESSION_HEALTH", health_path)
     monkeypatch.setattr(duty, "SESSION_REFRESH_MARKER", marker)
