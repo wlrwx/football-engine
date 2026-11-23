@@ -5,12 +5,46 @@
   "total_stake": 0,
   "expected_roi": 0.0,
   "bankroll": 3684.3059000000003,
-  "breaker_multiplier": 0.5,
+  "breaker_multiplier": 1.0,
   "parlay": [],
   "parlay_pool_n": 0,
-  "score_parlay": [],
-  "parlay_stake": 0,
-  "total_exposure": 0.0,
+  "score_parlay": [
+    {
+      "type": "比分2串1",
+      "legs": [
+        {
+          "match": "2026-11-24_周二005",
+          "home": "博德闪耀",
+          "away": "林茨",
+          "league": "欧冠",
+          "score": "1-0",
+          "prob": 0.25,
+          "cal_prob": 0.0884,
+          "odds": 14.0
+        },
+        {
+          "match": "2026-11-24_周二007",
+          "home": "莱比锡红牛",
+          "away": "朗斯",
+          "league": "欧冠",
+          "score": "1-0",
+          "prob": 0.186,
+          "cal_prob": 0.0884,
+          "odds": 13.0
+        }
+      ],
+      "total_odds": 182.0,
+      "hit_prob": 0.0078,
+      "stake": 2.0,
+      "potential": 364.0,
+      "worst_win": 0.0,
+      "n_bets": 1,
+      "odds_source": "official",
+      "note": "两场比分都中才赢（校准命中 0.8% × 赔率 182 倍 = EV +42%）"
+    }
+  ],
+  "parlay_stake": 2.0,
+  "total_exposure": 2.0,
   "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
   "parlay_calibration": {
     "overall": 0.55,
