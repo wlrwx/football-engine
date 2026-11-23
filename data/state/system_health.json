@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-23T16:20:05",
+  "generated_at": "2026-11-24T04:37:11",
   "summary": {
     "total": 11,
-    "critical": 0,
+    "critical": 1,
     "healed": 0
   },
   "findings": [
@@ -33,24 +33,24 @@
     {
       "id": "data/results",
       "layer": "data",
-      "severity": "ok",
-      "detail": "昨日赛果文件在",
-      "healable": false,
+      "severity": "warn",
+      "detail": "昨日(2026-11-23)缺 results_sina.json（补抓失败）",
+      "healable": true,
       "healed": false
     },
     {
       "id": "data/yesterday",
       "layer": "data",
-      "severity": "ok",
-      "detail": "昨日(2026-11-22)已结算",
-      "healable": false,
+      "severity": "critical",
+      "detail": "昨日(2026-11-23) 8 场有赛果但账本未结算（补结算失败，需人工检查）",
+      "healable": true,
       "healed": false
     },
     {
       "id": "source/djyy",
       "layer": "source",
       "severity": "ok",
-      "detail": "DJYY 存活率 2026-11-22:83%、2026-11-21:73%",
+      "detail": "DJYY 存活率 2026-11-22:83%",
       "healable": false,
       "healed": false
     },
@@ -58,7 +58,7 @@
       "id": "model/draw",
       "layer": "model",
       "severity": "ok",
-      "detail": "平局均值 27.5% 在先验带内",
+      "detail": "平局均值 17.3% 在先验带内",
       "healable": false,
       "healed": false
     },
