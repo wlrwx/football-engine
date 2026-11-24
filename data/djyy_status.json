@@ -1,6 +1,6 @@
 {
   "date": "2026-11-25",
-  "generated_at": "2026-11-24T17:07:39",
+  "generated_at": "2026-11-24T18:21:15",
   "healthy": true,
   "coverage": 0.5,
   "enrich_success": 1.0,
@@ -16,16 +16,16 @@
   "detail": {
     "fixtures": 98,
     "matched": 5,
-    "enriched": 5,
+    "enriched": 0,
     "failed": 0,
-    "cache_hit": 0,
+    "cache_hit": 5,
     "budget_exhausted": false
   },
   "note": "healthy 由 enrich_success 决定（匹配上的场次里富化成功的比例）；league_coverage 低说明我们预测了 DJYY 不覆盖的联赛，属结构性差异而非故障——两者混用会让告警永远为真；proxy_configured=false 时 enrich_success 低几乎一定是 secrets.DJYY_PROXY 未设置，不是上游故障",
   "snapshot_probs": 0,
   "snapshot_total": 10,
   "snapshot_age_h": 0.0,
-  "snapshot_updated_at": "2026-11-24T17:07:40",
+  "snapshot_updated_at": "2026-11-24T18:21:17",
   "live_channel_used": true,
   "fallback": "live"
 }
