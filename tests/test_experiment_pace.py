@@ -102,3 +102,15 @@ def test_cli_prints_both_pools(capsys, tmp_path, monkeypatch):
     out = capsys.readouterr().out
     assert "E8: n=1/60" in out
     assert "E10: n=1/60" in out
+
+
+def test_e8_extension_period_no_early_closeout():
+    """2026-11-24 用户裁决 B 案：延期窗口内 E8 满样也不喊「可收尾」，12-31 统一终判。"""
+    recs = [_rec(f"2026-11-{d:02d}", "E8") for d in range(1, 22)] * 3   # 63 注
+    s = ep.summarize(recs, "E8", date(2026, 11, 24))
+    assert s["n"] >= 60
+    assert "收尾" not in s["status"], s["status"]
+    assert "预登记延期" in s["status"] and "12-31 统一终判" in s["status"]
+    # 12-31 当天：恢复判据语义（满样→可终判）
+    s2 = ep.summarize(recs, "E8", date(2026, 12, 31))
+    assert "收尾" in s2["status"] or "终判" in s2["status"], s2["status"]
