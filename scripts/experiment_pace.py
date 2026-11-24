@@ -66,6 +66,13 @@ def summarize(recs: list[dict], exp: str, today: date) -> dict:
     # （ROI +6.07% 但单侧 p=0.289≥0.10），旧筛已恢复；n≥60 对它只意味着历史记录。
     if exp == "E10":
         status = "已终判关闭（11-16 失败：p=0.289≥0.10），仅历史口径"
+    elif exp == "E8" and DEADLINE <= today < EXTENSION:
+        # 2026-11-24 用户裁决（B 案）：延期条款已把判定日移到 12-31——期间即使
+        # n 提前满 60 也**不提前终判**（11-24 实测 n=61、p=0.4505，若抢跑=在及格
+        # 线样本上枪毙方向为正的东西，违背延期语义）。12-31 按原判据统一判定。
+        status = "已过 11-22，按预登记延期至 12-31"
+        if n >= TARGET_N:
+            status += "｜n 已满样，12-31 统一终判（不提前）"
     elif n >= TARGET_N:
         status = "已达 n=60，可按判据收尾"
     elif today > EXTENSION:
