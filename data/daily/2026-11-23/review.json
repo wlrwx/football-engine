@@ -1,13 +1,13 @@
 {
   "date": "2026-11-23",
-  "n_matches": 7,
-  "hit_rate": 0.2857,
-  "hits": 2,
+  "n_matches": 8,
+  "hit_rate": 0.375,
+  "hits": 3,
   "source_brier": {
-    "model": 0.5857,
-    "market": 0.7913,
+    "model": 0.6081,
+    "market": 0.7591,
     "djyy": 0.6192,
-    "final": 0.7035
+    "final": 0.6873
   },
   "by_league": {
     "瑞典超": {
@@ -45,6 +45,12 @@
       "hit_rate": 0.0,
       "wilson_lower": 0.0,
       "avg_brier": 0.6905
+    },
+    "美职": {
+      "n": 1,
+      "hit_rate": 1.0,
+      "wilson_lower": 0.2065,
+      "avg_brier": 0.5744
     }
   },
   "by_confidence_tier": {
@@ -61,10 +67,10 @@
       "avg_brier": 0.6014
     },
     "low": {
-      "n": 2,
-      "hit_rate": 0.5,
-      "wilson_lower": 0.0945,
-      "avg_brier": 0.6419
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.6194
     }
   },
   "by_odds_band": {
@@ -87,10 +93,10 @@
       "avg_brier": 0.9439
     },
     "L4 冷(2.2-3.0)": {
-      "n": 2,
-      "hit_rate": 0.5,
-      "wilson_lower": 0.0945,
-      "avg_brier": 0.6419
+      "n": 3,
+      "hit_rate": 0.6667,
+      "wilson_lower": 0.2077,
+      "avg_brier": 0.6194
     }
   },
   "score_stats": {
@@ -115,15 +121,15 @@
     }
   },
   "market_signal_stats": {
-    "n": 7,
+    "n": 8,
     "hits": 3
   },
   "layered": {
-    "log_loss_final": 1.1409,
-    "rps_final": 0.2514,
-    "rps_market": 0.2846,
+    "log_loss_final": 1.1188,
+    "rps_final": 0.2505,
+    "rps_market": 0.2788,
     "goal_framework": {
-      "n": 7,
+      "n": 8,
       "hits": 2
     },
     "prob_bands": {
@@ -140,8 +146,8 @@
         "hit_rate": 1.0
       },
       "<40%": {
-        "n": 2,
-        "hit_rate": 0.5
+        "n": 3,
+        "hit_rate": 0.6667
       }
     },
     "freshness_groups": {
@@ -152,11 +158,15 @@
       "ok": {
         "n": 5,
         "hit_rate": 0.4
+      },
+      "watch": {
+        "n": 1,
+        "hit_rate": 1.0
       }
     }
   },
   "biases": [],
   "total_pnl": 0.0,
-  "generated_at": "2026-11-24T01:22:06.829800",
-  "sha256": "5732fedef471a612c188151121423ec5"
+  "generated_at": "2026-11-24T05:37:15.280242",
+  "sha256": "c592daeeaf6caa4a24a5807714becfe1"
 }
