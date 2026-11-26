@@ -19,6 +19,8 @@ class BetCandidate:
     stake: float = 0.0
     is_parlay: bool = False
     risk_notes: list[str] = field(default_factory=list)
+    fair_market_prob: float | None = None
+    fair_edge: float | None = None
 
 
 @dataclass
@@ -186,6 +188,19 @@ class KellyStrategy:
                 edge = model_prob - market_prob
                 ev = model_prob * odds - 1.0
 
+                fair_market_prob: float | None = None
+                fair_edge: float | None = None
+                mf = pred.get("market_fair")
+                idx_map = {"home": 0, "draw": 1, "away": 2}
+                if isinstance(mf, (list, tuple)) and len(mf) >= 3:
+                    try:
+                        fp = float(mf[idx_map[sel]])
+                        if 0.0 < fp < 1.0:
+                            fair_market_prob = fp
+                            fair_edge = round(model_prob - fp, 6)
+                    except (TypeError, ValueError):
+                        pass
+
                 if edge < self.min_edge or ev < self.min_ev:
                     continue
 
@@ -221,6 +236,8 @@ class KellyStrategy:
                     ev=ev,
                     kelly_fraction=full_kelly,
                     stake=stake,
+                    fair_market_prob=fair_market_prob,
+                    fair_edge=fair_edge,
                 )
                 candidates.append(candidate)
 

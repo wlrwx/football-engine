@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -156,6 +157,7 @@ class WalkForwardEvaluator:
             "predicted_draw_rate": round(predicted_draws / total, 4) if total else 0,
             "max_draw_prob": round(max_draw_prob, 4),
             "avg_draw_prob": round(avg_draw_prob, 4),
+            "draw_calibration_gap": round(avg_draw_prob - (actual_draws / total), 4) if total else 0.0,
             "avg_market_draw": round(
                 sum(market_draws) / len(market_draws), 4
             ) if market_draws else None,
@@ -238,18 +240,69 @@ class WalkForwardEvaluator:
 
     @staticmethod
     def _compute_ece(probs: np.ndarray, actuals: np.ndarray, n_bins: int = 10) -> float:
-        """Expected Calibration Error"""
-        ece = 0.0
+        """Classwise average Expected Calibration Error in [0, 1]."""
         n = len(probs)
-        for idx in range(probs.shape[1]):
+        n_classes = probs.shape[1] if probs.ndim == 2 else 0
+        if n == 0 or n_classes == 0:
+            return 0.0
+        ece = 0.0
+        bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
+        for idx in range(n_classes):
             y_pred = probs[:, idx]
             y_true = (actuals == idx).astype(float)
-            bin_edges = np.linspace(0, 1, n_bins + 1)
             for b in range(n_bins):
-                mask = (y_pred >= bin_edges[b]) & (y_pred < bin_edges[b + 1])
+                if b == n_bins - 1:
+                    mask = (y_pred >= bin_edges[b]) & (y_pred <= bin_edges[b + 1])
+                else:
+                    mask = (y_pred >= bin_edges[b]) & (y_pred < bin_edges[b + 1])
                 if mask.sum() > 0:
                     ece += abs(y_pred[mask].mean() - y_true[mask].mean()) * mask.sum() / n
-        return ece
+        return float(ece / n_classes)
+
+    def evaluate_rolling_windows(
+        self,
+        window_days: int = 30,
+        step_days: int = 30,
+        min_matches: int = 20,
+    ) -> list[dict]:
+        """按时间滚动窗口计算样本外分段指标（用于观察分布漂移与平局校准）。"""
+        records = self._load_records()
+        if not records:
+            return []
+        dated: list[tuple[date, dict]] = []
+        for r in records:
+            try:
+                dated.append((date.fromisoformat(str(r.get("date", ""))[:10]), r))
+            except ValueError:
+                continue
+        if not dated:
+            return []
+        dated.sort(key=lambda x: x[0])
+        min_d, max_d = dated[0][0], dated[-1][0]
+        windows: list[dict] = []
+        cur = min_d
+        step = timedelta(days=max(1, step_days))
+        win = timedelta(days=max(1, window_days) - 1)
+        while cur <= max_d:
+            end = cur + win
+            chunk = [r for d, r in dated if cur <= d <= end]
+            if len(chunk) >= min_matches:
+                probs = np.array([r["final_prob"] for r in chunk], dtype=float)
+                actuals = np.array([r["actual_idx"] for r in chunk], dtype=int)
+                hits = int((np.argmax(probs, axis=1) == actuals).sum())
+                windows.append({
+                    "date_range": [cur.isoformat(), end.isoformat()],
+                    "n": len(chunk),
+                    "brier": round(brier_score(probs, actuals), 4),
+                    "rps": round(ranked_probability_score(probs, actuals), 4),
+                    "log_loss": round(log_loss(probs, actuals), 4),
+                    "ece": round(self._compute_ece(probs, actuals), 4),
+                    "hit_rate": round(hits / len(chunk), 4),
+                    "avg_draw_prob": round(float(probs[:, 1].mean()), 4),
+                    "actual_draw_rate": round(float((actuals == 1).mean()), 4),
+                })
+            cur += step
+        return windows
 
     @staticmethod
     def _by_league(records: list[dict]) -> dict:
