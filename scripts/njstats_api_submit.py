@@ -449,15 +449,62 @@ def parse_board_with_odds(raw: bytes) -> list[dict]:
     return out
 
 
-def board_with_odds(jwt: str | None = None) -> list[dict] | None:
-    """全板 + 站点赔率。取不到返回 None。"""
+# msgId=1 的成功响应把 "suc" 放在 f2；厂商出错时同一个位置换成错误文案，
+# 而 HTTP 状态码照样是 200（2026-11-26 21:35 起实测，原文 27 字节：
+# f1=-1 哨兵 + f2="系统错误!!"，没有 f5 板容器）。
+BOARD_OK_MSG = "suc"
+
+
+def board_response_error(raw: bytes) -> str:
+    """msgId=1 响应里的上游错误文案（f2 不是 "suc" 时）。取不到返回空串。
+
+    只回文案、不回原始字节，并截断到 60 字符：这段文本会写进 duty.log，
+    而 duty.log 同时被摘要与派单读，抄整包没有意义。
+    """
+    if not raw:
+        return ""
+    try:
+        top = decode_msg(raw)
+    except Exception:  # noqa: BLE001 - 诊断用的解析绝不能再抛
+        return ""
+    for fn, kind, val in top:
+        if fn != 2 or kind != "s" or not isinstance(val, (bytes, bytearray)):
+            continue
+        txt = val.decode("utf-8", "ignore").strip()
+        if txt and txt != BOARD_OK_MSG:
+            return txt[:60]
+    return ""
+
+
+def board_fetch(jwt: str | None = None) -> tuple[list[dict] | None, str]:
+    """全板 + 站点赔率，并把「为什么没有」一起带回来说话。
+
+    返回 (board, why_empty)：board 为 None 表示根本没拿到（无 JWT / HTTP 非 200），
+    否则是解析出的场次（可能是空表）；why_empty 只在没拿到场次时有值，
+    是人能看懂的一句原因。
+
+    为什么单独开这个函数而不动 board_with_odds：下单链只关心「有没有场次可投」，
+    None 和 [] 对它没区别；**采集侧**必须分清「厂商在 200 里报错」「厂商返回空板」
+    「非 200」——2026-11-26 21:35 起 msgId=1 就是第一种，而 duty 的
+    `if not board: return` 把它咽成一行日志都没有的静默，站点赔率快照断供
+    3 小时无人知晓，每天翻篇后只剩摘要那句「今天的站点赔率快照不在仓库里」。
+    """
     jwt = jwt or (JWT_FILE.read_text(encoding="utf-8").strip() if JWT_FILE.exists() else "")
     if not jwt:
-        return None
+        return None, "无 JWT"
     st, raw = _post_jwt(jwt, "1012", "1", _field(3, b""))
     if st != 200:
-        return None
-    return parse_board_with_odds(raw)
+        return None, f"HTTP {st}"
+    board = parse_board_with_odds(raw)
+    if board:
+        return board, ""
+    return board, board_response_error(raw) or "上游返回空板（无 f5 场次容器）"
+
+
+def board_with_odds(jwt: str | None = None) -> list[dict] | None:
+    """全板 + 站点赔率。取不到返回 None（契约不变，下单链继续用它）。"""
+    board, _why = board_fetch(jwt)
+    return board
 
 
 # ---------- 自建策略回测（modId=1028，2026-11-08 逆向） ----------

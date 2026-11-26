@@ -1039,11 +1039,24 @@ def _maybe_server_records_snapshot() -> None:
     # 只在「当前板」可见，赛后就变了，不存下来永远没法回测「换成站点
     # 赔率算 EV 能不能提高命中」。每天存一份，攒够再做配对回放。
     try:
-        board = api.board_with_odds()
+        board, why = api.board_fetch()
     except Exception as e:  # noqa: BLE001
         log(f"odds-snapshot: 取数失败 {type(e).__name__}")
         return
     if not board:
+        # 拿不到场次就**不写**当天快照：这份文件是覆盖式的，一轮空响应会把当天
+        # 上午攒下的 300+ 场清成 0 场，配对回放直接报废（同 my_predictions 在
+        # 2026-11-05→11-07 的教训）。但必须留字：2026-11-26 21:35 起厂商 msgId=1
+        # 在 HTTP 200 里返回「系统错误!!」，旧代码在这里 `if not board: return`
+        # 一个字都不写，duty.log 上「odds-snapshot 行凭空消失」是唯一线索——
+        # 于是运维摘要只能报「今天的站点赔率快照不在仓库里，查 duty 是否跑过、
+        # 是否推成功」，把一条厂商侧故障派成查提交链路的 agent 工单（#29）。
+        # 「根本没拿到响应」（None：无 JWT / HTTP 非 200）与「拿到了但 0 场」
+        # 是两种形状，分开写，别混成一行。
+        if board is None:
+            log(f"odds-snapshot: 全板取数失败，不写快照，沿用旧文件；原因={why or '未知'}")
+        else:
+            log(f"odds-snapshot: 全板 0 场，不写快照，沿用旧文件；原因={why or '上游未给原因'}")
         return
     with_odds = [b for b in board if b.get("odds")]
     odds_dir = ROOT / "data" / "state" / "njstats" / "site_odds"

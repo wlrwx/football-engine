@@ -1,7 +1,27 @@
 # PROJECT.md — football-engine（竞彩足球概率引擎）
 
 > [!IMPORTANT] 交接卡（收工必更新；冷启动只读这块）
-> 状态: doing　更新: 2026-10-28 16:20（三条 PR 合并 + Windows 门禁 + 模型权重归零研究）
+> 状态: doing　更新: 2026-11-27 00:40（站点赔率断供：采集留字 + 归因分叉）
+> 本轮(11-27, 自动化 agent): 站点赔率快照断供是**厂商在 HTTP 200 里报错**，duty 却
+>           一句话没说，害得自动派单去查一条没坏的 git 链路（dykily#29）。
+>           现象：`data/state/njstats/site_odds/` 停在 11-26（本地文件 mtime 21:05），
+>           11-27 00:06 摘要喊 `today_site_odds_missing` 并自动建单。同轮 `已推: duty:
+>           njstats 每日快照…` 说明提交链是好的；duty.log 里 21:35 起 odds-snapshot
+>           行**整体消失**（`1x2: …池0/匹配0/候选0`），而私有端点 msgId=11 照样 164 条。
+>           根因两层：① 取数层——msgId=1 从 11-26 21:35 起返回 27 字节的
+>           `f1=-1 / f2="系统错误!!"`（HTTP 200），`parse_board_with_odds()` 与「今天
+>           真没场次」给出同一个 `[]`，duty 的 `if not board: return` 于是静默；
+>           ② 判定层——`ops_digest` 的 `error_upstream` 按行序判「已自愈」，出错行在轮头、
+>           `已推` 在轮尾，每轮开头都被洗白，`agent_dispatch` 的 ROOT_CAUSES 压制失效
+>           （11-26 00:05 那轮 mint 直接失败退出、洗不掉，所以没派单——同一个故障两种结局）。
+>           修法：`board_fetch()` 把原因一起返回（`scripts/njstats_api_submit.py:458/479`），
+>           duty 失败必留字且不覆盖当天旧快照（`scripts/njstats_duty.py:1057/1059`），
+>           摘要顺着 odds 自己那一族行认断供（`scripts/ops_digest.py:218`）并在缺文件时
+>           换 code `odds_board_upstream`（`:364`，`SUCCESS_RE` 同步收紧到只认成功写法
+>           `:82`）；派单器把它归 HUMAN_ONLY（`scripts/agent_dispatch.py:63`）。
+>           **故意没动**：`challenge_hourly.py:176` 拿 `board_with_odds()` 的 None 分支打印
+>           「列表失败（JWT 过期？）」——措辞在猜登录态，但那是下单链的既有行为，改它
+>           等于动投注链，留给单独一轮。
 > 本轮(11-16, 自动化 agent): 「当天预测没落库」是**每晚必犯的误报**，已修判定，没修预测链。
 >           现象：11-10~11-16 连续七晚 00:05 报 `prediction_coverage_gap`，自动派了
 >           #12/#14/#16/#18/#21/#22/#24 七张工单。查下来回仓没被拦：11-15 的

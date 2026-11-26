@@ -76,7 +76,16 @@ ERROR_RULES = (
     ("djyy", r"blocked_by_edge|DJYY.*403",
      "已知 Cloudflare 拦截；快照补位生效即不算故障，不要改 cf-proxy/workflow"),
 )
-SUCCESS_RE = re.compile(r"已推:|1x2:|odds-snapshot:")
+# 成功轮次的标记。**odds-snapshot 只认成功那种写法**：2026-11-27 起失败也写行
+# （全板取数失败 / 全板 0 场），整族前缀当成功会把厂商故障洗成「本轮成功」，
+# error_upstream 于是每轮开头被解除——#29 那张查错方向的工单就是这么派出去的。
+SUCCESS_RE = re.compile(r"已推:|1x2:|odds-snapshot: 站点赔率")
+# duty 的全板（msgId=1）取数结论，两个方向都要认：
+#   成功 = 「odds-snapshot: 站点赔率 N/M 场」
+#   失败 = 「odds-snapshot: 全板取数失败…；原因=X」/「odds-snapshot: 全板 0 场…；原因=X」
+#          （以及改前就有的异常行「odds-snapshot: 取数失败 Timeout」）
+ODDS_OK_RE = re.compile(r"odds-snapshot: 站点赔率 \d+/\d+ 场")
+ODDS_BAD_RE = re.compile(r"odds-snapshot: (?:全板取数失败|全板 0 场|取数失败)(?:.*?原因=(?P<why>.+))?")
 
 
 def mask(text: str) -> str:
@@ -206,6 +215,32 @@ def truth_snapshot_age_h(now: datetime | None = None) -> float | None:
     return ((now or datetime.now(BJT)) - ts).total_seconds() / 3600
 
 
+def board_outage(rows: list[tuple[str, str]]) -> dict | None:
+    """全板（msgId=1）现在是不是取不到数：最后一族 odds-snapshot 行是失败行才算。
+
+    为什么单列一条，而不是复用 error_upstream：`resolved` 判的是「出错行之后有没有
+    成功行」，而 duty 一轮里 mint 502 写在开头、「已推」写在结尾——同一个故障每轮
+    都被自己末尾的提交洗成「已自愈」（2026-11-26 00:05 那轮 mint 直接失败退出，
+    所以洗不掉，派单机按 ROOT_CAUSES 压住了症状；11-27 00:06 走的是缓存 JWT，
+    洗干净了，于是照派 #29）。这条只顺着 odds-snapshot 自己那一族行看，
+    跟同轮其它行谁先谁后无关，形状稳定。
+
+    近 24h 一条 odds 行都没有（机器没跑 / 采集步没执行）返回 None：那种形状
+    仍然是提交链问题，照旧走可派单的 today_site_odds_missing。
+    """
+    bad: str | None = None
+    for _k, body in rows:
+        if ODDS_OK_RE.search(body):
+            bad = None
+            continue
+        m = ODDS_BAD_RE.search(body)
+        if m:
+            bad = (m.group("why") or "").strip() or "未记原因"
+    if bad is None:
+        return None
+    return {"why": bad[:80]}
+
+
 def session_health() -> dict | None:
     """最近一次无头续期的结论，只认 auth_dead。
 
@@ -270,7 +305,8 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
                     truth: dict | None = None,
                     truth_age: float | None = None,
                     daily: dict | None = None,
-                    session_dead: dict | None = None) -> list[dict]:
+                    session_dead: dict | None = None,
+                    board_down: dict | None = None) -> list[dict]:
     flags: list[dict] = []
 
     def add(code, detail, action):
@@ -317,7 +353,21 @@ def build_red_flags(rounds: dict, errors: dict, attr: dict | None, st: dict,
         add("snapshot_not_committed",
             "快照从未入库" if snap_age is None else f"快照已 {snap_age:.1f}h 未入库",
             "样本只活在本机等于没攒；查 duty 的 commit_push 与远端权限")
-    if not today_site_odds:
+    if board_down:
+        # 厂商全板 msgId=1 取不到数：断供在厂商侧，不在提交链。
+        # 两个形状都要喊，但都不是 agent 工单：
+        #   当天文件已不在 = E8/E10 少一天样本（#29 就是这个形状派出去的）；
+        #   当天文件还在 = 上午攒的那份之后不再更新，11-26 21:35→23:35 三连败
+        #     就是这么静默过去的——旧判据只看文件在不在，晚上根本不会报。
+        # code 是派单器的唯一路由依据，所以这里换新 code；沿用
+        # today_site_odds_missing 等于派 agent 去查一条没坏的 git push。
+        add("odds_board_upstream",
+            ("今天的站点赔率快照不在仓库里，而 duty 记录全板取不到数"
+             f"（{board_down['why']}）") if not today_site_odds else
+            (f"站点赔率快照今天不再更新：duty 记录全板取不到数（{board_down['why']}）"),
+            "厂商全板 msgId=1 侧故障：duty 在跑、也在推其它快照，恢复后首轮自动补当天文件；"
+            "等厂商恢复，别改提交链、别改门槛、别人工播种")
+    elif not today_site_odds:
         add("today_site_odds_missing", "今天的站点赔率快照不在仓库里",
             "E8/E10 的配对回放前提；查 duty 是否跑过、是否推成功")
     m = re.search(r"仓库未记 (\d+) 条", account_line)
@@ -405,6 +455,7 @@ def collect(now: datetime | None = None, forecast_last_date: str = "") -> dict:
         account_line, (cr.STATE / "njstats" / "site_odds" / f"{today.isoformat()}.json").exists(),
         truth=truth_check(rows), truth_age=truth_snapshot_age_h(),
         daily=daily,
+        board_down=board_outage(rows),
         session_dead=session_health())
     ctx["report"] = render(ctx)
     return ctx
