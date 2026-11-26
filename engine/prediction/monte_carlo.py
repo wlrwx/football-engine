@@ -37,6 +37,8 @@ class MonteCarloConfig:
     # 胖尾让 2-2/3-1/4-0 概率上升。walk-forward: top5 39.8%→46.0%（κ=0.25）
     # κ=0 时退化为纯泊松（负二项→泊松极限）
     lambda_overdispersion: float = 0.25
+    # 默认评级回退开关：False 时禁止在缺失评级时用市场赔率反推 xG（避免目标市场隐式泄漏）
+    allow_odds_xg_fallback: bool = False
 
     def __post_init__(self):
         if self.time_decay_anchors is None:
@@ -77,10 +79,10 @@ class MonteCarloModel(PredictionModel):
 
         home_xg, away_xg = self._expected_goals(home, away, is_neutral, h2h_factor)
 
-        # 市场赔率校准xG：当球队缺少真实ratings时用赔率反推
+        # 市场赔率校准xG：当球队缺少真实ratings且显式允许回退时用赔率反推
         is_default_home = (home.elo == 1500.0 and home.attack == 1.0)
         is_default_away = (away.elo == 1500.0 and away.attack == 1.0)
-        if market_odds and (is_default_home or is_default_away):
+        if self.cfg.allow_odds_xg_fallback and market_odds and (is_default_home or is_default_away):
             odds_xg = self._xg_from_odds(market_odds)
             if odds_xg:
                 if is_default_home and is_default_away:

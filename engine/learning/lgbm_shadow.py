@@ -19,15 +19,21 @@ data/state/lgbm_status.json、绝不自动进生产。
 
 from __future__ import annotations
 
+import inspect
 import json
 import math
 from pathlib import Path
 
-from engine.prediction.lgbm_model import FEATURE_NAMES, build_features
+from engine.prediction.lgbm_model import (
+    FEATURE_NAMES,
+    build_features,
+    feature_dict_to_vector,
+)
 
 DEFAULTS = {
     "min_train_samples": 300,   # 全量已结算样本门槛（特征/标签全链有效）
     "holdout_frac": 0.3,
+    "early_stop_val_frac": 0.2,
     "min_improvement": 0.002,
     "min_z": 1.96,
 }
@@ -161,24 +167,37 @@ def shadow_train(all_records: list[dict], clean_records: list[dict],
         # 2026-09-21: 用 FEATURE_NAMES 权威列序（与 predict_single 内部一致），
         # 缺键以 0.0 容错——避免首行键集与后续行不一致时 KeyError 整轮失败
         keys = list(FEATURE_NAMES)
+        use_nan = bool(getattr(lgbm_cfg, "missing_as_nan", True))
 
         def _matrix(rs):
-            X = np.array([[float(r["features"].get(k, 0.0)) for k in keys] for r in rs])
+            X = np.array([
+                feature_dict_to_vector(r["features"], keys, missing_as_nan=use_nan)
+                for r in rs
+            ])
             y = np.array([r["label"] for r in rs])
             return X, y
 
-        split = int(len(rows) * (1 - float(cfg["holdout_frac"])))
-        train_rows, hold_rows = rows[:split], rows[split:]
-
-        Xtr, ytr = _matrix(train_rows)
+        # 严格三段时序切分：train → early-stopping val → 纯样本外 holdout
+        # 禁止把 holdout (Xho, yho) 传入 early stopping，避免评估泄漏。
+        hold_split = int(len(rows) * (1 - float(cfg["holdout_frac"])))
+        pre_hold, hold_rows = rows[:hold_split], rows[hold_split:]
+        es_frac = float(cfg.get("early_stop_val_frac", 0.2))
+        if len(pre_hold) >= 100 and 0.0 < es_frac < 0.5:
+            es_split = int(len(pre_hold) * (1 - es_frac))
+            train_rows, val_rows = pre_hold[:es_split], pre_hold[es_split:]
+            Xtr, ytr = _matrix(train_rows)
+            Xval, yval = _matrix(val_rows)
+            trainer.train(Xtr, ytr, eval_features=Xval, eval_labels=yval)
+        else:
+            Xtr, ytr = _matrix(pre_hold)
+            trainer.train(Xtr, ytr)
         Xho, yho = _matrix(hold_rows)
-        trainer.train(Xtr, ytr, eval_features=Xho, eval_labels=yho)
 
         # 影子验证：holdout 上 lgbm vs 双基线
         lb, fb_v2, mb = [], [], []
         d_fus, d_mkt = [], []
-        for r, x in zip(hold_rows, Xho):
-            pred = trainer.predict_single(dict(zip(keys, x)))
+        for r in hold_rows:
+            pred = trainer.predict_single(r["features"])
             if not pred:
                 continue
             pl = list(pred)[:3]
@@ -223,9 +242,21 @@ def shadow_train(all_records: list[dict], clean_records: list[dict],
                 miss.append(f"vs市场 Δ={mm[0]:+.4f}(n={mm[2]})")
             status["reason"] = "影子验证未双基线显著 → 保持关闭: " + " | ".join(miss)
 
-        # 生产模型 = 全量重训（供 ready 后启用时使用）
+        # 生产模型 = 全量重训（供 ready 后启用时使用；按早停最优迭代数封顶防过拟合）
         Xall, yall = _matrix(rows)
-        trainer.train(Xall, yall)
+        best_iter = getattr(trainer, "best_iteration_", None)
+        refit_kw: dict = {}
+        if isinstance(best_iter, int) and best_iter > 0:
+            try:
+                sig = inspect.signature(trainer.train)
+                if "n_estimators_override" in sig.parameters or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in sig.parameters.values()
+                ):
+                    refit_kw["n_estimators_override"] = best_iter
+            except (ValueError, TypeError):
+                pass
+        trainer.train(Xall, yall, **refit_kw)
         try:
             trainer.save()
         except Exception:

@@ -106,6 +106,10 @@ class EloUpdater:
         away_score: int,
         is_neutral: bool = False,
         match_date: str | None = None,
+        league_avg_goals: float | None = None,
+        home_xg: float | None = None,
+        away_xg: float | None = None,
+        xg_blend_weight: float = 0.0,
     ):
         """根据比赛结果更新 Elo 和攻防（入口归一化，防条目分裂）
 
@@ -143,21 +147,32 @@ class EloUpdater:
         home.elo = max(self.cfg.min_elo, min(self.cfg.max_elo, home.elo))
         away.elo = max(self.cfg.min_elo, min(self.cfg.max_elo, away.elo))
 
-        # 攻防更新（指数移动平均）
-        baseline = 1.35  # 联赛平均进球
-        home_attack_actual = home_score / max(baseline, 0.1)
-        away_attack_actual = away_score / max(baseline, 0.1)
-        home_defense_actual = away_score / max(baseline, 0.1)
-        away_defense_actual = home_score / max(baseline, 0.1)
+        # 攻防更新（指数移动平均 + 向 1.0 均值回归）
+        baseline = (
+            max(float(league_avg_goals) / 2.0, 0.1)
+            if league_avg_goals is not None and league_avg_goals > 0
+            else 1.35
+        )
+        if 0.0 < xg_blend_weight <= 1.0 and home_xg is not None and away_xg is not None:
+            eff_home = (1.0 - xg_blend_weight) * float(home_score) + xg_blend_weight * float(home_xg)
+            eff_away = (1.0 - xg_blend_weight) * float(away_score) + xg_blend_weight * float(away_xg)
+        else:
+            eff_home = float(home_score)
+            eff_away = float(away_score)
+
+        home_attack_actual = eff_home / baseline
+        away_attack_actual = eff_away / baseline
+        home_defense_actual = eff_away / baseline
+        away_defense_actual = eff_home / baseline
 
         la = self.cfg.attack_learning
         ld = self.cfg.defense_learning
         da = self.cfg.attack_decay
         dd = self.cfg.defense_decay
-        home.attack = da * ((1 - la) * home.attack + la * home_attack_actual)
-        away.attack = da * ((1 - la) * away.attack + la * away_attack_actual)
-        home.defense = dd * ((1 - ld) * home.defense + ld * home_defense_actual)
-        away.defense = dd * ((1 - ld) * away.defense + ld * away_defense_actual)
+        home.attack = da * ((1 - la) * home.attack + la * home_attack_actual) + (1.0 - da) * 1.0
+        away.attack = da * ((1 - la) * away.attack + la * away_attack_actual) + (1.0 - da) * 1.0
+        home.defense = dd * ((1 - ld) * home.defense + ld * home_defense_actual) + (1.0 - dd) * 1.0
+        away.defense = dd * ((1 - ld) * away.defense + ld * away_defense_actual) + (1.0 - dd) * 1.0
 
         # 状态更新（简化：近 5 场得分率）
         home.form = self._update_form(home.form, actual_home)
