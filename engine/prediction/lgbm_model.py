@@ -14,6 +14,8 @@ from typing import Optional
 
 import numpy as np
 
+from .cross_market import CROSS_MARKET_FEATURE_NAMES
+
 try:
     import lightgbm as lgb
     HAS_LGBM = True
@@ -43,6 +45,7 @@ class LGBMConfig:
     use_league_features: bool = True
     use_djyy_features: bool = True
     missing_as_nan: bool = True
+    residual_mode: bool = False  # True=以参考市场 log-odds 作 init_score，仅学市场残差
 
 
 # 标准特征列名（**原有 21 列的顺序不可动**：已训练的 booster 按列号取值，
@@ -92,7 +95,12 @@ MISSING_FEATURE_NAMES = [
     "rank_missing",       # 1.0=缺失联赛排名
 ]
 
-FEATURE_NAMES = BASE_FEATURE_NAMES + SIDE_FEATURE_NAMES + MISSING_FEATURE_NAMES
+FEATURE_NAMES = (
+    BASE_FEATURE_NAMES
+    + SIDE_FEATURE_NAMES
+    + MISSING_FEATURE_NAMES
+    + CROSS_MARKET_FEATURE_NAMES
+)
 
 _MISSING_FLAG_MAP = {
     "xg_home": "xg_missing",
@@ -103,7 +111,33 @@ _MISSING_FLAG_MAP = {
     "djyy_p_away": "djyy_missing",
     "handicap": "handicap_missing",
     "rank_diff": "rank_missing",
+    "pin_implied_home": "cross_market_missing",
+    "pin_implied_draw": "cross_market_missing",
+    "pin_implied_away": "cross_market_missing",
+    "pin_total_xg": "cross_market_missing",
+    "pin_xg_diff": "cross_market_missing",
+    "pin_move_home": "cross_market_missing",
+    "pin_move_draw": "cross_market_missing",
+    "pin_move_away": "cross_market_missing",
+    "pin_totals_shift": "cross_market_missing",
+    "pin_ah_shift": "cross_market_missing",
 }
+
+
+def probs_to_init_score(base_probs: np.ndarray, eps: float = 1e-6) -> np.ndarray:
+    """将先验概率矩阵 (N, 3) 转为逐行中心化的 log-odds init_score。"""
+    arr = np.clip(np.asarray(base_probs, dtype=float), eps, 1.0 - eps)
+    row_sum = np.maximum(arr.sum(axis=-1, keepdims=True), eps)
+    arr = arr / row_sum
+    logits = np.log(arr)
+    return logits - logits.mean(axis=-1, keepdims=True)
+
+
+def _softmax_rows(logits: np.ndarray) -> np.ndarray:
+    shifted = logits - logits.max(axis=1, keepdims=True)
+    exp_v = np.exp(shifted)
+    tot = np.maximum(exp_v.sum(axis=1, keepdims=True), 1e-12)
+    return exp_v / tot
 
 
 def feature_dict_to_vector(
@@ -171,7 +205,9 @@ class LGBMModel:
     def train(self, features: np.ndarray, labels: np.ndarray,
               eval_features: Optional[np.ndarray] = None,
               eval_labels: Optional[np.ndarray] = None,
-              n_estimators_override: Optional[int] = None):
+              n_estimators_override: Optional[int] = None,
+              base_probs: Optional[np.ndarray] = None,
+              eval_base_probs: Optional[np.ndarray] = None):
         """训练模型
 
         Args:
@@ -180,6 +216,8 @@ class LGBMModel:
             eval_features: 验证集特征（可选）
             eval_labels: 验证集标签（可选）
             n_estimators_override: 全量重训时按早停最优迭代数限制树数（可选）
+            base_probs: 残差模式下训练集的参考先验概率 (n_samples, 3)
+            eval_base_probs: 残差模式下验证集的参考先验概率
         """
         if not HAS_LGBM:
             raise ImportError("lightgbm 未安装，请 pip install lightgbm")
@@ -216,9 +254,13 @@ class LGBMModel:
             callbacks.append(lgb.early_stopping(stopping_rounds=30, verbose=False))
 
         self._model = lgb.LGBMClassifier(**params)
-        fit_kwargs = {"callbacks": callbacks}
+        fit_kwargs: dict = {"callbacks": callbacks}
         if eval_features is not None:
             fit_kwargs["eval_set"] = [(eval_features, eval_labels)]
+        if cfg.residual_mode and base_probs is not None:
+            fit_kwargs["init_score"] = probs_to_init_score(base_probs)
+            if eval_features is not None and eval_base_probs is not None:
+                fit_kwargs["eval_init_score"] = [probs_to_init_score(eval_base_probs)]
 
         self._model.fit(features, labels, **fit_kwargs)
         best_it = getattr(self._model, "best_iteration_", None)
@@ -230,11 +272,16 @@ class LGBMModel:
         print(f"  [LGBM] 训练完成: {len(features)} 样本, "
               f"{self.best_iteration_ or n_trees} 棵树")
 
-    def predict_proba(self, features: np.ndarray) -> Optional[np.ndarray]:
+    def predict_proba(
+        self,
+        features: np.ndarray,
+        base_probs: Optional[np.ndarray] = None,
+    ) -> Optional[np.ndarray]:
         """预测概率
 
         Args:
             features: 特征矩阵 (n_samples, n_features)
+            base_probs: 残差模式下的参考先验概率 (n_samples, 3)，缺省均匀先验
 
         Returns:
             概率矩阵 (n_samples, 3) [主胜, 平局, 客胜]，或 None（模型未训练）
@@ -246,6 +293,15 @@ class LGBMModel:
             return None
 
         try:
+            if self.config.residual_mode:
+                raw = self._model.predict(features, raw_score=True)
+                raw = np.asarray(raw, dtype=float).reshape(-1, 3)
+                if base_probs is None:
+                    base = np.full((len(raw), 3), 1.0 / 3.0, dtype=float)
+                else:
+                    base = np.asarray(base_probs, dtype=float).reshape(-1, 3)
+                return _softmax_rows(probs_to_init_score(base) + raw)
+
             if hasattr(self._model, "predict_proba"):
                 return self._model.predict_proba(features)
             else:
@@ -257,11 +313,16 @@ class LGBMModel:
         except Exception:
             return None
 
-    def predict_single(self, feature_dict: dict) -> Optional[tuple[float, float, float]]:
+    def predict_single(
+        self,
+        feature_dict: dict,
+        base_probs: Optional[tuple[float, float, float]] = None,
+    ) -> Optional[tuple[float, float, float]]:
         """单场预测（便捷接口）
 
         Args:
             feature_dict: {feature_name: value} 字典
+            base_probs: 残差模式下的参考市场先验 (p_h, p_d, p_a)
 
         Returns:
             (p_home, p_draw, p_away) 或 None
@@ -284,7 +345,19 @@ class LGBMModel:
                 missing_as_nan=self.config.missing_as_nan,
             )
         ])
-        probs = self.predict_proba(vec)
+        bp_arr: Optional[np.ndarray] = None
+        if self.config.residual_mode:
+            if base_probs is not None:
+                bp_arr = np.array([list(base_probs[:3])], dtype=float)
+            else:
+                cm_miss = feature_dict.get("cross_market_missing", 1.0)
+                if cm_miss is not None and not np.isnan(float(cm_miss)) and float(cm_miss) == 0.0:
+                    ph = float(feature_dict.get("pin_implied_home", 0.0) or 0.0)
+                    pd = float(feature_dict.get("pin_implied_draw", 0.0) or 0.0)
+                    pa = float(feature_dict.get("pin_implied_away", 0.0) or 0.0)
+                    if ph > 0.0 and pd > 0.0 and pa > 0.0:
+                        bp_arr = np.array([[ph, pd, pa]], dtype=float)
+        probs = self.predict_proba(vec, base_probs=bp_arr)
         if probs is not None and len(probs) > 0:
             return float(probs[0][0]), float(probs[0][1]), float(probs[0][2])
         return None
@@ -326,6 +399,7 @@ def build_features(
     rank_away: Optional[int] = None,
     include_market_odds: bool = False,
     side: Optional[dict] = None,
+    cross_market: Optional[dict] = None,
 ) -> dict:
     """从原始数据构造标准特征字典
 
@@ -402,5 +476,17 @@ def build_features(
     features["djyy_missing"] = 0.0 if (djyy_probs and djyy_probs.get("home")) else 1.0
     features["handicap_missing"] = 0.0 if handicap is not None else 1.0
     features["rank_missing"] = 0.0 if (rank_home and rank_away) else 1.0
+
+    # 跨市场参考特征（Pinnacle 亚盘/大小球/开盘位移 + 首发差，非目标竞彩价）
+    cm = cross_market if isinstance(cross_market, dict) else None
+    for name in CROSS_MARKET_FEATURE_NAMES:
+        if cm is None:
+            features[name] = 1.0 if name == "cross_market_missing" else 0.0
+        else:
+            try:
+                default_v = 1.0 if name == "cross_market_missing" else 0.0
+                features[name] = float(cm.get(name, default_v))
+            except (TypeError, ValueError):
+                features[name] = 1.0 if name == "cross_market_missing" else 0.0
 
     return features

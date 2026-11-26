@@ -53,6 +53,19 @@ REFERENCE_MARKET_FEATURES = {
     "asian_handicap_line",  # 亚盘让球线（参考信号）
     "asian_handicap_odds",
     "over_under_line",
+    # cross_market 参考市场特征（来自 Pinnacle / 首发信息，非目标竞彩盘）
+    "pin_implied_home",
+    "pin_implied_draw",
+    "pin_implied_away",
+    "pin_total_xg",
+    "pin_xg_diff",
+    "pin_move_home",
+    "pin_move_draw",
+    "pin_move_away",
+    "pin_totals_shift",
+    "pin_ah_shift",
+    "lineup_strength_diff",
+    "cross_market_missing",
 }
 
 # 仅用于评估、绝不入特征的字段

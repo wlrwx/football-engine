@@ -589,6 +589,26 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # （训练用落盘的模型 xG，服务用 DJYY fixture xG）。这里只取一次、
         # 随预测落盘，训练侧原样回放，保证两端逐位同参。
         _lg_goals, _lg_home_win = league_stats(fixture.competition)
+        from engine.prediction.cross_market import extract_cross_market_features
+        _djyy_ctx = djyy_data.get("context") or {}
+        _pin_ref = djyy_data.get("pinnacle_odds")
+        if not _pin_ref and _djyy_ssr.get("home_odds_djyy"):
+            _pin_ref = (
+                _djyy_ssr.get("home_odds_djyy"),
+                _djyy_ssr.get("draw_odds_djyy"),
+                _djyy_ssr.get("away_odds_djyy"),
+            )
+        _lineup_ref = {
+            "home_starting_attackers": _djyy_ctx.get("home_starting_attackers"),
+            "away_starting_attackers": _djyy_ctx.get("away_starting_attackers"),
+            "injuries": djyy_data.get("injuries"),
+        }
+        _cross_market = extract_cross_market_features(
+            opening_movement=_djyy_ctx.get("opening_movement"),
+            pinnacle_odds=_pin_ref,
+            lineup_info=_lineup_ref,
+            rho=dc_cfg.rho,
+        )
         _lgbm_inputs = {
             "form_home": float(home_rating.form or 0.0),
             "form_away": float(away_rating.form or 0.0),
@@ -601,6 +621,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             # 与落盘的 home_xg/away_xg 同源（模型 xG），不再用 fixture 外部 xG
             "xg_home": pred.home_xg,
             "xg_away": pred.away_xg,
+            "cross_market": _cross_market,
         }
         lgbm_probs = None
         if lgbm_model.is_available:
@@ -622,6 +643,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
                 djyy_probs=djyy_probs,
                 include_market_odds=lgbm_cfg.use_odds_features,
                 side=_side_sig.to_features() if _side_sig else None,
+                cross_market=_lgbm_inputs["cross_market"],
             )
             _lgbm_pred = lgbm_model.predict_single(feature_dict)
             if _lgbm_pred:
