@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 DEFAULTS = {
+    "method": "isotonic",      # "isotonic" | "temperature"
     "min_samples": 100,        # 洁净样本低于此数不做启用决策
     "val_frac": 0.4,           # 时间顺序验证段占比
     "min_improvement": 0.002,  # 启用所需的最小 Brier 改善
@@ -56,7 +57,7 @@ def _paired(records, calibrate_fn) -> tuple[float, float, int]:
 
 def decide_calibration(clean_records: list[dict], current_enabled: bool,
                        config: dict | None = None) -> dict:
-    """判定校准层（isotonic）是否应自动启用。
+    """判定校准层（isotonic / temperature）是否应自动启用。
 
     clean_records: [{"date","final_prob","actual_idx"}, ...]（chain==v2）
     current_enabled: 当前状态文件里的 enabled
@@ -64,8 +65,10 @@ def decide_calibration(clean_records: list[dict], current_enabled: bool,
     返回 status dict（调用方负责落盘）。纯函数：不在生产状态上拟合。
     """
     cfg = {**DEFAULTS, **(config or {})}
+    method = str(cfg.get("method", "isotonic")).lower()
     status = {
         "enabled": current_enabled,
+        "method": method,
         "clean_n": len(clean_records),
         "val_delta_brier": 0.0,
         "t": 0.0,
@@ -85,17 +88,22 @@ def decide_calibration(clean_records: list[dict], current_enabled: bool,
         status["reason"] = f"切分后样本不足 (train {len(train)} / val {len(val)})，维持现状"
         return status
 
-    from engine.prediction.isotonic_cal import IsotonicCalibrator
     # 2026-10-23 修复：原为 f"cal_auto_{id(cfg)}.pkl"（内存地址）命名，
     # 跨进程可能撞名互相覆盖。改用 mkdtemp 唯一目录。
-    scratch = Path(tempfile.mkdtemp(prefix="cal_auto_")) / "calibrator.pkl"
-    calibrator = IsotonicCalibrator(scratch)
+    tmp_dir = Path(tempfile.mkdtemp(prefix="cal_auto_"))
+    scratch = tmp_dir / ("temperature.json" if method == "temperature" else "calibrator.pkl")
     try:
         import numpy as np
-        calibrator.fit(
-            np.array([r["final_prob"] for r in train]),
-            np.array([r["actual_idx"] for r in train]),
-        )
+        tr_probs = np.array([r["final_prob"] for r in train])
+        tr_actuals = np.array([r["actual_idx"] for r in train])
+        if method == "temperature":
+            from engine.prediction.temperature_scaling import TemperatureScaler
+            calibrator = TemperatureScaler(scratch)
+            calibrator.fit(tr_probs, tr_actuals)
+        else:
+            from engine.prediction.isotonic_cal import IsotonicCalibrator
+            calibrator = IsotonicCalibrator(scratch)
+            calibrator.fit(tr_probs, tr_actuals)
         if not calibrator.is_fitted:
             status["reason"] = "训练段未拟合出有效校准器，维持现状"
             return status
@@ -104,7 +112,7 @@ def decide_calibration(clean_records: list[dict], current_enabled: bool,
         if scratch.exists():
             scratch.unlink()
         try:
-            scratch.parent.rmdir()
+            tmp_dir.rmdir()
         except OSError:
             pass
 
