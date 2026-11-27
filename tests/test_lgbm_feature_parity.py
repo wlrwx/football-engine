@@ -47,9 +47,12 @@ def test_league_stats_unknown_and_missing_file_fall_back():
     assert league_stats("英超", path=missing) == (DEFAULT_AVG_GOALS, DEFAULT_HOME_WIN_RATE)
 
 
-def test_league_matrix_rows_without_home_win_are_skipped():
-    # 日职联的 home_win_pct 为 null，不能当 0% 用（那会把主胜率压到地板）
-    assert league_stats("日职联") == (DEFAULT_AVG_GOALS, DEFAULT_HOME_WIN_RATE)
+def test_league_matrix_rows_without_home_win_fallback_default_rate():
+    # 日职联的 home_win_pct 为 null，不能当 0% 用（那会把主胜率压到地板），保留真实 avg_goals 并回退默认主胜率
+    goals, hw = league_stats("日职联")
+    assert goals == pytest.approx(3.6)
+    assert hw == DEFAULT_HOME_WIN_RATE
+    assert hw > 0.0
 
 
 def test_main_passes_and_persists_frozen_inputs():
