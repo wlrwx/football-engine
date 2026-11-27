@@ -290,6 +290,10 @@ def test_daily_dom_css_exposure_and_scoping(tmp_path, monkeypatch):
     assert any("page" in cls.split() for cls in checker.footer_ancestors[0])
 
     assert _check_css_vars(html) == set()
+    assert "match-board" in html
+    assert "m-teams" in html
+    assert "m-probs" in html
+    assert "今日单注空仓" in html
     assert "实际总敞口" in html
     assert "&yen;16" in html
     assert "单注 &yen;0 &middot; 串关 &yen;16" in html
@@ -314,6 +318,8 @@ def test_track_record_dom_css_and_v2_sections(tmp_path):
     assert checker.div_stack == []
     assert _check_css_vars(html) == set()
 
+    for tab_id in ("tr-overview", "tr-betting", "tr-diagnostics"):
+        assert tab_id in html
     assert "v2 洁净场次" in html
     assert "v2 vs 市场 (配对)" in html
     assert "DJYY 覆盖 29.5%" in html
