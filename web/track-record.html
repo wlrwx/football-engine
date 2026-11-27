@@ -1,138 +1,182 @@
 <!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Track Record · 竞彩分析引擎公开战绩</title>
+<title>Track Record · 竞彩分析</title>
 <style>
 :root {
-  /* 2026-08-30 亮色重塑（方向A 简洁亮色 SaaS）：令牌集中定义 */
-  --bg:#f6f8fb; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e8eef5;
+  --bg:#f8fafc; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e2e8f0;
   --border:#e2e8f0; --border-light:#cbd5e1;
   --text:#0f172a; --text-secondary:#475569; --dim:#94a3b8;
-  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --amber:#d97706; --cyan:#0891b2;
-  --purple:#7c3aed; --teal:#0d9488;
-  --blue-dim:rgba(37,99,235,.12); --red-dim:rgba(220,38,38,.12);
-  --green-dim:rgba(22,163,74,.12); --amber-dim:rgba(217,119,6,.12);
-  --purple-dim:rgba(124,58,237,.14);
-  --radius:14px; --radius-sm:10px;
-  --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.05);
-  --shadow-lift:0 4px 16px rgba(15,23,42,.08);
-  --transition:all .18s ease;
+  --blue:#2563eb; --red:#be123c; --green:#15803d; --amber:#b45309; --cyan:#0e7490;
+  --purple:#6d28d9; --teal:#0f766e;
+  --blue-dim:rgba(37,99,235,.08); --red-dim:rgba(190,18,60,.08);
+  --green-dim:rgba(21,128,61,.09); --amber-dim:rgba(180,83,9,.09);
+  --purple-dim:rgba(109,40,217,.08);
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(15,23,42,.04);
+  --shadow-lift:0 4px 12px rgba(15,23,42,.06);
+  --transition:all .15s ease;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; line-height:1.6; }
-.page { max-width:1080px; margin:0 auto; padding:28px 20px 60px; }
-.header { display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:8px 0 20px; border-bottom:1px solid var(--border); margin-bottom:24px; flex-wrap:wrap; }
-.header h1 { font-size:1.5rem; font-weight:800; letter-spacing:0.02em; }
-.header .sub { color:var(--dim); font-size:0.78rem; margin-top:4px; }
-.nav a { color:var(--blue); text-decoration:none; font-size:0.8rem; padding:6px 14px; border:1px solid var(--border); border-radius:20px; transition:var(--transition); }
-.nav a:hover { border-color:var(--blue); text-decoration:none; }
-.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; margin-bottom:26px; }
-.kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:15px 16px; }
-.kpi .label { color:var(--dim); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; }
-.kpi .value { font-size:1.45rem; font-weight:800; margin-top:5px; }
-.kpi .sub-val { font-size:0.68rem; color:var(--text-secondary); margin-top:3px; }
-.kpi .value.green, .green { color:var(--green); } .kpi .value.amber, .amber { color:var(--amber); } .kpi .value.red, .red { color:var(--red); } .kpi .value.blue, .blue { color:var(--blue); }
-.section-title { font-size:0.95rem; font-weight:800; margin:26px 0 10px; color:var(--text); padding-left:10px; border-left:3px solid var(--blue); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.section-title .st-note { font-size:0.7rem; color:var(--dim); font-weight:500; }
-.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; }
-.stat { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; min-width:120px; }
+body {
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.tabular, table, .kpi .value { font-variant-numeric:tabular-nums; }
+a { color:var(--blue); text-decoration:none; }
+a:hover { text-decoration:underline; }
+.page { max-width:1040px; margin:0 auto; padding:0 16px 56px; }
+.topbar {
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding:12px 0; margin-bottom:18px;
+  background:rgba(248,250,252,.92); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.brand { display:flex; align-items:baseline; gap:10px; }
+.brand h1 { font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; }
+.brand .sub { color:var(--dim); font-size:0.74rem; font-variant-numeric:tabular-nums; }
+.seg-tabs {
+  display:inline-flex; gap:2px; padding:3px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+}
+.page-tab-btn {
+  padding:6px 14px; border:none; border-radius:7px; background:transparent;
+  color:var(--text-secondary); font-size:0.8rem; font-weight:600; cursor:pointer;
+  transition:var(--transition); font-family:inherit;
+}
+.page-tab-btn:hover { color:var(--text); }
+.page-tab-btn.active { background:var(--surface); color:var(--text); font-weight:700; box-shadow:var(--shadow); }
+.page-tab-panel { display:none; }
+.page-tab-panel.active { display:block; }
+.nav-link {
+  color:var(--text-secondary); font-size:0.76rem; font-weight:600;
+  padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface);
+  transition:var(--transition); white-space:nowrap;
+}
+.nav-link:hover { color:var(--blue); border-color:var(--blue); text-decoration:none; }
+
+.summary-strip {
+  display:grid; grid-template-columns:repeat(5, minmax(0, 1fr));
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  overflow:hidden; margin-bottom:22px; box-shadow:var(--shadow);
+}
+.sum-cell { padding:14px 16px; border-right:1px solid var(--border); min-width:0; }
+.sum-cell:last-child { border-right:none; }
+.sum-label { color:var(--dim); font-size:0.68rem; font-weight:600; letter-spacing:0.03em; }
+.sum-val { font-size:1.3rem; font-weight:800; margin-top:4px; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+.sum-sub { font-size:0.68rem; color:var(--text-secondary); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.green { color:var(--green); } .amber { color:var(--amber); } .red { color:var(--red); } .blue { color:var(--blue); }
+
+.section-title {
+  font-size:0.88rem; font-weight:700; margin:24px 0 10px; color:var(--text);
+  display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap;
+}
+.section-title .st-note { font-size:0.72rem; color:var(--dim); font-weight:500; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow); }
+.two-col { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start; }
+.stat { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; min-width:115px; }
 .stat .label { font-size:0.68rem; color:var(--dim); }
-.stat .value { font-size:1.25rem; font-weight:800; margin-top:2px; }
-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
-th { text-align:left; color:var(--dim); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); }
-td { padding:8px 10px; border-bottom:1px solid var(--border); }
+.stat .value { font-size:1.2rem; font-weight:800; margin-top:2px; }
+
+table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+th { text-align:left; color:var(--dim); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface2); font-size:0.72rem; }
+th:first-child { border-radius:6px 0 0 6px; }
+th:last-child { border-radius:0 6px 6px 0; }
+td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text-secondary); }
 tr:last-child td { border-bottom:none; }
 .edge-table, .data-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
-.note { color:var(--dim); font-size:0.72rem; margin-top:8px; }
-.footer { margin-top:44px; padding-top:16px; border-top:1px solid var(--border); color:var(--dim); font-size:0.72rem; }
-.deep-fold { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin:14px 0; overflow:hidden; }
+.note { color:var(--text-secondary); font-size:0.72rem; margin-top:8px; }
+
+.evo-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; }
+.evo-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:13px 14px; box-shadow:var(--shadow); }
+.evo-title { font-size:0.7rem; color:var(--dim); margin-bottom:4px; font-weight:600; }
+.evo-verdict { font-size:1rem; font-weight:800; }
+.evo-detail { font-size:0.7rem; color:var(--text-secondary); margin-top:5px; line-height:1.5; }
+.evo-chip { display:inline-block; background:var(--surface2); border-radius:4px; padding:1px 6px; margin:2px 4px 2px 0; font-size:0.66rem; }
+.evo-chip i { color:var(--dim); font-style:normal; font-size:0.62rem; }
+
+.deep-fold { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); margin:12px 0; overflow:hidden; box-shadow:var(--shadow); }
 .deep-fold > summary { list-style:none; cursor:pointer; user-select:none; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; }
 .deep-fold > summary::-webkit-details-marker { display:none; }
-.deep-fold > summary::before { content:'▸'; color:var(--blue); font-size:.8rem; transition:transform .2s; }
+.deep-fold > summary::before { content:'▸'; color:var(--dim); font-size:0.8rem; transition:transform .15s; }
 .deep-fold[open] > summary::before { transform:rotate(90deg); }
-.deep-fold-title { font-weight:800; font-size:.85rem; }
-.deep-fold-meta { font-size:.72rem; color:var(--dim); }
-.deep-fold-hint { margin-left:auto; font-size:.66rem; color:var(--blue); opacity:.75; font-weight:600; }
+.deep-fold-title { font-weight:700; font-size:0.86rem; color:var(--text); }
+.deep-fold-meta { font-size:0.72rem; color:var(--dim); }
+.deep-fold-hint { margin-left:auto; font-size:0.68rem; color:var(--blue); font-weight:600; }
 .deep-fold[open] .deep-fold-hint { display:none; }
-.deep-fold-body { padding:4px 16px 14px; border-top:1px dashed var(--border); }
-.evo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.evo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-.evo-title { font-size: .68rem; color: var(--dim); margin-bottom: 4px; font-weight:600; }
-.evo-verdict { font-size: 1rem; font-weight: 800; }
-.evo-detail { font-size: .68rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
-.evo-chip { display: inline-block; background: var(--surface2); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; font-size: .66rem; }
-.evo-chip i { color: var(--dim); font-style: normal; font-size: .62rem; }
+.deep-fold-body { padding:6px 16px 14px; border-top:1px solid var(--border); }
+
 .lm-wrap { overflow-x:auto; }
-.lm-table th, .lm-table td { padding:6px 8px; text-align:center; font-size:0.75rem; }
-.lm-table th:nth-child(2), .lm-table td:nth-child(2) { text-align:left; font-weight:600; }
+.lm-table th, .lm-table td { padding:6px 8px; text-align:center; font-size:0.74rem; }
+.lm-table th:nth-child(2), .lm-table td:nth-child(2) { text-align:left; font-weight:600; color:var(--text); }
 .lm-cat { display:inline-block; padding:1px 7px; border-radius:10px; font-size:0.62rem; font-weight:700; }
 .lm-cat-tier1 { background:var(--green-dim); color:var(--green); }
 .lm-cat-tier2 { background:var(--amber-dim); color:var(--amber); }
 .lm-cat-world { background:var(--blue-dim); color:var(--blue); }
 .lm-cat-other { background:var(--surface2); color:var(--dim); }
 .lm-cat-cup { background:var(--purple-dim); color:var(--purple); }
-.stale-warn { display:inline-flex; align-items:center; gap:6px; background:var(--amber-dim); color:#b45309; border:1px solid rgba(217,119,6,.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; margin:6px 0; }
-/* ===== 2026-08-30 亮色重塑·组件覆写层 ===== */
-body { background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
-.card, .kpi, .evo-card { box-shadow:var(--shadow); border-color:var(--border); }
-.page { max-width:1080px; margin:0 auto; padding:18px 14px 48px; }
-@media (min-width:600px) { .page { padding:28px 20px 60px; } }
-th { color:var(--text-secondary); background:var(--surface2); }
-th:first-child { border-radius:8px 0 0 8px; }
-th:last-child { border-radius:0 8px 8px 0; }
-.footer { color:var(--dim); }
-.note { color:var(--text-secondary); }
-a { color:var(--blue); }
+.stale-warn { display:inline-flex; align-items:center; gap:6px; background:var(--amber-dim); color:var(--amber); border:1px solid rgba(180,83,9,.25); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; margin:6px 0; }
+.footer { margin-top:36px; padding-top:16px; border-top:1px solid var(--border); color:var(--dim); font-size:0.72rem; }
+
+@media (max-width:860px) {
+  .summary-strip { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .sum-cell { border-bottom:1px solid var(--border); }
+}
+@media (max-width:560px) {
+  .summary-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .topbar { gap:8px; }
+  .page-tab-btn { padding:5px 10px; font-size:0.75rem; }
+}
 </style></head><body>
 <div class="page">
-  <div class="header">
-    <div>
-      <h1>竞彩分析引擎 · Track Record</h1>
-      <div class="sub">公开战绩 · 自动生成于 2026-11-27 · 数据截至 2026-07-19 ~ 2026-11-26</div>
+  <div class="topbar">
+    <div class="brand">
+      <h1>Track Record</h1>
+      <span class="sub">截至 2026-07-19 ~ 2026-11-26 · 更新 2026-11-27</span>
     </div>
-    <div class="nav"><a href="index.html">← 返回今日分析</a> &nbsp;|&nbsp; <a href="https://github.com/wlrwx/football-engine">GitHub</a></div>
+    <div class="seg-tabs">
+      <button class="page-tab-btn active" data-panel="tr-overview">核心战绩</button>
+      <button class="page-tab-btn" data-panel="tr-betting">联赛与投注</button>
+      <button class="page-tab-btn" data-panel="tr-diagnostics">模型诊断</button>
+    </div>
+    <a href="index.html" class="nav-link">← 今日分析</a>
   </div>
 
-  <div class="kpis">
-    <div class="kpi"><div class="label">v2 洁净场次</div><div class="value blue">1185</div><div class="sub-val">主口径 chain=v2</div></div>
-    <div class="kpi"><div class="label">v2 方向命中率</div><div class="value green">57.1%</div><div class="sub-val">Brier 0.5543</div></div>
-    <div class="kpi"><div class="label">v2 vs 市场 (配对)</div><div class="value amber">与市场持平</div><div class="sub-val">Δ-0.0002 · t=-0.27 · n=1109</div></div>
-    <div class="kpi"><div class="label">近7天命中率</div><div class="value green">54%</div><div class="sub-val">近7天 n=90</div></div>
-    <div class="kpi"><div class="label">全量复盘 (含legacy)</div><div class="value">1631</div><div class="sub-val">命中 55.2% · 平局 384 (9中)</div></div>
+  <div class="summary-strip">
+    <div class="sum-cell"><div class="sum-label">v2 洁净场次</div><div class="sum-val blue">1185</div><div class="sum-sub">主口径 chain=v2</div></div>
+    <div class="sum-cell"><div class="sum-label">v2 方向命中率</div><div class="sum-val green">57.1%</div><div class="sum-sub">Brier 0.5543</div></div>
+    <div class="sum-cell"><div class="sum-label">v2 vs 市场 (配对)</div><div class="sum-val amber">与市场持平</div><div class="sum-sub">Δ-0.0002 · t=-0.27 · n=1109</div></div>
+    <div class="sum-cell"><div class="sum-label">近7天命中率</div><div class="sum-val green">54%</div><div class="sum-sub">近7天 n=90</div></div>
+    <div class="sum-cell"><div class="sum-label">全量复盘 (含legacy)</div><div class="sum-val">1631</div><div class="sum-sub">命中 55.2% · 平局 384 (9中)</div></div>
   </div>
 
+  <div class="page-tab-panel active" id="tr-overview">
 
   <div class="section-title">🧬 进化仪表盘<span class="st-note">系统自进化四状态 · 每次结算自动更新 · 判定口径见 docs/UPGRADE2_20260829.md</span></div>
   <div class="evo-grid"><div class="evo-card"><div class="evo-title">升级效果（Q1·vs 旧链，不代表有 edge）</div><div class="evo-verdict" style="color:var(--green)">修复生效</div><div class="evo-detail">洁净组 n=1185 · Brier 0.5543 / 命中 57.1% · 基线 0.5576<br><span style='color:var(--amber)'>vs 市场 与市场持平</span>（Δ-0.0002 · t=-0.27 · n=1109）<br><span style='color:var(--dim)'>DJYY 覆盖 29.5% · 命中时 5/75/20 · 缺失时 6.2/93.8</span></div></div><div class="evo-card"><div class="evo-title">EV 校准体检（价值幻觉监控）</div><div class="evo-detail">实际ROI代理 vs 声称edge: <span class="evo-chip">[0.00,0.02): <b style="color:var(--green)">+9%</b><i>(n=6)</i></span><span class="evo-chip">[0.02,0.05): <b style="color:var(--red)">-45%</b><i>(n=15)</i></span><span class="evo-chip">[0.05,0.10): <b style="color:var(--red)">-3%</b><i>(n=19)</i></span><span class="evo-chip">[0.10,10.00): <b style="color:var(--red)">-18%</b><i>(n=76)</i></span></div></div><div class="evo-card"><div class="evo-title">校准层自进化</div><div class="evo-verdict" style="color:var(--dim)">待样本</div><div class="evo-detail">洁净样本 1185 · 验证段无显著改善 (Δ=-0.0070, t=-1.79) → 维持关闭</div></div><div class="evo-card"><div class="evo-title">LGBM 影子</div><div class="evo-verdict" style="color:var(--dim)">已训练·未达标</div><div class="evo-detail">可用 1600 条 · holdout n=480 · Δvs融合 -0.0193 · 影子验证未双基线显著 → 保持关闭: vs融合v2 Δ=-0.0193(n=480) | vs市场 Δ=-0.0204(</div></div></div>
-
-  <div class="section-title">概率质量（Brier 越低越好）<span class="st-note">有效对比看同样本配对口径，legacy 仅作历史存档</span></div>
-  <div class="card"><table>
-    <tr><th>口径</th><th>Brier</th></tr>
-    <tr><td><b>v2 final（配对同样本 n=1109）</b></td><td style="font-weight:700">0.5621</td></tr><tr><td><b>市场去水基准（配对同样本 n=1109）</b></td><td style="font-weight:700">0.5623 <span style="font-size:0.74rem;color:var(--dim)">(Δ=-0.0002 · t=-0.27)</span></td></tr>
-    <tr><td>融合 final（全量生产）</td><td style="font-weight:700">0.5705</td></tr>
-    <tr><td>市场基准（全量去水）</td><td style="font-weight:700">0.5663</td></tr>
-    <tr><td>模型原始（全量未融合）</td><td style="font-weight:700">0.6159</td></tr>
-    <tr><td>shrinkage_dc（挑战者）</td><td style="font-weight:700">0.6100</td></tr>
-  </table></div>
+    <div class="two-col" style="margin-top:14px">
+      <div>
+        <div class="section-title">概率质量（Brier 越低越好）<span class="st-note">看同样本配对</span></div>
+        <div class="card"><table>
+          <tr><th>口径</th><th>Brier</th></tr>
+          <tr><td><b>v2 final（配对同样本 n=1109）</b></td><td style="font-weight:700">0.5621</td></tr><tr><td><b>市场去水基准（配对同样本 n=1109）</b></td><td style="font-weight:700">0.5623 <span style="font-size:0.74rem;color:var(--dim)">(Δ=-0.0002 · t=-0.27)</span></td></tr>
+          <tr><td>融合 final（全量生产）</td><td style="font-weight:700">0.5705</td></tr>
+          <tr><td>市场基准（全量去水）</td><td style="font-weight:700">0.5663</td></tr>
+          <tr><td>模型原始（全量未融合）</td><td style="font-weight:700">0.6159</td></tr>
+          <tr><td>shrinkage_dc（挑战者）</td><td style="font-weight:700">0.6100</td></tr>
+        </table></div>
+      </div>
+      <div>
 
   <div class="section-title">校准可靠性（ECE / MCE，越低越好）</div>
   <div class="card"><table>
     <tr><th>结果类</th><th>ECE</th><th>MCE</th><th>样本</th><th>良好校准箱占比</th></tr>
     <tr><td>home</td><td>0.0302</td><td>0.1334</td><td>1631</td><td>78%</td></tr><tr><td>draw</td><td>0.0108</td><td>0.2349</td><td>1631</td><td>75%</td></tr><tr><td>away</td><td>0.0307</td><td>0.1558</td><td>1631</td><td>75%</td></tr>
   </table></div>
-
-  <div class="section-title">数据覆盖率（全量预测）</div>
-  <div class="card"><table>
-    <tr><th>字段</th><th>覆盖</th><th>覆盖率</th></tr>
-    <tr><td>波胆赔率</td><td>1447/1647</td><td>88%</td></tr><tr><td>总进球赔率</td><td>1447/1647</td><td>88%</td></tr><tr><td>半全场赔率</td><td>1441/1647</td><td>87%</td></tr><tr><td>让球</td><td>1594/1647</td><td>97%</td></tr><tr><td>市场去水</td><td>1508/1647</td><td>92%</td></tr><tr><td>新浪赔率</td><td>1553/1647</td><td>94%</td></tr>
-  </table></div>
-
-  <div class="section-title">每日命中率（近14天）</div>
-  <div class="card"><table>
-    <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th></tr>
-    <tr><td>2026-11-13</td><td>11</td><td>7</td><td style="color:var(--green);font-weight:700">64%</td></tr><tr><td>2026-11-14</td><td>16</td><td>11</td><td style="color:var(--green);font-weight:700">69%</td></tr><tr><td>2026-11-15</td><td>11</td><td>6</td><td style="color:var(--green);font-weight:700">55%</td></tr><tr><td>2026-11-16</td><td>8</td><td>7</td><td style="color:var(--green);font-weight:700">88%</td></tr><tr><td>2026-11-17</td><td>10</td><td>5</td><td style="color:var(--green);font-weight:700">50%</td></tr><tr><td>2026-11-18</td><td>4</td><td>3</td><td style="color:var(--green);font-weight:700">75%</td></tr><tr><td>2026-11-19</td><td>4</td><td>1</td><td style="color:var(--red);font-weight:700">25%</td></tr><tr><td>2026-11-20</td><td>8</td><td>3</td><td style="color:var(--red);font-weight:700">38%</td></tr><tr><td>2026-11-21</td><td>22</td><td>10</td><td style="color:var(--amber);font-weight:700">45%</td></tr><tr><td>2026-11-22</td><td>18</td><td>10</td><td style="color:var(--green);font-weight:700">56%</td></tr><tr><td>2026-11-23</td><td>8</td><td>3</td><td style="color:var(--red);font-weight:700">38%</td></tr><tr><td>2026-11-24</td><td>11</td><td>8</td><td style="color:var(--green);font-weight:700">73%</td></tr><tr><td>2026-11-25</td><td>11</td><td>7</td><td style="color:var(--green);font-weight:700">64%</td></tr><tr><td>2026-11-26</td><td>12</td><td>8</td><td style="color:var(--green);font-weight:700">67%</td></tr>
-  </table></div>
-
+      </div>
+    </div>
 
   <div class="section-title">准确率趋势（最近7天 vs 前7天: <span style="color:var(--red)">命中率下降 -8pt</span>）</div>
   <div class="card" style="overflow-x:auto">
@@ -142,6 +186,9 @@ a { color:var(--blue); }
     </table>
     <div class="note">⚠ 置信度不预示盈亏：高置信 ≈ 低赔热门 ≈ 抽水最大。收益依赖<b>正 EV 门槛</b>与校准质量，实时状态见上方「🧬 进化仪表盘」。</div>
   </div>
+  </div>
+
+  <div class="page-tab-panel" id="tr-betting">
 
   <div class="section-title">串关 / 波胆真实复盘（历史累计 · 非回测）</div>
   <div style="padding:6px 2px 10px;font-size:0.68rem;color:var(--dim)">历史真实出票（非回测）：胜平负串 133张/已结算133 · ROI +20%；比分串 268张/已结算268 · ROI -100%。2026-08-13 起比分串改为仅官方赔率正 EV 出票。</div>
@@ -217,6 +264,15 @@ a { color:var(--blue); }
       <div class="note">回暖解禁 = 累计口径送钱区，但近5场命中≥60% <b>且</b> 近10场≥50% → 解除禁投观察；再拉胯自动打回送钱区。</div>
     </div>
   </details>
+  </div>
+
+  <div class="page-tab-panel" id="tr-diagnostics">
+
+  <div class="section-title">数据覆盖率（全量预测）</div>
+  <div class="card"><table>
+    <tr><th>字段</th><th>覆盖</th><th>覆盖率</th></tr>
+    <tr><td>波胆赔率</td><td>1447/1647</td><td>88%</td></tr><tr><td>总进球赔率</td><td>1447/1647</td><td>88%</td></tr><tr><td>半全场赔率</td><td>1441/1647</td><td>87%</td></tr><tr><td>让球</td><td>1594/1647</td><td>97%</td></tr><tr><td>市场去水</td><td>1508/1647</td><td>92%</td></tr><tr><td>新浪赔率</td><td>1553/1647</td><td>94%</td></tr>
+  </table></div>
 
   <details class="deep-fold">
     <summary>
@@ -298,19 +354,31 @@ a { color:var(--blue); }
     </summary>
     <div class="deep-fold-body"><div class="stale-warn">⚠ 快照停留在 2026-08-13（已过期 105 天，非实时）</div><div id="league-matrix"><div class="lm-wrap"><table class="lm-table"><thead><tr><th>级别</th><th>联赛</th><th>场次</th><th>场均进球</th><th>场均xG</th><th>BTTS</th><th>主胜</th><th>平局</th><th>客胜</th><th>零封</th><th>角球</th><th>黄牌</th></tr></thead><tbody><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">克甲</td><td class="lm-num">9</td><td class="lm-num">3.9</td><td class="lm-num">3.13</td><td class="lm-pct">78%</td><td class="lm-pct">44%</td><td class="lm-pct">11%</td><td class="lm-pct">44%</td><td class="lm-pct">11%</td><td class="lm-num">9.9</td><td class="lm-num">3.4</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">瑞超</td><td class="lm-num">18</td><td class="lm-num">3.8</td><td class="lm-num">3.39</td><td class="lm-pct">72%</td><td class="lm-pct">50%</td><td class="lm-pct">17%</td><td class="lm-pct">33%</td><td class="lm-pct">14%</td><td class="lm-num">10.2</td><td class="lm-num">4.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">日职联</td><td class="lm-num">10</td><td class="lm-num">3.6</td><td class="lm-num">2.83</td><td class="lm-pct">70%</td><td class="lm-pct">0%</td><td class="lm-pct">0%</td><td class="lm-pct">0%</td><td class="lm-pct">15%</td><td class="lm-num">0.0</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier2">次级</span></td><td class="lm-name">德乙</td><td class="lm-num">9</td><td class="lm-num">3.4</td><td class="lm-num">3.39</td><td class="lm-pct">67%</td><td class="lm-pct">44%</td><td class="lm-pct">33%</td><td class="lm-pct">22%</td><td class="lm-pct">22%</td><td class="lm-num">10.1</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">比甲</td><td class="lm-num">9</td><td class="lm-num">3.3</td><td class="lm-num">3.47</td><td class="lm-pct">78%</td><td class="lm-pct">67%</td><td class="lm-pct">22%</td><td class="lm-pct">11%</td><td class="lm-pct">11%</td><td class="lm-num">9.2</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier1">顶级</span></td><td class="lm-name">德甲</td><td class="lm-num">306</td><td class="lm-num">3.2</td><td class="lm-num">3.15</td><td class="lm-pct">62%</td><td class="lm-pct">44%</td><td class="lm-pct">24%</td><td class="lm-pct">32%</td><td class="lm-pct">21%</td><td class="lm-num">9.8</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">美职联</td><td class="lm-num">269</td><td class="lm-num">3.2</td><td class="lm-num">3.04</td><td class="lm-pct">61%</td><td class="lm-pct">49%</td><td class="lm-pct">23%</td><td class="lm-pct">28%</td><td class="lm-pct">22%</td><td class="lm-num">10.0</td><td class="lm-num">4.2</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">瑞典超</td><td class="lm-num">127</td><td class="lm-num">3.1</td><td class="lm-num">3.09</td><td class="lm-pct">58%</td><td class="lm-pct">39%</td><td class="lm-pct">26%</td><td class="lm-pct">35%</td><td class="lm-pct">22%</td><td class="lm-num">10.1</td><td class="lm-num">3.6</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">中超</td><td class="lm-num">171</td><td class="lm-num">3.0</td><td class="lm-num">2.80</td><td class="lm-pct">63%</td><td class="lm-pct">48%</td><td class="lm-pct">25%</td><td class="lm-pct">27%</td><td class="lm-pct">20%</td><td class="lm-num">10.2</td><td class="lm-num">4.2</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">挪超</td><td class="lm-num">129</td><td class="lm-num">3.0</td><td class="lm-num">3.36</td><td class="lm-pct">55%</td><td class="lm-pct">50%</td><td class="lm-pct">19%</td><td class="lm-pct">31%</td><td class="lm-pct">24%</td><td class="lm-num">10.8</td><td class="lm-num">3.5</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">沙特联</td><td class="lm-num">306</td><td class="lm-num">3.0</td><td class="lm-num">2.85</td><td class="lm-pct">58%</td><td class="lm-pct">44%</td><td class="lm-pct">23%</td><td class="lm-pct">33%</td><td class="lm-pct">23%</td><td class="lm-num">10.1</td><td class="lm-num">4.3</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">墨西哥联</td><td class="lm-num">27</td><td class="lm-num">2.9</td><td class="lm-num">2.85</td><td class="lm-pct">59%</td><td class="lm-pct">41%</td><td class="lm-pct">15%</td><td class="lm-pct">44%</td><td class="lm-pct">22%</td><td class="lm-num">10.4</td><td class="lm-num">3.9</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier1">顶级</span></td><td class="lm-name">法甲</td><td class="lm-num">305</td><td class="lm-num">2.8</td><td class="lm-num">2.83</td><td class="lm-pct">51%</td><td class="lm-pct">46%</td><td class="lm-pct">24%</td><td class="lm-pct">30%</td><td class="lm-pct">28%</td><td class="lm-num">9.6</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">苏超</td><td class="lm-num">12</td><td class="lm-num">2.8</td><td class="lm-num">3.68</td><td class="lm-pct">50%</td><td class="lm-pct">50%</td><td class="lm-pct">17%</td><td class="lm-pct">33%</td><td class="lm-pct">29%</td><td class="lm-num">10.2</td><td class="lm-num">3.3</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">荷甲</td><td class="lm-num">9</td><td class="lm-num">2.8</td><td class="lm-num">3.50</td><td class="lm-pct">44%</td><td class="lm-pct">44%</td><td class="lm-pct">11%</td><td class="lm-pct">44%</td><td class="lm-pct">28%</td><td class="lm-num">0.0</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier1">顶级</span></td><td class="lm-name">英超</td><td class="lm-num">380</td><td class="lm-num">2.8</td><td class="lm-num">2.95</td><td class="lm-pct">56%</td><td class="lm-pct">43%</td><td class="lm-pct">27%</td><td class="lm-pct">30%</td><td class="lm-pct">26%</td><td class="lm-num">10.0</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier1">顶级</span></td><td class="lm-name">西甲</td><td class="lm-num">380</td><td class="lm-num">2.7</td><td class="lm-num">2.73</td><td class="lm-pct">57%</td><td class="lm-pct">49%</td><td class="lm-pct">24%</td><td class="lm-pct">27%</td><td class="lm-pct">24%</td><td class="lm-num">9.7</td><td class="lm-num">4.5</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">波超</td><td class="lm-num">24</td><td class="lm-num">2.7</td><td class="lm-num">3.23</td><td class="lm-pct">62%</td><td class="lm-pct">50%</td><td class="lm-pct">21%</td><td class="lm-pct">29%</td><td class="lm-pct">25%</td><td class="lm-num">10.1</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">土超</td><td class="lm-num">306</td><td class="lm-num">2.6</td><td class="lm-num">2.62</td><td class="lm-pct">55%</td><td class="lm-pct">42%</td><td class="lm-pct">29%</td><td class="lm-pct">29%</td><td class="lm-pct">27%</td><td class="lm-num">9.4</td><td class="lm-num">4.7</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier2">次级</span></td><td class="lm-name">西乙</td><td class="lm-num">468</td><td class="lm-num">2.6</td><td class="lm-num">2.73</td><td class="lm-pct">56%</td><td class="lm-pct">45%</td><td class="lm-pct">25%</td><td class="lm-pct">30%</td><td class="lm-pct">26%</td><td class="lm-num">9.4</td><td class="lm-num">5.4</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier2">次级</span></td><td class="lm-name">英甲</td><td class="lm-num">557</td><td class="lm-num">2.6</td><td class="lm-num">2.64</td><td class="lm-pct">52%</td><td class="lm-pct">46%</td><td class="lm-pct">25%</td><td class="lm-pct">29%</td><td class="lm-pct">27%</td><td class="lm-num">10.0</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier2">次级</span></td><td class="lm-name">英冠</td><td class="lm-num">557</td><td class="lm-num">2.6</td><td class="lm-num">2.73</td><td class="lm-pct">57%</td><td class="lm-pct">42%</td><td class="lm-pct">26%</td><td class="lm-pct">32%</td><td class="lm-pct">25%</td><td class="lm-num">10.3</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">乌超</td><td class="lm-num">14</td><td class="lm-num">2.6</td><td class="lm-num">0.00</td><td class="lm-pct">43%</td><td class="lm-pct">43%</td><td class="lm-pct">21%</td><td class="lm-pct">36%</td><td class="lm-pct">39%</td><td class="lm-num">8.6</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">巴西甲</td><td class="lm-num">215</td><td class="lm-num">2.6</td><td class="lm-num">2.46</td><td class="lm-pct">57%</td><td class="lm-pct">46%</td><td class="lm-pct">29%</td><td class="lm-pct">25%</td><td class="lm-pct">24%</td><td class="lm-num">10.0</td><td class="lm-num">4.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">葡超</td><td class="lm-num">9</td><td class="lm-num">2.6</td><td class="lm-num">2.70</td><td class="lm-pct">56%</td><td class="lm-pct">33%</td><td class="lm-pct">56%</td><td class="lm-pct">11%</td><td class="lm-pct">22%</td><td class="lm-num">9.6</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier2">次级</span></td><td class="lm-name">意乙</td><td class="lm-num">390</td><td class="lm-num">2.5</td><td class="lm-num">2.76</td><td class="lm-pct">53%</td><td class="lm-pct">45%</td><td class="lm-pct">31%</td><td class="lm-pct">24%</td><td class="lm-pct">27%</td><td class="lm-num">9.5</td><td class="lm-num">4.5</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier1">顶级</span></td><td class="lm-name">意甲</td><td class="lm-num">380</td><td class="lm-num">2.4</td><td class="lm-num">2.60</td><td class="lm-pct">45%</td><td class="lm-pct">39%</td><td class="lm-pct">26%</td><td class="lm-pct">35%</td><td class="lm-pct">32%</td><td class="lm-num">8.8</td><td class="lm-num">3.8</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">韩K联</td><td class="lm-num">131</td><td class="lm-num">2.3</td><td class="lm-num">2.03</td><td class="lm-pct">51%</td><td class="lm-pct">27%</td><td class="lm-pct">33%</td><td class="lm-pct">40%</td><td class="lm-pct">30%</td><td class="lm-num">8.6</td><td class="lm-num">4.2</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">奥甲</td><td class="lm-num">12</td><td class="lm-num">2.3</td><td class="lm-num">2.91</td><td class="lm-pct">50%</td><td class="lm-pct">50%</td><td class="lm-pct">25%</td><td class="lm-pct">25%</td><td class="lm-pct">25%</td><td class="lm-num">10.8</td><td class="lm-num">2.9</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-other">其他</span></td><td class="lm-name">丹超</td><td class="lm-num">16</td><td class="lm-num">2.2</td><td class="lm-num">2.90</td><td class="lm-pct">50%</td><td class="lm-pct">50%</td><td class="lm-pct">31%</td><td class="lm-pct">19%</td><td class="lm-pct">28%</td><td class="lm-num">11.9</td><td class="lm-num">3.4</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-tier2">次级</span></td><td class="lm-name">法乙</td><td class="lm-num">9</td><td class="lm-num">2.2</td><td class="lm-num">2.48</td><td class="lm-pct">44%</td><td class="lm-pct">33%</td><td class="lm-pct">33%</td><td class="lm-pct">33%</td><td class="lm-pct">39%</td><td class="lm-num">0.0</td><td class="lm-num">0.0</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">阿根廷联</td><td class="lm-num">315</td><td class="lm-num">2.1</td><td class="lm-num">2.25</td><td class="lm-pct">44%</td><td class="lm-pct">0%</td><td class="lm-pct">0%</td><td class="lm-pct">0%</td><td class="lm-pct">35%</td><td class="lm-num">8.6</td><td class="lm-num">5.1</td></tr><tr class="lm-row "><td><span class="lm-cat lm-cat-world">全球</span></td><td class="lm-name">埃及超</td><td class="lm-num">322</td><td class="lm-num">2.0</td><td class="lm-num">2.20</td><td class="lm-pct">47%</td><td class="lm-pct">0%</td><td class="lm-pct">0%</td><td class="lm-pct">0%</td><td class="lm-pct">35%</td><td class="lm-num">9.1</td><td class="lm-num">4.3</td></tr></tbody></table></div><div style="padding:8px 12px;font-size:0.62rem;color:var(--dim);display:flex;gap:12px;flex-wrap:wrap"><span>数据来源: <a href="https://djyylive.com" style="color:var(--blue)">DJYY</a></span><span>BTTS = 双方进球率</span><span>⚠ 快照停留在 2026-08-13（已过期 105 天）</span></div></div></div>
   </details>
-
-  <div class="section-title">方法论</div>
-  <div class="card" style="font-size:0.8rem;color:var(--text-secondary)">
-    DC+MC &rarr; Shin去水 &rarr; 四源融合(模型5% / 市场75% / DJYY20%) &rarr; 后处理链(每步可开关)（DJYY 置信&lt;0.5 不参与、与市场分歧减半）。
-    融合链每一步均为 config 开关，由消融回放（scripts/ablation_replay.py）对已结算账本
-    配对验证后裁决去留；校准层自进化带显著性护栏（docs/UPGRADE2_20260829.md）。
-    <div class="note">全程 GitHub Actions 自动运行（每 30 分钟预测+回溯结算），零人工干预。
-    历史胜平负概率与结算结果全部可核查（账本 review_ledger.jsonl，1631+ 场）。</div>
+    <div class="section-title">方法论</div>
+    <div class="card" style="font-size:0.78rem;color:var(--text-secondary)">
+      DC+MC &rarr; Shin去水 &rarr; 四源融合(模型5% / 市场75% / DJYY20%) &rarr; 后处理链(每步可开关)（DJYY 置信&lt;0.5 不参与、与市场分歧减半）。
+      融合链每一步均为 config 开关，由消融回放（scripts/ablation_replay.py）对已结算账本
+      配对验证后裁决去留；校准层自进化带显著性护栏（docs/UPGRADE2_20260829.md）。
+      <div class="note">全程 GitHub Actions 自动运行，零人工干预。历史胜平负概率与结算结果全部可核查（review_ledger.jsonl，1631+ 场）。</div>
+    </div>
   </div>
 
   <div class="footer">
     竞彩足球概率分析系统 · 数据源：体彩官方/新浪/500万/DJYY · 仅供研究，理性购彩 ·
-    <a href="https://github.com/wlrwx/football-engine" style="color:var(--blue)">源代码</a>
+    <a href="https://github.com/wlrwx/football-engine">源代码</a>
   </div>
 </div>
+<script>
+document.querySelectorAll('.page-tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = this.getAttribute('data-panel');
+    document.querySelectorAll('.page-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    document.querySelectorAll('.page-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    var el = document.getElementById(id);
+    if (el) el.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+</script>
 </body></html>
