@@ -114,7 +114,7 @@ def test_feature_names_append_side_columns_last():
                                               SIDE_FEATURE_NAMES)
     assert len(BASE_FEATURE_NAMES) == 21
     assert FEATURE_NAMES[:21] == BASE_FEATURE_NAMES
-    assert FEATURE_NAMES[21:] == SIDE_FEATURE_NAMES
+    assert FEATURE_NAMES[21:21 + len(SIDE_FEATURE_NAMES)] == SIDE_FEATURE_NAMES
 
 
 def test_build_features_fills_side_defaults():

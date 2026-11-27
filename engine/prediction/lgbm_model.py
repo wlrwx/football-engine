@@ -42,6 +42,7 @@ class LGBMConfig:
     use_xg_features: bool = True
     use_league_features: bool = True
     use_djyy_features: bool = True
+    missing_as_nan: bool = True
 
 
 # 标准特征列名（**原有 21 列的顺序不可动**：已训练的 booster 按列号取值，
@@ -83,7 +84,47 @@ SIDE_FEATURE_NAMES = [
     "side_ppg_diff",      # 两者之差（正=主队占优）
 ]
 
-FEATURE_NAMES = BASE_FEATURE_NAMES + SIDE_FEATURE_NAMES
+# 缺失指示列（追加在末尾，不破坏老模型前 21/27 列的列号映射）
+MISSING_FEATURE_NAMES = [
+    "xg_missing",         # 1.0=缺失 xG，进树向量按 NaN 处理
+    "djyy_missing",       # 1.0=缺失 DJYY 概率
+    "handicap_missing",   # 1.0=缺失让球线
+    "rank_missing",       # 1.0=缺失联赛排名
+]
+
+FEATURE_NAMES = BASE_FEATURE_NAMES + SIDE_FEATURE_NAMES + MISSING_FEATURE_NAMES
+
+_MISSING_FLAG_MAP = {
+    "xg_home": "xg_missing",
+    "xg_away": "xg_missing",
+    "xg_diff": "xg_missing",
+    "djyy_p_home": "djyy_missing",
+    "djyy_p_draw": "djyy_missing",
+    "djyy_p_away": "djyy_missing",
+    "handicap": "handicap_missing",
+    "rank_diff": "rank_missing",
+}
+
+
+def feature_dict_to_vector(
+    feature_dict: dict,
+    names: Optional[list[str]] = None,
+    missing_as_nan: bool = True,
+) -> list[float]:
+    """将特征字典转为树模型输入向量；当 missing_as_nan=True 时把缺失标记对应列转为 np.nan。"""
+    cols = names if names is not None else FEATURE_NAMES
+    vec: list[float] = []
+    for name in cols:
+        flag_key = _MISSING_FLAG_MAP.get(name)
+        if missing_as_nan and flag_key and float(feature_dict.get(flag_key, 0.0) or 0.0) == 1.0:
+            vec.append(float(np.nan))
+            continue
+        val = feature_dict.get(name, 0.0)
+        if val is None:
+            vec.append(float(np.nan) if missing_as_nan else 0.0)
+        else:
+            vec.append(float(val))
+    return vec
 
 
 class LGBMModel:
@@ -99,6 +140,7 @@ class LGBMModel:
         self.config = config or LGBMConfig()
         self._model = None
         self._is_trained = False
+        self.best_iteration_: Optional[int] = None
 
         # 尝试加载已有模型
         if model_path.exists():
@@ -128,7 +170,8 @@ class LGBMModel:
 
     def train(self, features: np.ndarray, labels: np.ndarray,
               eval_features: Optional[np.ndarray] = None,
-              eval_labels: Optional[np.ndarray] = None):
+              eval_labels: Optional[np.ndarray] = None,
+              n_estimators_override: Optional[int] = None):
         """训练模型
 
         Args:
@@ -136,6 +179,7 @@ class LGBMModel:
             labels: 标签 (0=主胜, 1=平局, 2=客胜)
             eval_features: 验证集特征（可选）
             eval_labels: 验证集标签（可选）
+            n_estimators_override: 全量重训时按早停最优迭代数限制树数（可选）
         """
         if not HAS_LGBM:
             raise ImportError("lightgbm 未安装，请 pip install lightgbm")
@@ -145,11 +189,16 @@ class LGBMModel:
             return
 
         cfg = self.config
+        n_trees = (
+            int(n_estimators_override)
+            if n_estimators_override and int(n_estimators_override) > 0
+            else cfg.n_estimators
+        )
         params = {
             "objective": "multiclass",
             "num_class": 3,
             "metric": "multi_logloss",
-            "n_estimators": cfg.n_estimators,
+            "n_estimators": n_trees,
             "learning_rate": cfg.learning_rate,
             "max_depth": cfg.max_depth,
             "num_leaves": cfg.num_leaves,
@@ -172,10 +221,14 @@ class LGBMModel:
             fit_kwargs["eval_set"] = [(eval_features, eval_labels)]
 
         self._model.fit(features, labels, **fit_kwargs)
+        best_it = getattr(self._model, "best_iteration_", None)
+        self.best_iteration_ = (
+            int(best_it) if isinstance(best_it, (int, np.integer)) and int(best_it) > 0 else None
+        )
         self._is_trained = True
         self.save()
         print(f"  [LGBM] 训练完成: {len(features)} 样本, "
-              f"{cfg.n_estimators} 棵树")
+              f"{self.best_iteration_ or n_trees} 棵树")
 
     def predict_proba(self, features: np.ndarray) -> Optional[np.ndarray]:
         """预测概率
@@ -224,7 +277,13 @@ class LGBMModel:
                 n = min(n, int(num_feature()))
             except Exception:
                 pass
-        vec = np.array([[feature_dict.get(name, 0.0) for name in FEATURE_NAMES[:n]]])
+        vec = np.array([
+            feature_dict_to_vector(
+                feature_dict,
+                FEATURE_NAMES[:n],
+                missing_as_nan=self.config.missing_as_nan,
+            )
+        ])
         probs = self.predict_proba(vec)
         if probs is not None and len(probs) > 0:
             return float(probs[0][0]), float(probs[0][1]), float(probs[0][2])
@@ -337,5 +396,11 @@ def build_features(
             features[name] = float((side or {}).get(name, 0.0))
         except (TypeError, ValueError):
             features[name] = 0.0
+
+    # 缺失指示位（字典值保持纯 float 以便 JSON 落盘与相等性比较；转矩阵时再按需映射 NaN）
+    features["xg_missing"] = 0.0 if (xg_home is not None and xg_away is not None) else 1.0
+    features["djyy_missing"] = 0.0 if (djyy_probs and djyy_probs.get("home")) else 1.0
+    features["handicap_missing"] = 0.0 if handicap is not None else 1.0
+    features["rank_missing"] = 0.0 if (rank_home and rank_away) else 1.0
 
     return features

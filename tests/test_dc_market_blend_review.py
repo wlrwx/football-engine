@@ -334,21 +334,27 @@ def test_nonzero_blend_really_pulls_probabilities_toward_target_odds():
 
 
 def test_mc_odds_to_xg_branch_needs_default_ratings():
-    """另列（非 DC 主张）：MC 用赔率反推 xG 只在评级为默认值时活。
+    """另列（非 DC 主张）：MC 用赔率反推 xG 受 allow_odds_xg_fallback 开关控制。
 
-    生产评级缺失的球队会落到默认值（EloUpdater.get_rating），因此这条路径
-    与 DC 内混不同，**没有权重开关**；是否构成违规交人裁决，本测试只钉事实。
+    生产配置（allow_odds_xg_fallback=False）下，即使是默认评级也不得随
+    market_odds 变化；显式开启 allow_odds_xg_fallback=True 时默认评级仍可反推。
     """
     model = MonteCarloModel(_production_mc_config())
+    assert model.cfg.allow_odds_xg_fallback is False
     base = _probs(model.predict(HOME, AWAY, market_odds=None))
     for odds in ODDS_SAMPLES:
         assert _probs(model.predict(HOME, AWAY, market_odds=odds)) == base
 
     default_home = TeamRating(name="无评级主队")  # elo=1500, attack=1.0
     default_base = _probs(model.predict(default_home, AWAY, market_odds=None))
-    changed = [_probs(model.predict(default_home, AWAY, market_odds=o))
+    for odds in ODDS_SAMPLES:
+        assert _probs(model.predict(default_home, AWAY, market_odds=odds)) == default_base
+
+    opt_in = MonteCarloModel(dataclasses.replace(
+        _production_mc_config(), allow_odds_xg_fallback=True))
+    changed = [_probs(opt_in.predict(default_home, AWAY, market_odds=o))
                for o in ODDS_SAMPLES]
-    assert any(p != default_base for p in changed), "默认评级下赔率必须能改 xG/概率"
+    assert any(p != default_base for p in changed), "显式开启回退时，默认评级下赔率应能改 xG/概率"
     assert changed[0] != changed[1], "不同的 target 赔率必须给出不同概率"
 
 
