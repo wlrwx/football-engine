@@ -502,16 +502,19 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             handicap=fixture.handicap,
         )
         if _shrinkage_dc is not None:
+            from engine.team_aliases import canon_csv_team as _canon_sdc_team
+            _sdc_home = _canon_sdc_team(home_rating.name)
+            _sdc_away = _canon_sdc_team(away_rating.name)
             _sdc_teams = set(_shrinkage_dc.teams)
-            if home_rating.name in _sdc_teams and away_rating.name in _sdc_teams:
+            if _sdc_home in _sdc_teams and _sdc_away in _sdc_teams:
                 try:
                     if hasattr(_shrinkage_dc, "league_params"):
                         _sdc_probs = _shrinkage_dc.predict_probs(
-                            home_rating.name, away_rating.name,
+                            _sdc_home, _sdc_away,
                             competition=_canon_league(fixture.competition),
                         )
                     else:
-                        _sdc_probs = _shrinkage_dc.predict_probs(home_rating.name, away_rating.name)
+                        _sdc_probs = _shrinkage_dc.predict_probs(_sdc_home, _sdc_away)
                     _mc_sub = next((m for m in model.models if m.name == "monte_carlo"), None)
                     _dc_w = float(dynamic_weights.get("dixon_coles", 0.6))
                     _mc_w = float(dynamic_weights.get("monte_carlo", 0.4))
@@ -1816,14 +1819,18 @@ def run_settlement(target_date: date):
 
     # 4) Elo 更新（只处理新增）
     print("\n[1/5] Elo 更新...")
+    from engine.prediction.league_stats import DEFAULT_AVG_GOALS as _DEF_AVG_GOALS, league_stats as _settle_league_stats
     elo_updater = EloUpdater(ROOT / "data" / "models" / "team_ratings.json")
     for n in new_items:
         r = n["r"]
+        _comp = getattr(r, "competition", "") or (n.get("pred") or {}).get("competition", "")
+        _lg_avg = _settle_league_stats(_comp)[0] if _comp else _DEF_AVG_GOALS
+        _lg_arg = _lg_avg if abs(_lg_avg - _DEF_AVG_GOALS) > 1e-6 else None
         # match_date 必须传：EloUpdater._refresh(advance=True) 靠它刷新双方
         # rest_days。不传则 rest_days 永远停在默认值 3，config 里的
         # rest_weight 是死旋钮（DEAD-FEATURES-REST-DAYS 探针报的问题）。
         elo_updater.update(r.home_team, r.away_team, r.home_score, r.away_score,
-                           match_date=r.match_date)
+                           match_date=r.match_date, league_avg_goals=_lg_arg)
         print(f"  {r.home_team} {r.home_score}-{r.away_score} {r.away_team} ✓")
     elo_updater.save()
     print(f"  ✓ Elo 已更新 ({len(new_items)} 场新增)")

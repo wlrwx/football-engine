@@ -22,7 +22,9 @@ import json
 import re
 import statistics
 import sys
+import unicodedata
 from collections import defaultdict
+from datetime import date as _date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -150,6 +152,100 @@ def pick_close(row: dict, sel: int) -> tuple[float | None, str | None]:
     return None, None
 
 
+_TRANSLIT_MAP = str.maketrans({
+    "ø": "o", "Ø": "O", "ß": "ss", "æ": "ae", "Æ": "AE",
+    "đ": "d", "Đ": "D", "ł": "l", "Ł": "L", "œ": "oe", "Œ": "OE",
+    "ð": "d", "Ð": "D", "þ": "th", "Þ": "TH",
+})
+
+
+def _translit(s: str) -> str:
+    """将北欧/欧陆重音字符转写为 ASCII，供 fallback 队名匹配使用。"""
+    s = str(s or "").translate(_TRANSLIT_MAP)
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
+
+
+def _norm_translit(s: str) -> str:
+    return _norm(_translit(s))
+
+
+def _tokens_translit(s: str) -> set[str]:
+    return {t for t in _norm_translit(s).split() if len(t) > 2}
+
+
+def _name_match_translit(a: str, b: str) -> float:
+    ta, tb = _tokens_translit(a), _tokens_translit(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / max(1, min(len(ta), len(tb)))
+
+
+def _lookup_pred(taken_map: dict[str, dict], date_str: str, match_id: str) -> dict:
+    """按 match_id 查当日预测，缺失日期前缀时按 `{date}_{match_id}` 兜底。"""
+    pred = taken_map.get(match_id)
+    if pred:
+        return pred
+    if match_id and date_str and not match_id.startswith(f"{date_str}_"):
+        return taken_map.get(f"{date_str}_{match_id}") or {}
+    return {}
+
+
+def _is_strict_team_match(a: str, b: str) -> bool:
+    """±1 天时区兜底使用的严格校验：全串相等或词集完全相等，防子集误配。"""
+    na, nb = _norm_translit(a), _norm_translit(b)
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    ta, tb = _tokens_translit(a), _tokens_translit(b)
+    return bool(ta) and ta == tb
+
+
+def _match_fdc_row(
+    files: list[str],
+    date_str: str,
+    home_en: str,
+    away_en: str,
+    fdc_index: dict[tuple, list],
+) -> tuple[dict | None, float]:
+    """三阶段 fallback 匹配 fdc 行：1) 同日原口径 2) 同日重音转写 3) ±1 天严格全等校验。"""
+    # Pass 1: 严格保持原口径，保障已匹配样本逐位不变
+    best, best_score = None, 0.0
+    for fname in files:
+        for r in fdc_index.get((fname, date_str), []):
+            sc = min(_name_match(home_en, r["home_en"]),
+                     _name_match(away_en, r["away_en"]))
+            if sc > best_score:
+                best, best_score = r, sc
+    if best and best_score >= 0.5:
+        return best, best_score
+
+    # Pass 2: 同日重音转写 fallback
+    best, best_score = None, 0.0
+    for fname in files:
+        for r in fdc_index.get((fname, date_str), []):
+            sc = min(_name_match_translit(home_en, r["home_en"]),
+                     _name_match_translit(away_en, r["away_en"]))
+            if sc > best_score:
+                best, best_score = r, sc
+    if best and best_score >= 0.5:
+        return best, best_score
+
+    # Pass 3: ±1 天时区漂移 fallback（先 +1 天再 -1 天，必须双队严格匹配）
+    try:
+        d0 = _date.fromisoformat(date_str)
+    except ValueError:
+        return None, 0.0
+    for delta in (1, -1):
+        cand_date = (d0 + timedelta(days=delta)).isoformat()
+        for fname in files:
+            for r in fdc_index.get((fname, cand_date), []):
+                if _is_strict_team_match(home_en, r["home_en"]) and _is_strict_team_match(away_en, r["away_en"]):
+                    return r, 1.0
+    return None, 0.0
+
+
 def main() -> int:
     zh_en = build_zh_en_dict()
 
@@ -196,7 +292,7 @@ def main() -> int:
                 except Exception:
                     preds = []
             taken_cache[date] = {p.get("match_id"): p for p in preds}
-        pred = taken_cache[date].get(b.get("match_id"), {})
+        pred = _lookup_pred(taken_cache[date], date, b.get("match_id") or "")
         sel = int(b["best_selection"])
         taken = pred.get(SELECTION_ODDS[sel])
         home_zh = pred.get("home_team", "")
@@ -211,14 +307,8 @@ def main() -> int:
             stats["no_en"] += 1
             continue
 
-        # 同日 + 同文件 + 队名匹配
-        best, best_score = None, 0.0
-        for fname in files:
-            for r in fdc_index.get((fname, date), []):
-                sc = min(_name_match(home_en, r["home_en"]),
-                         _name_match(away_en, r["away_en"]))
-                if sc > best_score:
-                    best, best_score = r, sc
+        # 同日原口径 → 同日转写兜底 → ±1 天严格时区兜底
+        best, best_score = _match_fdc_row(files, date, home_en, away_en, fdc_index)
         if not best or best_score < 0.5:
             stats["no_match"] += 1
             continue

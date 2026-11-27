@@ -125,15 +125,15 @@
       ]
     },
     "min_z": 1.96,
-    "method": "softmax_brier",
-    "min_new_matches": 0
+    "method": "logit_nll",
+    "min_new_matches": 25
   },
   "review": {
     "bias_min_samples": 5,
     "bias_gap_threshold": 0.1
   },
   "calibration_auto": {
-    "method": "isotonic",
+    "method": "temperature",
     "min_samples": 100,
     "val_frac": 0.4,
     "min_improvement": 0.002,
