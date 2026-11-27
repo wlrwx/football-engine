@@ -108,6 +108,7 @@ def build_training_rows(records: list[dict], daily_root: Path,
                 djyy_probs=p.get("djyy_model_prob"),
                 include_market_odds=False,
                 side=sig.features_as_of(p.get("as_of", "")) if sig else None,
+                cross_market=inp.get("cross_market"),
             )
         except Exception:
             continue
@@ -177,20 +178,54 @@ def shadow_train(all_records: list[dict], clean_records: list[dict],
             y = np.array([r["label"] for r in rs])
             return X, y
 
+        def _base_probs(rs):
+            out = []
+            for r in rs:
+                f = r["features"]
+                cm_miss = f.get("cross_market_missing", 1.0)
+                if cm_miss is not None and float(cm_miss) == 0.0:
+                    ph = float(f.get("pin_implied_home", 0.0) or 0.0)
+                    pd = float(f.get("pin_implied_draw", 0.0) or 0.0)
+                    pa = float(f.get("pin_implied_away", 0.0) or 0.0)
+                    if ph > 0.0 and pd > 0.0 and pa > 0.0:
+                        out.append([ph, pd, pa])
+                        continue
+                out.append([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
+            return np.array(out, dtype=float)
+
+        def _supports_kw(fn, name: str) -> bool:
+            try:
+                sig = inspect.signature(fn)
+                return name in sig.parameters or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in sig.parameters.values()
+                )
+            except (ValueError, TypeError):
+                return False
+
+        residual_mode = bool(getattr(lgbm_cfg, "residual_mode", False))
+
         # 严格三段时序切分：train → early-stopping val → 纯样本外 holdout
         # 禁止把 holdout (Xho, yho) 传入 early stopping，避免评估泄漏。
         hold_split = int(len(rows) * (1 - float(cfg["holdout_frac"])))
         pre_hold, hold_rows = rows[:hold_split], rows[hold_split:]
         es_frac = float(cfg.get("early_stop_val_frac", 0.2))
+        train_kw: dict = {}
         if len(pre_hold) >= 100 and 0.0 < es_frac < 0.5:
             es_split = int(len(pre_hold) * (1 - es_frac))
             train_rows, val_rows = pre_hold[:es_split], pre_hold[es_split:]
             Xtr, ytr = _matrix(train_rows)
             Xval, yval = _matrix(val_rows)
-            trainer.train(Xtr, ytr, eval_features=Xval, eval_labels=yval)
+            if residual_mode and _supports_kw(trainer.train, "base_probs"):
+                train_kw["base_probs"] = _base_probs(train_rows)
+                if _supports_kw(trainer.train, "eval_base_probs"):
+                    train_kw["eval_base_probs"] = _base_probs(val_rows)
+            trainer.train(Xtr, ytr, eval_features=Xval, eval_labels=yval, **train_kw)
         else:
             Xtr, ytr = _matrix(pre_hold)
-            trainer.train(Xtr, ytr)
+            if residual_mode and _supports_kw(trainer.train, "base_probs"):
+                train_kw["base_probs"] = _base_probs(pre_hold)
+            trainer.train(Xtr, ytr, **train_kw)
         Xho, yho = _matrix(hold_rows)
 
         # 影子验证：holdout 上 lgbm vs 双基线
@@ -246,16 +281,10 @@ def shadow_train(all_records: list[dict], clean_records: list[dict],
         Xall, yall = _matrix(rows)
         best_iter = getattr(trainer, "best_iteration_", None)
         refit_kw: dict = {}
-        if isinstance(best_iter, int) and best_iter > 0:
-            try:
-                sig = inspect.signature(trainer.train)
-                if "n_estimators_override" in sig.parameters or any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD
-                    for p in sig.parameters.values()
-                ):
-                    refit_kw["n_estimators_override"] = best_iter
-            except (ValueError, TypeError):
-                pass
+        if isinstance(best_iter, int) and best_iter > 0 and _supports_kw(trainer.train, "n_estimators_override"):
+            refit_kw["n_estimators_override"] = best_iter
+        if residual_mode and _supports_kw(trainer.train, "base_probs"):
+            refit_kw["base_probs"] = _base_probs(rows)
         trainer.train(Xall, yall, **refit_kw)
         try:
             trainer.save()
