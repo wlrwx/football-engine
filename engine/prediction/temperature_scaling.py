@@ -148,20 +148,26 @@ class TemperatureScaler:
 
     @staticmethod
     def _compute_ece(probs: np.ndarray, actuals: np.ndarray, n_bins: int = 10) -> float:
-        """Expected Calibration Error"""
-        ece = 0.0
+        """Classwise average Expected Calibration Error in [0, 1]."""
         n = len(probs)
-        for idx in range(probs.shape[1]):
+        n_classes = probs.shape[1] if probs.ndim == 2 else 0
+        if n == 0 or n_classes == 0:
+            return 0.0
+        ece = 0.0
+        bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
+        for idx in range(n_classes):
             y_pred = probs[:, idx]
             y_true = (actuals == idx).astype(float)
-            bin_edges = np.linspace(0, 1, n_bins + 1)
             for b in range(n_bins):
-                mask = (y_pred >= bin_edges[b]) & (y_pred < bin_edges[b + 1])
+                if b == n_bins - 1:
+                    mask = (y_pred >= bin_edges[b]) & (y_pred <= bin_edges[b + 1])
+                else:
+                    mask = (y_pred >= bin_edges[b]) & (y_pred < bin_edges[b + 1])
                 if mask.sum() > 0:
                     avg_pred = y_pred[mask].mean()
                     avg_true = y_true[mask].mean()
                     ece += abs(avg_pred - avg_true) * mask.sum() / n
-        return ece
+        return float(ece / n_classes)
 
     @property
     def is_fitted(self) -> bool:
