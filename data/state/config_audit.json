@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-27T05:24:19",
+  "generated_at": "2026-11-27T09:17:10",
   "config_keys": {
     "prediction.json": {
-      "total_leaf_keys": 79,
-      "referenced": 79,
+      "total_leaf_keys": 87,
+      "referenced": 87,
       "unreferenced": [],
       "known_unwired": {},
       "unexpected_unwired": [],
@@ -41,6 +41,7 @@
   "dataclass_wiring": {
     "monte_carlo": {
       "fields": [
+        "allow_odds_xg_fallback",
         "attack_weight",
         "base_goals",
         "defense_weight",
@@ -59,7 +60,8 @@
         "market_blend_weight",
         "max_goals",
         "rest_weight",
-        "rho"
+        "rho",
+        "use_shrinkage_dc"
       ],
       "dataclass_fields_missing_from_config": [
         "home_advantage",
