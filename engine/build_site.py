@@ -748,6 +748,13 @@ def _render_track_record(state_dir: Path, web_dir: Path) -> str:
 
     _evo_html = _evo_dashboard(state_dir=state_dir)
     _trend_html = _accuracy_trend_section(at)
+    if not _trend_html and day_rows:
+        _trend_html = f'''
+  <div class="section-title">每日命中率（近14天）</div>
+  <div class="card tabular" style="overflow-x:auto"><table>
+    <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th></tr>
+    {day_rows}
+  </table></div>'''
     _layers_html = _league_layers_section(state_dir, fallback_rows=lg_rows)
     _hcr_html = _hcr_section(state_dir)
     _score_html = _score_and_signal_section(ledger, _ref_date)
@@ -784,149 +791,217 @@ def _render_track_record(state_dir: Path, web_dir: Path) -> str:
     html = f'''<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Track Record · 竞彩分析引擎公开战绩</title>
+<title>Track Record · 竞彩分析</title>
 <style>
 :root {{
-  /* 2026-08-30 亮色重塑（方向A 简洁亮色 SaaS）：令牌集中定义 */
-  --bg:#f6f8fb; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e8eef5;
+  --bg:#f8fafc; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e2e8f0;
   --border:#e2e8f0; --border-light:#cbd5e1;
   --text:#0f172a; --text-secondary:#475569; --dim:#94a3b8;
-  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --amber:#d97706; --cyan:#0891b2;
-  --purple:#7c3aed; --teal:#0d9488;
-  --blue-dim:rgba(37,99,235,.12); --red-dim:rgba(220,38,38,.12);
-  --green-dim:rgba(22,163,74,.12); --amber-dim:rgba(217,119,6,.12);
-  --purple-dim:rgba(124,58,237,.14);
-  --radius:14px; --radius-sm:10px;
-  --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.05);
-  --shadow-lift:0 4px 16px rgba(15,23,42,.08);
-  --transition:all .18s ease;
+  --blue:#2563eb; --red:#be123c; --green:#15803d; --amber:#b45309; --cyan:#0e7490;
+  --purple:#6d28d9; --teal:#0f766e;
+  --blue-dim:rgba(37,99,235,.08); --red-dim:rgba(190,18,60,.08);
+  --green-dim:rgba(21,128,61,.09); --amber-dim:rgba(180,83,9,.09);
+  --purple-dim:rgba(109,40,217,.08);
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(15,23,42,.04);
+  --shadow-lift:0 4px 12px rgba(15,23,42,.06);
+  --transition:all .15s ease;
 }}
 * {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; line-height:1.6; }}
-.page {{ max-width:1080px; margin:0 auto; padding:28px 20px 60px; }}
-.header {{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:8px 0 20px; border-bottom:1px solid var(--border); margin-bottom:24px; flex-wrap:wrap; }}
-.header h1 {{ font-size:1.5rem; font-weight:800; letter-spacing:0.02em; }}
-.header .sub {{ color:var(--dim); font-size:0.78rem; margin-top:4px; }}
-.nav a {{ color:var(--blue); text-decoration:none; font-size:0.8rem; padding:6px 14px; border:1px solid var(--border); border-radius:20px; transition:var(--transition); }}
-.nav a:hover {{ border-color:var(--blue); text-decoration:none; }}
-.kpis {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; margin-bottom:26px; }}
-.kpi {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:15px 16px; }}
-.kpi .label {{ color:var(--dim); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; }}
-.kpi .value {{ font-size:1.45rem; font-weight:800; margin-top:5px; }}
-.kpi .sub-val {{ font-size:0.68rem; color:var(--text-secondary); margin-top:3px; }}
-.kpi .value.green, .green {{ color:var(--green); }} .kpi .value.amber, .amber {{ color:var(--amber); }} .kpi .value.red, .red {{ color:var(--red); }} .kpi .value.blue, .blue {{ color:var(--blue); }}
-.section-title {{ font-size:0.95rem; font-weight:800; margin:26px 0 10px; color:var(--text); padding-left:10px; border-left:3px solid var(--blue); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }}
-.section-title .st-note {{ font-size:0.7rem; color:var(--dim); font-weight:500; }}
-.card {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; }}
-.stat {{ background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; min-width:120px; }}
+body {{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.55; -webkit-font-smoothing:antialiased;
+}}
+.tabular, table, .kpi .value {{ font-variant-numeric:tabular-nums; }}
+a {{ color:var(--blue); text-decoration:none; }}
+a:hover {{ text-decoration:underline; }}
+.page {{ max-width:1040px; margin:0 auto; padding:0 16px 56px; }}
+.topbar {{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding:12px 0; margin-bottom:18px;
+  background:rgba(248,250,252,.92); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}}
+.brand {{ display:flex; align-items:baseline; gap:10px; }}
+.brand h1 {{ font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; }}
+.brand .sub {{ color:var(--dim); font-size:0.74rem; font-variant-numeric:tabular-nums; }}
+.seg-tabs {{
+  display:inline-flex; gap:2px; padding:3px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+}}
+.page-tab-btn {{
+  padding:6px 14px; border:none; border-radius:7px; background:transparent;
+  color:var(--text-secondary); font-size:0.8rem; font-weight:600; cursor:pointer;
+  transition:var(--transition); font-family:inherit;
+}}
+.page-tab-btn:hover {{ color:var(--text); }}
+.page-tab-btn.active {{ background:var(--surface); color:var(--text); font-weight:700; box-shadow:var(--shadow); }}
+.page-tab-panel {{ display:none; }}
+.page-tab-panel.active {{ display:block; }}
+.nav-link {{
+  color:var(--text-secondary); font-size:0.76rem; font-weight:600;
+  padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface);
+  transition:var(--transition); white-space:nowrap;
+}}
+.nav-link:hover {{ color:var(--blue); border-color:var(--blue); text-decoration:none; }}
+
+.summary-strip {{
+  display:grid; grid-template-columns:repeat(5, minmax(0, 1fr));
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  overflow:hidden; margin-bottom:22px; box-shadow:var(--shadow);
+}}
+.sum-cell {{ padding:14px 16px; border-right:1px solid var(--border); min-width:0; }}
+.sum-cell:last-child {{ border-right:none; }}
+.sum-label {{ color:var(--dim); font-size:0.68rem; font-weight:600; letter-spacing:0.03em; }}
+.sum-val {{ font-size:1.3rem; font-weight:800; margin-top:4px; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }}
+.sum-sub {{ font-size:0.68rem; color:var(--text-secondary); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+.green {{ color:var(--green); }} .amber {{ color:var(--amber); }} .red {{ color:var(--red); }} .blue {{ color:var(--blue); }}
+
+.section-title {{
+  font-size:0.88rem; font-weight:700; margin:24px 0 10px; color:var(--text);
+  display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap;
+}}
+.section-title .st-note {{ font-size:0.72rem; color:var(--dim); font-weight:500; }}
+.card {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow); }}
+.two-col {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px; align-items:start; }}
+.stat {{ background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; min-width:115px; }}
 .stat .label {{ font-size:0.68rem; color:var(--dim); }}
-.stat .value {{ font-size:1.25rem; font-weight:800; margin-top:2px; }}
-table {{ width:100%; border-collapse:collapse; font-size:0.8rem; }}
-th {{ text-align:left; color:var(--dim); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); }}
-td {{ padding:8px 10px; border-bottom:1px solid var(--border); }}
+.stat .value {{ font-size:1.2rem; font-weight:800; margin-top:2px; }}
+
+table {{ width:100%; border-collapse:collapse; font-size:0.78rem; }}
+th {{ text-align:left; color:var(--dim); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface2); font-size:0.72rem; }}
+th:first-child {{ border-radius:6px 0 0 6px; }}
+th:last-child {{ border-radius:0 6px 6px 0; }}
+td {{ padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text-secondary); }}
 tr:last-child td {{ border-bottom:none; }}
 .edge-table, .data-table {{ width:100%; border-collapse:collapse; font-size:0.78rem; }}
-.note {{ color:var(--dim); font-size:0.72rem; margin-top:8px; }}
-.footer {{ margin-top:44px; padding-top:16px; border-top:1px solid var(--border); color:var(--dim); font-size:0.72rem; }}
-.deep-fold {{ border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); margin:14px 0; overflow:hidden; }}
+.note {{ color:var(--text-secondary); font-size:0.72rem; margin-top:8px; }}
+
+.evo-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; }}
+.evo-card {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:13px 14px; box-shadow:var(--shadow); }}
+.evo-title {{ font-size:0.7rem; color:var(--dim); margin-bottom:4px; font-weight:600; }}
+.evo-verdict {{ font-size:1rem; font-weight:800; }}
+.evo-detail {{ font-size:0.7rem; color:var(--text-secondary); margin-top:5px; line-height:1.5; }}
+.evo-chip {{ display:inline-block; background:var(--surface2); border-radius:4px; padding:1px 6px; margin:2px 4px 2px 0; font-size:0.66rem; }}
+.evo-chip i {{ color:var(--dim); font-style:normal; font-size:0.62rem; }}
+
+.deep-fold {{ border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); margin:12px 0; overflow:hidden; box-shadow:var(--shadow); }}
 .deep-fold > summary {{ list-style:none; cursor:pointer; user-select:none; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; }}
 .deep-fold > summary::-webkit-details-marker {{ display:none; }}
-.deep-fold > summary::before {{ content:'▸'; color:var(--blue); font-size:.8rem; transition:transform .2s; }}
+.deep-fold > summary::before {{ content:'▸'; color:var(--dim); font-size:0.8rem; transition:transform .15s; }}
 .deep-fold[open] > summary::before {{ transform:rotate(90deg); }}
-.deep-fold-title {{ font-weight:800; font-size:.85rem; }}
-.deep-fold-meta {{ font-size:.72rem; color:var(--dim); }}
-.deep-fold-hint {{ margin-left:auto; font-size:.66rem; color:var(--blue); opacity:.75; font-weight:600; }}
+.deep-fold-title {{ font-weight:700; font-size:0.86rem; color:var(--text); }}
+.deep-fold-meta {{ font-size:0.72rem; color:var(--dim); }}
+.deep-fold-hint {{ margin-left:auto; font-size:0.68rem; color:var(--blue); font-weight:600; }}
 .deep-fold[open] .deep-fold-hint {{ display:none; }}
-.deep-fold-body {{ padding:4px 16px 14px; border-top:1px dashed var(--border); }}
-.evo-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }}
-.evo-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }}
-.evo-title {{ font-size: .68rem; color: var(--dim); margin-bottom: 4px; font-weight:600; }}
-.evo-verdict {{ font-size: 1rem; font-weight: 800; }}
-.evo-detail {{ font-size: .68rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }}
-.evo-chip {{ display: inline-block; background: var(--surface2); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; font-size: .66rem; }}
-.evo-chip i {{ color: var(--dim); font-style: normal; font-size: .62rem; }}
+.deep-fold-body {{ padding:6px 16px 14px; border-top:1px solid var(--border); }}
+
 .lm-wrap {{ overflow-x:auto; }}
-.lm-table th, .lm-table td {{ padding:6px 8px; text-align:center; font-size:0.75rem; }}
-.lm-table th:nth-child(2), .lm-table td:nth-child(2) {{ text-align:left; font-weight:600; }}
+.lm-table th, .lm-table td {{ padding:6px 8px; text-align:center; font-size:0.74rem; }}
+.lm-table th:nth-child(2), .lm-table td:nth-child(2) {{ text-align:left; font-weight:600; color:var(--text); }}
 .lm-cat {{ display:inline-block; padding:1px 7px; border-radius:10px; font-size:0.62rem; font-weight:700; }}
 .lm-cat-tier1 {{ background:var(--green-dim); color:var(--green); }}
 .lm-cat-tier2 {{ background:var(--amber-dim); color:var(--amber); }}
 .lm-cat-world {{ background:var(--blue-dim); color:var(--blue); }}
 .lm-cat-other {{ background:var(--surface2); color:var(--dim); }}
 .lm-cat-cup {{ background:var(--purple-dim); color:var(--purple); }}
-.stale-warn {{ display:inline-flex; align-items:center; gap:6px; background:var(--amber-dim); color:#b45309; border:1px solid rgba(217,119,6,.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; margin:6px 0; }}
-/* ===== 2026-08-30 亮色重塑·组件覆写层 ===== */
-body {{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }}
-.card, .kpi, .evo-card {{ box-shadow:var(--shadow); border-color:var(--border); }}
-.page {{ max-width:1080px; margin:0 auto; padding:18px 14px 48px; }}
-@media (min-width:600px) {{ .page {{ padding:28px 20px 60px; }} }}
-th {{ color:var(--text-secondary); background:var(--surface2); }}
-th:first-child {{ border-radius:8px 0 0 8px; }}
-th:last-child {{ border-radius:0 8px 8px 0; }}
-.footer {{ color:var(--dim); }}
-.note {{ color:var(--text-secondary); }}
-a {{ color:var(--blue); }}
+.stale-warn {{ display:inline-flex; align-items:center; gap:6px; background:var(--amber-dim); color:var(--amber); border:1px solid rgba(180,83,9,.25); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; margin:6px 0; }}
+.footer {{ margin-top:36px; padding-top:16px; border-top:1px solid var(--border); color:var(--dim); font-size:0.72rem; }}
+
+@media (max-width:860px) {{
+  .summary-strip {{ grid-template-columns:repeat(3, minmax(0, 1fr)); }}
+  .sum-cell {{ border-bottom:1px solid var(--border); }}
+}}
+@media (max-width:560px) {{
+  .summary-strip {{ grid-template-columns:repeat(2, minmax(0, 1fr)); }}
+  .topbar {{ gap:8px; }}
+  .page-tab-btn {{ padding:5px 10px; font-size:0.75rem; }}
+}}
 </style></head><body>
 <div class="page">
-  <div class="header">
-    <div>
-      <h1>竞彩分析引擎 · Track Record</h1>
-      <div class="sub">公开战绩 · 自动生成于 {at.get("generated_at", "")[:16]} · 数据截至 {_dr_text}</div>
+  <div class="topbar">
+    <div class="brand">
+      <h1>Track Record</h1>
+      <span class="sub">截至 {_dr_text or '最新'} · 更新 {at.get("generated_at", "")[:16]}</span>
     </div>
-    <div class="nav"><a href="index.html">← 返回今日分析</a> &nbsp;|&nbsp; <a href="https://github.com/wlrwx/football-engine">GitHub</a></div>
+    <div class="seg-tabs">
+      <button class="page-tab-btn active" data-panel="tr-overview">核心战绩</button>
+      <button class="page-tab-btn" data-panel="tr-betting">联赛与投注</button>
+      <button class="page-tab-btn" data-panel="tr-diagnostics">模型诊断</button>
+    </div>
+    <a href="index.html" class="nav-link">← 今日分析</a>
   </div>
 
-  <div class="kpis">
-    <div class="kpi"><div class="label">v2 洁净场次</div><div class="value blue">{_v2_n or '—'}</div><div class="sub-val">主口径 chain=v2</div></div>
-    <div class="kpi"><div class="label">v2 方向命中率</div><div class="value {'green' if (_v2_hr or 0)>=0.5 else ('amber' if (_v2_hr or 0)>=0.4 else 'red')}">{f'{_v2_hr*100:.1f}%' if _v2_hr is not None else '—'}</div><div class="sub-val">{f'Brier {_v2_brier:.4f}' if _v2_brier is not None else '等待样本'}</div></div>
-    <div class="kpi"><div class="label">v2 vs 市场 (配对)</div><div class="value {_pvm_cls}">{_pvm_lbl}</div><div class="sub-val">{f'Δ{_pvm.get("delta_brier",0):+.4f} · t={_pvm.get("t",0):+.2f} · n={_pvm_n}' if _pvm_n else '待配对样本'}</div></div>
-    <div class="kpi"><div class="label">近7天命中率</div><div class="value {'green' if _r7_hr>=0.5 else 'amber'}">{_r7_hr*100:.0f}%</div><div class="sub-val">近7天 n={_r7_n}</div></div>
-    <div class="kpi"><div class="label">全量复盘 (含legacy)</div><div class="value">{n}</div><div class="sub-val">命中 {hit_rate*100:.1f}% · 平局 {draws_actual} ({draws_hit}中)</div></div>
+  <div class="summary-strip">
+    <div class="sum-cell"><div class="sum-label">v2 洁净场次</div><div class="sum-val blue">{_v2_n or '—'}</div><div class="sum-sub">主口径 chain=v2</div></div>
+    <div class="sum-cell"><div class="sum-label">v2 方向命中率</div><div class="sum-val {'green' if (_v2_hr or 0)>=0.5 else ('amber' if (_v2_hr or 0)>=0.4 else 'red')}">{f'{_v2_hr*100:.1f}%' if _v2_hr is not None else '—'}</div><div class="sum-sub">{f'Brier {_v2_brier:.4f}' if _v2_brier is not None else '等待样本'}</div></div>
+    <div class="sum-cell"><div class="sum-label">v2 vs 市场 (配对)</div><div class="sum-val {_pvm_cls}">{_pvm_lbl}</div><div class="sum-sub">{f'Δ{_pvm.get("delta_brier",0):+.4f} · t={_pvm.get("t",0):+.2f} · n={_pvm_n}' if _pvm_n else '待配对样本'}</div></div>
+    <div class="sum-cell"><div class="sum-label">近7天命中率</div><div class="sum-val {'green' if _r7_hr>=0.5 else 'amber'}">{_r7_hr*100:.0f}%</div><div class="sum-sub">近7天 n={_r7_n}</div></div>
+    <div class="sum-cell"><div class="sum-label">全量复盘 (含legacy)</div><div class="sum-val">{n}</div><div class="sum-sub">命中 {hit_rate*100:.1f}% · 平局 {draws_actual} ({draws_hit}中)</div></div>
   </div>
 
-  {_evo_html}
+  <div class="page-tab-panel active" id="tr-overview">
+    {_evo_html}
+    <div class="two-col" style="margin-top:14px">
+      <div>
+        <div class="section-title">概率质量（Brier 越低越好）<span class="st-note">看同样本配对</span></div>
+        <div class="card"><table>
+          <tr><th>口径</th><th>Brier</th></tr>
+          {_pvm_row}
+          <tr><td>融合 final（全量生产）</td>{_brier_cell(_ov_b or _sd_f)}</tr>
+          <tr><td>市场基准（全量去水）</td>{_brier_cell(_ov_m)}</tr>
+          <tr><td>模型原始（全量未融合）</td>{_brier_cell(_ov_mdl)}</tr>
+          <tr><td>shrinkage_dc（挑战者）</td>{_brier_cell(_sd_b)}</tr>
+        </table></div>
+      </div>
+      <div>
+        {_rel_html}
+      </div>
+    </div>
+    {_trend_html}
+  </div>
 
-  <div class="section-title">概率质量（Brier 越低越好）<span class="st-note">有效对比看同样本配对口径，legacy 仅作历史存档</span></div>
-  <div class="card"><table>
-    <tr><th>口径</th><th>Brier</th></tr>
-    {_pvm_row}
-    <tr><td>融合 final（全量生产）</td>{_brier_cell(_ov_b or _sd_f)}</tr>
-    <tr><td>市场基准（全量去水）</td>{_brier_cell(_ov_m)}</tr>
-    <tr><td>模型原始（全量未融合）</td>{_brier_cell(_ov_mdl)}</tr>
-    <tr><td>shrinkage_dc（挑战者）</td>{_brier_cell(_sd_b)}</tr>
-  </table></div>
-  {_rel_html}
-  {_coverage_html}
+  <div class="page-tab-panel" id="tr-betting">
+    {_parlay_html}
+    {_ev_html}
+    {_layers_html}
+  </div>
 
-  <div class="section-title">每日命中率（近14天）</div>
-  <div class="card"><table>
-    <tr><th>日期</th><th>场次</th><th>命中</th><th>命中率</th></tr>
-    {day_rows}
-  </table></div>
-
-  {_trend_html}
-  {_parlay_html}
-  {_ev_html}
-  {_layers_html}
-  {_hcr_html}
-  {_score_html}
-  {_wb_html}
-  {_lm_html}
-
-  <div class="section-title">方法论</div>
-  <div class="card" style="font-size:0.8rem;color:var(--text-secondary)">
-    {_pipeline_desc()}（DJYY 置信&lt;0.5 不参与、与市场分歧减半）。
-    融合链每一步均为 config 开关，由消融回放（scripts/ablation_replay.py）对已结算账本
-    配对验证后裁决去留；校准层自进化带显著性护栏（docs/UPGRADE2_20260829.md）。
-    <div class="note">全程 GitHub Actions 自动运行（每 30 分钟预测+回溯结算），零人工干预。
-    历史胜平负概率与结算结果全部可核查（账本 review_ledger.jsonl，{n}+ 场）。</div>
+  <div class="page-tab-panel" id="tr-diagnostics">
+    {_coverage_html}
+    {_hcr_html}
+    {_score_html}
+    {_wb_html}
+    {_lm_html}
+    <div class="section-title">方法论</div>
+    <div class="card" style="font-size:0.78rem;color:var(--text-secondary)">
+      {_pipeline_desc()}（DJYY 置信&lt;0.5 不参与、与市场分歧减半）。
+      融合链每一步均为 config 开关，由消融回放（scripts/ablation_replay.py）对已结算账本
+      配对验证后裁决去留；校准层自进化带显著性护栏（docs/UPGRADE2_20260829.md）。
+      <div class="note">全程 GitHub Actions 自动运行，零人工干预。历史胜平负概率与结算结果全部可核查（review_ledger.jsonl，{n}+ 场）。</div>
+    </div>
   </div>
 
   <div class="footer">
     竞彩足球概率分析系统 · 数据源：体彩官方/新浪/500万/DJYY · 仅供研究，理性购彩 ·
-    <a href="https://github.com/wlrwx/football-engine" style="color:var(--blue)">源代码</a>
+    <a href="https://github.com/wlrwx/football-engine">源代码</a>
   </div>
 </div>
+<script>
+document.querySelectorAll('.page-tab-btn').forEach(function(btn) {{
+  btn.addEventListener('click', function() {{
+    var id = this.getAttribute('data-panel');
+    document.querySelectorAll('.page-tab-btn').forEach(function(b) {{ b.classList.remove('active'); }});
+    this.classList.add('active');
+    document.querySelectorAll('.page-tab-panel').forEach(function(p) {{ p.classList.remove('active'); }});
+    var el = document.getElementById(id);
+    if (el) el.classList.add('active');
+    window.scrollTo({{ top: 0, behavior: 'smooth' }});
+  }});
+}});
+</script>
 </body></html>'''
     out = web_dir / "track-record.html"
     out.write_text("\n".join(line.rstrip() for line in html.split("\n")), encoding="utf-8")
@@ -1148,27 +1223,45 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
         )
     ]
 
-    # 联赛筛选导航（仅用于过滤，不改排序）
+    # 联赛筛选导航 + FotMob 风格齐整看板容器
     from collections import Counter
     league_counts = Counter(p.get("competition", "其他") for p in sorted_preds)
+    nav_html = ""
     if len(league_counts) > 1:
-        cards += '<div class="league-nav">'
-        cards += '<button class="league-btn active" data-league="all">全部</button>'
+        nav_html += '<div class="league-nav">'
+        nav_html += '<button class="league-btn active" data-league="all">全部</button>'
         if value_bets:
-            cards += f'<button class="league-btn" data-league="value">⭐价值注<span class="cnt">{len(value_bets)}</span></button>'
+            nav_html += f'<button class="league-btn" data-league="value">⭐ 价值注<span class="cnt">{len(value_bets)}</span></button>'
         for lg, cnt in league_counts.most_common():
-            cards += f'<button class="league-btn" data-league="{_slug(lg)}">{lg}<span class="cnt">{cnt}</span></button>'
-        cards += '</div>'
+            nav_html += f'<button class="league-btn" data-league="{_slug(lg)}">{lg}<span class="cnt">{cnt}</span></button>'
+        nav_html += '</div>'
 
-    # 平铺渲染，严格按 match_id 排序
+    board_rows = ""
     global_idx = 0
     for p in sorted_preds:
         lg = p.get("competition", "其他")
         _is_v = '1' if _is_value(p, value_matches) else '0'
-        cards += f'<div class="league-section" data-league="{_slug(lg)}" data-value="{_is_v}">'
-        cards += _match_card(p, value_matches, global_idx, results_map)
-        cards += '</div>'
-        global_idx += 1 
+        board_rows += f'<div class="league-section" data-league="{_slug(lg)}" data-value="{_is_v}">'
+        board_rows += _match_card(p, value_matches, global_idx, results_map)
+        board_rows += '</div>'
+        global_idx += 1
+
+    if board_rows:
+        cards = (
+            f'{nav_html}'
+            f'<div class="match-board">'
+            f'<div class="match-board-head">'
+            f'<div>时间 / 赛事</div>'
+            f'<div>对阵与预期</div>'
+            f'<div style="text-align:center">主 &middot; 平 &middot; 客</div>'
+            f'<div>主推结论</div>'
+            f'<div></div>'
+            f'</div>'
+            f'{board_rows}'
+            f'</div>'
+        )
+    else:
+        cards = ""
 
     # 三票方案 / 串关 / 比分串（2026-08-30: 传入结算索引, 推荐卡直接标注中/未中）
     # 注意: _ps 正式加载在下方复盘区块, 此处自包含提前读（幂等读文件, 开销可忽略）
@@ -1216,891 +1309,490 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>竞彩分析引擎 - {today}</title>
+<title>竞彩分析 - {today}</title>
 <style>
 :root {{
-  /* 2026-08-30 亮色重塑（方向A 简洁亮色 SaaS）：令牌集中定义 */
-  --bg:#f6f8fb; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e8eef5;
+  --bg:#f8fafc; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e2e8f0;
   --border:#e2e8f0; --border-light:#cbd5e1;
   --text:#0f172a; --text-secondary:#475569; --dim:#94a3b8;
-  --blue:#2563eb; --red:#dc2626; --green:#16a34a; --amber:#d97706; --cyan:#0891b2;
-  --purple:#7c3aed; --teal:#0d9488;
-  --blue-dim:rgba(37,99,235,.12); --red-dim:rgba(220,38,38,.12);
-  --green-dim:rgba(22,163,74,.12); --amber-dim:rgba(217,119,6,.12);
-  --purple-dim:rgba(124,58,237,.14);
-  --radius:14px; --radius-sm:10px;
-  --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.05);
-  --shadow-lift:0 4px 16px rgba(15,23,42,.08);
-  --transition:all .18s ease;
+  --blue:#2563eb; --red:#be123c; --green:#15803d; --amber:#b45309; --cyan:#0e7490;
+  --purple:#6d28d9; --teal:#0f766e;
+  --blue-dim:rgba(37,99,235,.08); --red-dim:rgba(190,18,60,.08);
+  --green-dim:rgba(21,128,61,.09); --amber-dim:rgba(180,83,9,.09);
+  --purple-dim:rgba(109,40,217,.08);
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 2px rgba(15,23,42,.04);
+  --shadow-lift:0 4px 12px rgba(15,23,42,.06);
+  --transition:all .15s ease;
 }}
-* {{ margin: 0; padding: 0; box-sizing: border-box; }}
-html {{ scroll-behavior: smooth; }}
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+html {{ scroll-behavior:smooth; }}
 body {{
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', 'Inter', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.55;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }}
-.page {{ max-width: 1140px; margin: 0 auto; padding: 28px 20px 48px; }}
+.tabular, table, .m-meta, .m-team-stat, .m-p-val, .m-p-odds, .sum-val, .ti-odds, .ob-val {{
+  font-variant-numeric:tabular-nums;
+}}
+a {{ color:var(--blue); text-decoration:none; }}
+a:hover {{ text-decoration:underline; }}
+.page {{ max-width:1040px; margin:0 auto; padding:0 16px 52px; }}
 
-/* ===== HEADER ===== */
-.header {{
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
-  flex-wrap: wrap; gap: 14px;
+/* ===== STICKY TOPBAR ===== */
+.topbar {{
+  position:sticky; top:0; z-index:60;
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  padding:12px 0; margin-bottom:12px;
+  background:rgba(248,250,252,.92); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
 }}
-.header-left h1 {{
-  font-size: 1.6rem; font-weight: 800; letter-spacing: -0.8px;
-  background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+.brand {{ display:flex; align-items:center; gap:8px; }}
+.brand h1 {{ font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; color:var(--text); }}
+.brand .date-pill {{
+  font-size:0.72rem; font-weight:600; color:var(--text-secondary);
+  background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:2px 8px;
+  font-variant-numeric:tabular-nums;
 }}
-.header-left .sub {{
-  color: var(--dim); font-size: 0.78rem; margin-top: 5px;
-  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-  letter-spacing: 0.3px;
-}}
-.header-right {{ display: flex; align-items: center; gap: 10px; }}
-.date-nav {{
-  display: flex; align-items: center; gap: 6px; padding: 10px 0;
-}}
-.date-btn {{
-  padding: 5px 14px; border-radius: 16px; font-size: 0.78rem; font-weight: 600;
-  color: var(--dim); background: var(--card); border: 1px solid var(--border);
-  text-decoration: none; white-space: nowrap; transition: all 0.2s;
-}}
-.date-btn.active {{ color: #fff; background: var(--blue); border-color: var(--blue); }}
-.date-btn:hover {{ border-color: var(--blue); color: var(--blue); }}
-.date-btn.active:hover {{ color: #fff; }}
-.badge {{
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 12px; border-radius: 20px;
-  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.8px;
-  text-transform: uppercase;
-}}
-.badge::before {{ content: ''; width: 6px; height: 6px; border-radius: 50%; }}
-.badge.ok {{ background: var(--green-dim); color: var(--green); border: 1px solid #166534; }}
-.badge.ok::before {{ background: var(--green); animation: pulse 2s infinite; }}
-.badge.warn {{ background: var(--amber-dim); color: var(--amber); border: 1px solid #92400e; }}
-.badge.warn::before {{ background: var(--amber); }}
-@keyframes pulse {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.4; }} }}
-
-/* ===== KPI STATS BAR ===== */
-.stats {{
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
-  margin-bottom: 28px;
-}}
-.stat {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 14px 16px;
-  transition: var(--transition); position: relative; overflow: hidden;
-}}
-.stat::after {{
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--blue), transparent);
-  opacity: 0; transition: opacity 0.3s;
-}}
-.stat:hover {{ border-color: var(--border-light); transform: translateY(-1px); }}
-.stat:hover::after {{ opacity: 1; }}
-.stat .label {{
-  font-size: 0.62rem; color: var(--dim); text-transform: uppercase;
-  letter-spacing: 1px; font-weight: 600; margin-bottom: 4px;
-}}
-.stat .value {{ font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }}
-.stat .value.green {{ color: var(--green); }}
-.stat .value.amber {{ color: var(--amber); }}
-.stat .value.red {{ color: var(--red); }}
-.stat .value.blue {{ color: var(--blue); }}
-
-/* ===== PAGE TABS (2026-08-10 页面重构) ===== */
-.page-tabs {{
-  display: flex; gap: 8px; margin-bottom: 8px; padding: 4px 0;
-  border-bottom: 1px solid var(--border);
+.seg-tabs {{
+  display:inline-flex; gap:2px; padding:3px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:10px;
 }}
 .page-tab-btn {{
-  padding: 8px 20px; border-radius: 10px 10px 0 0;
-  font-size: 0.82rem; font-weight: 700; letter-spacing: 0.5px;
-  color: var(--dim); background: transparent; border: none;
-  border-bottom: 2px solid transparent; cursor: pointer;
-  transition: var(--transition); font-family: inherit;
-}}
-.page-tab-btn:hover {{ color: var(--text-secondary); }}
-.page-tab-btn.active {{
-  color: var(--blue); border-bottom-color: var(--blue);
-  background: rgba(59,130,246,0.06);
-}}
-.page-tab-panel {{ display: none; }}
-.page-tab-panel.active {{ display: block; }}
-
-/* ===== SCORE PARLAY COMPACT (2026-08-10) ===== */
-
-.sp-summary-title {{ font-weight: 800; font-size: .86rem; letter-spacing: .3px; }}
-.sp-summary-meta {{ font-size: .76rem; color: var(--dim); }}
-.sp-summary-hint {{
-  margin-left: auto; font-size: .66rem; color: var(--blue);
-  opacity: .75; font-weight: 600;
-}}
-.sp-collapse[open] .sp-summary-hint {{ display: none; }}
-.sp-leg {{ white-space: nowrap; margin-right: 6px; }}
-.sp-leg b {{ color: var(--amber); }}
-.sp-detail summary {{
-  cursor: pointer; color: var(--blue); font-size: 0.72rem;
-  padding: 2px 0; user-select: none;
-}}
-.sp-detail .ts-row {{
-  display: flex; justify-content: space-between; gap: 12px;
-  padding: 3px 8px; font-size: 0.75rem; color: var(--text-secondary);
-  border-bottom: 1px dashed var(--border);
-}}
-.ts-statline {{
-  font-size: 0.8rem; padding: 7px 2px; color: var(--text-secondary);
-  border-bottom: 1px dashed var(--border);
-}}
-.ts-statline b {{ color: var(--text); }}
-
-/* ===== SECTION TITLES ===== */
-.section-title {{
-  font-size: 0.85rem; font-weight: 700; margin: 32px 0 14px;
-  padding-left: 12px; border-left: 3px solid var(--blue);
-  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;
-}}
-
-/* ===== LEAGUE NAV ===== */
-.league-nav {{
-  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
-}}
-.league-btn {{
-  padding: 5px 14px; border-radius: 16px; font-size: 0.72rem; font-weight: 600;
-  color: var(--text-secondary); background: var(--surface2); border: 1px solid var(--border);
-  cursor: pointer; transition: var(--transition); white-space: nowrap;
-  font-family: inherit;
-}}
-.league-btn:hover {{ border-color: var(--blue); color: var(--blue); }}
-.league-btn.active {{ background: var(--blue); border-color: var(--blue); color: #fff; }}
-.league-btn .cnt {{
-  font-size: 0.62rem; color: var(--dim); margin-left: 4px;
-}}
-.league-btn.active .cnt {{ color: rgba(255,255,255,0.7); }}
-
-/* ===== LEAGUE SECTION ===== */
-.league-section {{ margin-bottom: 8px; }}
-.league-section.hidden {{ display: none; }}
-.league-header {{
-  font-size: 0.78rem; font-weight: 700; color: var(--cyan);
-  padding: 8px 12px; margin: 14px 0 8px;
-  background: rgba(6,182,212,0.06); border-left: 3px solid var(--cyan);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  display: flex; align-items: center; gap: 8px;
-}}
-.league-count {{
-  font-size: 0.65rem; font-weight: 400; color: var(--dim);
-}}
-
-
-/* ===== LEAGUE MATRIX TABLE ===== */
-.lm-wrap {{
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  margin-bottom: 4px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}}
-.lm-table {{
-  width: 100%; border-collapse: collapse; font-size: 0.68rem;
-  white-space: nowrap;
-}}
-.lm-table thead {{ position: sticky; top: 0; z-index: 2; }}
-.lm-table th {{
-  background: var(--surface2); color: var(--dim); font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.5px;
-  padding: 8px 10px; text-align: center; border-bottom: 2px solid var(--border);
-  font-size: 0.6rem;
-}}
-.lm-table th:first-child {{ text-align: left; padding-left: 12px; }}
-.lm-table th:nth-child(2) {{ text-align: left; }}
-.lm-table td {{
-  padding: 6px 10px; text-align: center; border-bottom: 1px solid rgba(38,51,68,0.5);
-  color: var(--text-secondary);
-}}
-.lm-table td:first-child {{ padding-left: 12px; }}
-.lm-table td:nth-child(2) {{ text-align: left; font-weight: 600; color: var(--text); }}
-.lm-row:hover td {{ background: rgba(59,130,246,0.08); }}
-.lm-row.active td {{
-  background: rgba(34,197,94,0.12);
-  font-weight: 600;
-}}
-.lm-row.active td:first-child {{ border-left: 3px solid var(--green); }}
-.lm-row.active td:nth-child(2) {{
-  color: var(--green);
-  font-weight: 700;
-}}
-.lm-row.active td:nth-child(2)::before {{
-  content: '● ';
-  font-size: 0.5rem;
-  vertical-align: middle;
-  animation: pulse-dot 1.5s ease-in-out infinite;
-}}
-@keyframes pulse-dot {{
-  0%, 100% {{ opacity: 1; }}
-  50% {{ opacity: 0.3; }}
-}}
-.lm-name {{ font-weight: 600; }}
-.lm-num {{ font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; }}
-.lm-pct {{ font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; }}
-.lm-cat {{
-  display: inline-block; padding: 1px 8px; border-radius: 10px;
-  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.5px;
-  text-transform: uppercase;
-}}
-.lm-cat-tier1 {{ background: rgba(34,197,94,0.12); color: var(--green); }}
-.lm-cat-tier2 {{ background: rgba(245,158,11,0.12); color: var(--amber); }}
-.lm-cat-world {{ background: rgba(59,130,246,0.12); color: var(--blue); }}
-.lm-cat-other {{ background: rgba(148,168,192,0.1); color: var(--dim); }}
-.lm-cat-cup {{ background: rgba(168,85,247,0.15); color: var(--purple); }}
-#league-matrix.collapsed {{ display: none; }}
-
-/* ===== LEAGUE STATS BAR ===== */
-.lg-stats-bar {{
-  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
-}}
-.lg-stat {{
-  font-size: 0.62rem; padding: 2px 8px; border-radius: 4px;
-  font-weight: 600; white-space: nowrap;
-  background: rgba(148,168,192,0.08); color: var(--text-secondary);
-}}
-.lg-stat.h {{ color: var(--blue); }}
-.lg-stat.d {{ color: var(--dim); }}
-.lg-stat.a {{ color: var(--red); }}
-
-/* ===== MATCH CARDS ===== */
-.match {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); margin-bottom: 10px;
-  transition: var(--transition); overflow: hidden;
-}}
-.match:hover {{ border-color: var(--border-light); box-shadow: var(--shadow); }}
-.match.value-pick {{ border-left: 3px solid var(--green); }}
-.match-header {{
-  padding: 16px 18px; cursor: pointer; user-select: none;
-  display: flex; flex-direction: column; gap: 10px;
-}}
-.match-header:active {{ background: var(--surface2); }}
-.match-top {{
-  display: flex; justify-content: space-between; align-items: center;
-}}
-.league-tag {{
-  font-size: 0.65rem; color: var(--cyan); background: rgba(6,182,212,0.1);
-  padding: 2px 8px; border-radius: 4px; font-weight: 600;
-  border: 1px solid rgba(6,182,212,0.2);
-}}
-.match-meta {{ display: flex; align-items: center; gap: 8px; }}
-.match-id {{ font-size: 0.65rem; color: var(--dim); font-family: monospace; }}
-.value-badge {{
-  font-size: 0.6rem; font-weight: 800; color: var(--green);
-  background: var(--green-dim); padding: 2px 7px; border-radius: 4px;
-  letter-spacing: 0.5px; border: 1px solid #166534;
-}}
-.teams {{
-  display: flex; justify-content: center; align-items: center; gap: 14px;
-}}
-.team {{ font-size: 1.08rem; font-weight: 700; min-width: 90px; }}
-.team.home {{ text-align: right; }}
-.team.away {{ text-align: left; }}
-.vs {{ color: var(--dim); font-size: 0.7rem; font-weight: 600; }}
-
-/* Prob bar */
-.prob-row {{
-  display: flex; height: 28px; border-radius: 6px; overflow: hidden;
-  background: var(--surface3);
-}}
-.prob-seg {{
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.65rem; font-weight: 700; color: #fff;
-  min-width: 38px; transition: width 0.5s ease;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}}
-.prob-seg.h {{ background: linear-gradient(135deg, #2563eb, #2563eb); }}
-.prob-seg.d {{ background: linear-gradient(135deg, #4b5563, #6b7280); }}
-.prob-seg.a {{ background: linear-gradient(135deg, #dc2626, #ef4444); }}
-
-/* Prediction pick */
-.pred-pick {{
-  text-align: center; padding: 6px 0 2px; font-size: 0.82rem;
-}}
-.pick-label {{
-  font-size: 0.65rem; color: var(--dim); font-weight: 600;
-  text-transform: uppercase; letter-spacing: 1px; margin-right: 6px;
-}}
-.hcap-label {{
-  background: rgba(147,51,234,0.15); color: var(--purple);
-  padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(147,51,234,0.35);
-  margin-left: 6px; text-transform: none; letter-spacing: 0;
-}}
-.pick-val {{
-  font-weight: 800; font-size: 0.88rem; padding: 2px 10px;
-  border-radius: 6px;
-}}
-.pick-val.home {{ color: var(--blue); background: rgba(59,130,246,0.1); }}
-.pick-val.draw {{ color: var(--text-secondary); background: rgba(107,114,128,0.15); }}
-.pick-val.away {{ color: var(--red); background: rgba(239,68,68,0.1); }}
-.pred-score {{
-  font-size: 0.72rem; color: var(--amber); font-weight: 700;
-  margin-left: 10px; padding: 2px 8px; border-radius: 4px;
-  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);
-}}
-
-/* Actual result comparison */
-.actual-result {{
-  text-align: center; padding: 4px 0 2px; font-size: 0.78rem;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}}
-.ar-label {{
-  font-size: 0.62rem; color: var(--dim); font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}}
-.ar-score {{
-  font-weight: 800; font-size: 0.92rem; color: var(--text);
-  font-family: 'SF Mono', 'Fira Code', monospace;
-}}
-.ar-outcome {{
-  font-size: 0.72rem; font-weight: 700; padding: 1px 8px;
-  border-radius: 4px;
-}}
-.ar-outcome.home {{ color: var(--blue); background: rgba(59,130,246,0.1); }}
-.ar-outcome.draw {{ color: var(--text-secondary); background: rgba(107,114,128,0.15); }}
-.ar-outcome.away {{ color: var(--red); background: rgba(239,68,68,0.1); }}
-.ar-hit {{
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 50%;
-  font-size: 0.72rem; font-weight: 800;
-}}
-.ar-hit.hit {{ background: var(--green-dim); color: var(--green); }}
-.ar-hit.miss {{ background: var(--red-dim); color: var(--red); }}
-
-/* Collapsed info row */
-.match-info-row {{
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 6px;
-}}
-.conf-meter {{ display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; }}
-.conf-dot {{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }}
-.conf-dot.high {{ background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }}
-.conf-dot.med {{ background: var(--amber); box-shadow: 0 0 6px rgba(245,158,11,0.4); }}
-.conf-dot.low {{ background: var(--dim); }}
-.info-chip {{
-  font-size: 0.68rem; color: var(--dim);
-  display: inline-flex; align-items: center; gap: 3px;
-}}
-.info-chip b {{ color: var(--text-secondary); font-weight: 600; }}
-.expand-icon {{
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 10px; border-radius: 6px;
-  font-size: 0.68rem; font-weight: 600; color: var(--blue);
-  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
-  cursor: pointer; transition: var(--transition); white-space: nowrap;
-}}
-.expand-icon:hover {{ background: rgba(59,130,246,0.2); border-color: var(--blue); }}
-.match.expanded .expand-icon {{ transform: none; color: var(--dim); background: var(--surface2); border-color: var(--border); }}
-
-/* ===== EXPANDED DETAIL PANEL ===== */
-.match-detail {{
-  display: none; border-top: 1px solid var(--border);
-  background: var(--surface2); padding: 0;
-}}
-.match.expanded .match-detail {{ display: block; }}
-
-/* Tabs */
-.tab-bar {{
-  display: flex; border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}}
-.tab-btn {{
-  flex: 1; padding: 10px 8px; text-align: center;
-  font-size: 0.72rem; font-weight: 700; color: var(--dim);
-  cursor: pointer; border: none; background: none;
-  border-bottom: 2px solid transparent; transition: var(--transition);
-  text-transform: uppercase; letter-spacing: 0.5px;
-}}
-.tab-btn:hover {{ color: var(--text-secondary); background: var(--surface2); }}
-.tab-btn.active {{ color: var(--blue); border-bottom-color: var(--blue); background: var(--surface2); }}
-.tab-content {{ display: none; padding: 16px 18px; }}
-.tab-content.active {{ display: block; }}
-
-/* Model comparison table */
-.model-table {{ width: 100%; border-collapse: collapse; font-size: 0.72rem; }}
-.model-table th {{
-  text-align: left; padding: 6px 8px; color: var(--dim);
-  font-weight: 600; font-size: 0.65rem; text-transform: uppercase;
-  letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
-}}
-.model-table td {{
-  padding: 7px 8px; border-bottom: 1px solid rgba(38,51,68,0.5);
-  vertical-align: middle;
-}}
-.model-table tr:last-child td {{ border-bottom: none; }}
-.model-table .src-label {{ color: var(--text-secondary); font-weight: 600; white-space: nowrap; }}
-.prob-bar-cell {{ width: 55%; }}
-.mini-bar-wrap {{ display: flex; height: 16px; border-radius: 4px; overflow: hidden; background: var(--surface3); }}
-.mini-bar {{
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.58rem; font-weight: 700; color: #fff; min-width: 24px;
-}}
-.mini-bar.h {{ background: var(--blue); }}
-.mini-bar.d {{ background: #4b5563; }}
-.mini-bar.a {{ background: var(--red); }}
-
-/* Elo & Wilson */
-.elo-row {{
-  display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap;
-}}
-.elo-chip {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 8px 14px;
-  font-size: 0.72rem; flex: 1; min-width: 120px;
-}}
-.elo-chip .elo-label {{ color: var(--dim); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px; }}
-.elo-chip .elo-val {{ font-size: 1.1rem; font-weight: 800; margin-top: 2px; }}
-.wilson-meter {{ margin-top: 12px; }}
-.wilson-label {{ font-size: 0.68rem; color: var(--dim); margin-bottom: 5px; }}
-.wilson-track {{
-  height: 8px; background: var(--surface3); border-radius: 4px; overflow: hidden;
-}}
-.wilson-fill {{
-  height: 100%; border-radius: 4px;
-  background: linear-gradient(90deg, var(--amber), var(--green));
-  transition: width 0.6s ease;
-}}
-.wilson-val {{ font-size: 0.68rem; color: var(--text-secondary); margin-top: 3px; }}
-
-/* Odds tab */
-.odds-grid {{
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px; margin-bottom: 14px;
-}}
-.odds-box {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 10px 12px;
-}}
-.odds-box .ob-label {{ font-size: 0.62rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }}
-.odds-box .ob-val {{ font-size: 1rem; font-weight: 700; margin-top: 2px; }}
-.edge-table {{ width: 100%; border-collapse: collapse; font-size: 0.72rem; margin-top: 12px; }}
-.edge-table th {{
-  text-align: left; padding: 5px 8px; color: var(--dim);
-  font-size: 0.62rem; text-transform: uppercase; border-bottom: 1px solid var(--border);
-}}
-.edge-table td {{ padding: 6px 8px; border-bottom: 1px solid rgba(38,51,68,0.4); }}
-.edge-pos {{ color: var(--green); font-weight: 700; }}
-.edge-neg {{ color: var(--red); font-weight: 600; }}
-.reverse-box {{
-  margin-top: 14px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 12px 14px;
-}}
-.reverse-box h5 {{ font-size: 0.7rem; color: var(--amber); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }}
-.reverse-row {{ display: flex; justify-content: space-between; font-size: 0.72rem; padding: 3px 0; }}
-.reverse-row .rk {{ color: var(--dim); }}
-.same-odds-box {{
-  margin-top: 10px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 12px 14px;
-}}
-.same-odds-box h5 {{ font-size: 0.7rem; color: var(--cyan); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }}
-
-/* Distribution tab */
-.scores-grid {{
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 6px; margin-bottom: 14px;
-}}
-.score-cell {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 6px; padding: 6px 4px; text-align: center;
-}}
-.score-cell .sc-score {{ font-size: 0.8rem; font-weight: 800; }}
-.score-cell .sc-prob {{ font-size: 0.6rem; color: var(--dim); margin-top: 1px; }}
-.goals-bars {{ margin: 14px 0; }}
-.goal-bar-row {{
-  display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
-}}
-.goal-bar-label {{ font-size: 0.68rem; color: var(--dim); width: 50px; text-align: right; flex-shrink: 0; }}
-.goal-bar-track {{ flex: 1; height: 18px; background: var(--surface3); border-radius: 4px; overflow: hidden; }}
-.goal-bar-fill {{
-  height: 100%; border-radius: 4px; display: flex; align-items: center;
-  padding-left: 6px; font-size: 0.6rem; font-weight: 700; color: #fff;
-  background: linear-gradient(90deg, #8b5cf6, var(--purple));
-  transition: width 0.5s ease;
-}}
-.xg-compare {{ margin-top: 14px; }}
-.xg-compare h5 {{ font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
-.xg-bar-row {{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }}
-.xg-bar-label {{ font-size: 0.68rem; color: var(--dim); width: 60px; text-align: right; flex-shrink: 0; }}
-.xg-bar-track {{ flex: 1; height: 22px; background: var(--surface3); border-radius: 5px; overflow: hidden; position: relative; }}
-.xg-bar-fill {{
-  height: 100%; border-radius: 5px; display: flex; align-items: center;
-  padding-left: 8px; font-size: 0.65rem; font-weight: 700; color: #fff;
-  transition: width 0.5s ease;
-}}
-.xg-bar-fill.home {{ background: linear-gradient(90deg, #3b82f6, var(--blue)); }}
-.xg-bar-fill.away {{ background: linear-gradient(90deg, #ef4444, var(--red)); }}
-
-/* ===== TICKET SECTION ===== */
-.ticket-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }}
-.ticket-card {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px; transition: var(--transition);
-}}
-.ticket-card:hover {{ border-color: var(--border-light); }}
-.ticket-card h4 {{
-  font-size: 0.75rem; margin-bottom: 10px; text-transform: uppercase;
-  letter-spacing: 0.8px; font-weight: 800;
-}}
-.ticket-card h4.stable {{ color: var(--green); }}
-.ticket-card h4.value {{ color: var(--blue); }}
-.ticket-card h4.lottery {{ color: var(--purple); }}
-.ticket-item {{
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 0.72rem; padding: 6px 0;
-  border-bottom: 1px solid rgba(38,51,68,0.5);
-}}
-.ticket-item:last-child {{ border-bottom: none; }}
-.ticket-item .ti-match {{ color: var(--text-secondary); }}
-.ticket-item .ti-odds {{ color: var(--text); font-weight: 600; font-family: monospace; }}
-.tag-warn {{ background: rgba(255, 170, 60, 0.15); color: #ffaa3c; border: 1px solid rgba(255, 170, 60, 0.35); border-radius: 4px; padding: 0 4px; font-size: 11px; margin-left: 4px; }}
-.ticket-empty {{ font-size: 0.72rem; color: var(--dim); font-style: italic; padding: 8px 0; }}
-.ticket-summary {{
-  margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
-}}
-.ts-chip {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 10px 12px; text-align: center;
-}}
-.ts-chip .ts-label {{ font-size: 0.6rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }}
-.ts-chip .ts-val {{ font-size: 1rem; font-weight: 800; margin-top: 2px; }}
-
-/* ===== SYSTEM PANEL ===== */
-.sys-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }}
-.sys-card {{
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 16px; transition: var(--transition);
-}}
-.sys-card:hover {{ border-color: var(--border-light); }}
-.sys-card h4 {{
-  font-size: 0.68rem; color: var(--dim); margin-bottom: 10px;
-  text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
-}}
-.sys-row {{
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 0.72rem; padding: 4px 0;
-}}
-.sys-row .k {{ color: var(--dim); }}
-.sys-row .v {{ font-weight: 600; }}
-.hash {{
-  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-  font-size: 0.62rem; color: var(--purple); word-break: break-all;
-  margin-top: 8px; padding: 8px; background: var(--surface2);
-  border-radius: 6px; border: 1px solid var(--border);
-}}
-.tier-indicator {{
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;
-}}
-.tier-indicator.safe {{ background: var(--green-dim); color: var(--green); }}
-.tier-indicator.caution {{ background: var(--amber-dim); color: var(--amber); }}
-.tier-indicator.danger {{ background: var(--red-dim); color: var(--red); }}
-
-/* ===== RESULTS REVIEW ===== */
-.results-summary {{
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px; margin-bottom: 14px;
-}}
-.results-table-wrap {{ overflow-x: auto; }}
-.results-table {{
-  width: 100%; border-collapse: collapse; font-size: 0.72rem;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); overflow: hidden;
-}}
-.results-table th {{
-  text-align: left; padding: 8px 10px; color: var(--dim);
-  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border); background: var(--surface2);
-}}
-.results-table td {{
-  padding: 8px 10px; border-bottom: 1px solid rgba(38,51,68,0.4);
-  vertical-align: middle;
-}}
-.results-table tr:last-child td {{ border-bottom: none; }}
-.results-table tr.hit td {{ background: rgba(34,197,94,0.04); }}
-.results-table tr.miss td {{ background: rgba(239,68,68,0.04); }}
-.result-icon {{
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 50%; font-size: 0.7rem; font-weight: 800;
-}}
-.result-icon.hit {{ background: var(--green-dim); color: var(--green); }}
-.result-icon.miss {{ background: var(--red-dim); color: var(--red); }}
-
-/* ===== FOOTER ===== */
-.footer {{
-  margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border);
-  font-size: 0.7rem; color: var(--dim); line-height: 1.8;
-}}
-.footer .chain {{
-  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem;
-  color: var(--text-secondary); background: var(--surface);
-  padding: 10px 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); margin-bottom: 10px;
-  overflow-x: auto; white-space: nowrap;
-}}
-.footer a {{ color: var(--blue); text-decoration: none; }}
-.footer a:hover {{ text-decoration: underline; }}
-.footer .disclaimer {{ margin-top: 8px; color: var(--dim); font-style: italic; }}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 900px) {{
-  .stats {{ grid-template-columns: repeat(3, 1fr); }}
-  .ticket-grid {{ grid-template-columns: 1fr; }}
-  .sys-grid {{ grid-template-columns: 1fr; }}
-}}
-@media (max-width: 600px) {{
-  .page {{ padding: 16px 12px 36px; }}
-  .stats {{ grid-template-columns: repeat(2, 1fr); }}
-  .teams {{ gap: 8px; }}
-  .team {{ font-size: 0.92rem; min-width: 65px; }}
-  .header-left h1 {{ font-size: 1.3rem; }}
-  .odds-grid {{ grid-template-columns: 1fr 1fr; }}
-  .scores-grid {{ grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); }}
-  .match-header {{ padding: 12px 14px; }}
-  .tab-content {{ padding: 12px 14px; }}
-  .topnav {{ overflow-x: auto; }}
-  .topnav-inner {{ min-width: max-content; }}
-}}
-
-/* ===== 2026-08-14 视觉重构 =====
- * 目标：层级清晰、呼吸感、导航始终可用。改动仅叠加样式 + 结构性折叠，
- * 不改变任何数据/语义。 */
-
-/* 吸顶导航：页面主 Tab 常驻顶部 */
-.page-tabs {{
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(246,248,251,0.92);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  margin: 0 -8px 18px; padding: 10px 8px 10px;
-  border-bottom: 1px solid var(--border);
-}}
-.page-tab-btn {{
-  padding: 8px 18px; border-radius: 20px;
-  font-size: 0.84rem; font-weight: 800; letter-spacing: 0.4px;
-}}
-.page-tab-btn.active {{
-  box-shadow: var(--shadow);
-}}
-
-/* 顶部导航栏（Track Record 链接等） */
+  padding:6px 14px; border:none; border-radius:7px; background:transparent;
+  color:var(--text-secondary); font-size:0.8rem; font-weight:600; cursor:pointer;
+  transition:var(--transition); font-family:inherit;
+}}
+.page-tab-btn:hover {{ color:var(--text); }}
+.page-tab-btn.active {{ background:var(--surface); color:var(--text); font-weight:700; box-shadow:var(--shadow); }}
+.page-tab-panel {{ display:none; }}
+.page-tab-panel.active {{ display:block; }}
+.topbar-right {{ display:flex; align-items:center; gap:8px; }}
 .nav-link {{
-  color: var(--dim); text-decoration: none; font-size: 0.75rem; font-weight: 600;
-  padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px;
-  transition: var(--transition); white-space: nowrap; display: inline-flex;
-  align-items: center; gap: 5px;
+  color:var(--text-secondary); font-size:0.75rem; font-weight:600;
+  padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface);
+  transition:var(--transition); white-space:nowrap; display:inline-flex; align-items:center; gap:4px;
 }}
-.nav-link:hover {{ color: var(--blue); border-color: var(--blue); transform: translateY(-1px); }}
+.nav-link:hover {{ color:var(--blue); border-color:var(--blue); text-decoration:none; }}
+.badge {{
+  display:inline-flex; align-items:center; gap:5px; padding:5px 10px;
+  border-radius:8px; font-size:0.68rem; font-weight:700;
+}}
+.badge::before {{ content:''; width:6px; height:6px; border-radius:50%; }}
+.badge.ok {{ background:var(--green-dim); color:var(--green); border:1px solid rgba(21,128,61,.25); }}
+.badge.ok::before {{ background:var(--green); }}
+.badge.warn {{ background:var(--amber-dim); color:var(--amber); border:1px solid rgba(180,83,9,.25); }}
+.badge.warn::before {{ background:var(--amber); }}
 
-/* 深度分析折叠面板（2026-08-14：复盘页的"进阶数据"默认收起，
- * 页面打开即见核心结论，想看细节再展开） */
-.deep-fold {{
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); margin: 14px 0;
-  overflow: hidden; transition: var(--transition);
-}}
-.deep-fold:hover {{ border-color: var(--border-light); }}
-.deep-fold > summary {{
-  list-style: none; cursor: pointer; user-select: none;
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 16px;
-}}
-.deep-fold > summary::-webkit-details-marker {{ display: none; }}
-.deep-fold > summary::before {{
-  content: '▸'; color: var(--blue); font-size: 0.8rem; flex-shrink: 0;
-  transition: transform 0.2s;
-}}
-.deep-fold[open] > summary::before {{ transform: rotate(90deg); }}
-.deep-fold > summary:hover {{ background: rgba(59,130,246,0.04); }}
-.deep-fold-title {{ font-weight: 800; font-size: 0.85rem; letter-spacing: 0.3px; }}
-.deep-fold-meta {{ font-size: 0.72rem; color: var(--dim); }}
-.deep-fold-hint {{
-  margin-left: auto; font-size: 0.66rem; color: var(--blue);
-  opacity: 0.75; font-weight: 600; white-space: nowrap;
-}}
-.deep-fold[open] .deep-fold-hint {{ display: none; }}
-.deep-fold-body {{ padding: 4px 16px 14px; border-top: 1px dashed var(--border); }}
-
-/* 字号与间距规范化：小字统一抬升，留白更足 */
-.section-title {{
-  font-size: 0.9rem; margin: 36px 0 14px;
-  padding-left: 12px; border-left: 3px solid var(--blue);
-  color: var(--text-secondary); font-weight: 800;
-  text-transform: uppercase; letter-spacing: 1px;
-  display: flex; align-items: center; gap: 8px;
-}}
-.section-title .st-note {{
-  font-size: 0.68rem; color: var(--dim); font-weight: 500;
-  letter-spacing: 0; text-transform: none;
-}}
-.section-title .st-badge {{
-  font-size: 0.62rem; font-weight: 800; color: var(--blue);
-  background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3);
-  padding: 1px 8px; border-radius: 10px; letter-spacing: 0.3px;
-}}
-.section-title .st-badge.green {{ color: var(--green); background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); }}
-.section-title .st-badge.amber {{ color: var(--amber); background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); }}
-
-/* 统计条更透气 */
-.stats {{ gap: 12px; margin-bottom: 32px; }}
-.stat {{ padding: 16px 18px; border-radius: var(--radius); }}
-.stat .value {{ font-size: 1.5rem; }}
-
-/* 比赛卡内边距统一 */
-.match-header {{ padding: 18px 20px; }}
-.match {{ border-radius: var(--radius); }}
-
-/* 复盘表格字号抬升 */
-.results-table {{ font-size: 0.76rem; }}
-.results-table th {{ font-size: 0.66rem; }}
-.edge-table {{ font-size: 0.76rem; }}
-.edge-table th {{ font-size: 0.66rem; }}
-
-/* 移动端页边距 */
-@media (max-width: 600px) {{
-  .deep-fold-body {{ padding: 4px 10px 12px; }}
-  .stat {{ padding: 12px 14px; }}
-  .stat .value {{ font-size: 1.3rem; }}
-}}
-
-/* 2026-08-30 修复: 基础组件CSS此前只落到track页(replace count=1), 每日页补齐 */
-.battle-board {{ background: linear-gradient(135deg, rgba(59,130,246,.12), rgba(16,185,129,.08)); border: 1px solid var(--border-light); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }}
-.bb-head {{ font-size: .78rem; font-weight: 700; color: var(--text); margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; }}
-.bb-main {{ display: flex; gap: 8px; flex-wrap: wrap; }}
-.bb-big {{ flex: 1; min-width: 72px; background: var(--surface2); border-radius: 8px; padding: 8px 10px; }}
-.bb-label {{ font-size: .6rem; color: var(--dim); }}
-.bb-val {{ font-size: .95rem; font-weight: 700; }}
-.bb-tickets {{ display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }}
-.bb-ticket {{ font-size: .68rem; background: var(--surface2); border-radius: 6px; padding: 4px 8px; display: flex; gap: 6px; align-items: center; }}
-.bb-tag {{ font-weight: 700; }}
-.bb-tag.stable {{ color: var(--green); }}
-.bb-tag.value {{ color: var(--amber); }}
-.bb-tag.lottery {{ color: var(--purple); }}
-.bb-n {{ color: var(--dim); }}
-.bb-empty {{ font-size: .8rem; padding: 6px 0 2px; }}
-.decision-bar {{
-  background: linear-gradient(135deg, rgba(37,99,235,.06), rgba(22,163,74,.05));
-  border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
-  margin-bottom: 18px; box-shadow: var(--shadow);
-}}
-.db-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }}
-.db-card {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; box-shadow:var(--shadow); }}
-.db-sub {{ font-size:.66rem; color:var(--text-secondary); margin-top:2px; }}
-.risk-pill {{
-  display:inline-flex; align-items:center; gap:4px;
-  background:var(--amber-dim); color:#b45309; border:1px solid rgba(217,119,6,.35);
-  border-radius:6px; padding:2px 7px; font-size:0.65rem; font-weight:700; margin-right:4px; cursor:help;
-}}
-.risk-banner {{
-  background:var(--amber-dim); border:1px solid rgba(217,119,6,.35); border-radius:8px;
-  padding:8px 12px; margin-bottom:10px; font-size:0.74rem; color:var(--text); line-height:1.5;
-}}
-.tr-cta {{
-  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
-  background:linear-gradient(135deg, rgba(37,99,235,.06), rgba(124,58,237,.05));
-  border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin:20px 0 6px;
-  box-shadow:var(--shadow);
-}}
-.tr-cta-title {{ font-weight:800; font-size:0.92rem; color:var(--text); }}
-.tr-cta-sub {{ font-size:0.74rem; color:var(--text-secondary); margin-top:3px; }}
-.tr-cta-btn {{
-  background:var(--blue); color:#fff; text-decoration:none; font-size:0.78rem; font-weight:700;
-  padding:8px 16px; border-radius:20px; white-space:nowrap; transition:var(--transition);
-}}
-.tr-cta-btn:hover {{ opacity:.92; transform:translateY(-1px); }}
-.stale-warn {{ display:inline-flex; align-items:center; gap:6px; background:var(--amber-dim); color:#b45309; border:1px solid rgba(217,119,6,.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; margin:6px 0; }}
-.evo-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }}
-.evo-card {{ background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }}
-.evo-title {{ font-size: .64rem; color: var(--dim); margin-bottom: 4px; }}
-.evo-verdict {{ font-size: .95rem; font-weight: 700; }}
-.evo-detail {{ font-size: .64rem; color: var(--dim); margin-top: 4px; line-height: 1.5; }}
-.evo-chip {{ display: inline-block; background: var(--surface3); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; font-size: .64rem; }}
-.evo-chip i {{ color: var(--dim); font-style: normal; font-size: .6rem; }}
-
-/* ===== 2026-08-30 亮色重塑·组件覆写层（后置规则覆盖同名早期规则） ===== */
-body {{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }}
-.card, .kpi, .ticket-card, .sys-card, .evo-card, .match {{ box-shadow:var(--shadow); border-color:var(--border); }}
-.card:hover, .match:hover {{ box-shadow:var(--shadow-lift); }}
-.kpi .value {{ font-size:1.45rem; letter-spacing:-0.02em; }}
-.section-title {{ font-size:1rem; font-weight:800; letter-spacing:-0.01em; }}
-.page {{ max-width:1080px; margin:0 auto; padding:18px 14px 48px; }}
-@media (min-width:600px) {{ .page {{ padding:28px 20px 60px; }} }}
-th {{ color:var(--text-secondary); background:var(--surface2); }}
-th:first-child {{ border-radius:8px 0 0 8px; }}
-th:last-child {{ border-radius:0 8px 8px 0; }}
-td {{ border-bottom:1px solid var(--border); }}
-.league-btn {{ background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); }}
-.league-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
-.league-btn.active {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
-.page-tab-btn {{ background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); border-radius:20px; }}
-.page-tab-btn.active {{ background:var(--text); border-color:var(--text); color:#fff; }}
-.battle-board {{ background:linear-gradient(135deg, rgba(37,99,235,.06), rgba(22,163,74,.05)); border:1px solid var(--border); box-shadow:var(--shadow); }}
-.bb-big {{ background:var(--surface); box-shadow:var(--shadow); }}
-.bb-ticket {{ background:var(--surface); box-shadow:var(--shadow); }}
-.bb-val {{ letter-spacing:-0.02em; }}
-.evo-card {{ box-shadow:var(--shadow); }}
-.evo-chip {{ background:var(--surface2); }}
-.tag-warn {{ background:#fffbeb; border-color:#fde68a; color:#b45309; }}
-.badge.ok {{ background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }}
-.badge.warn {{ background:#fffbeb; color:#b45309; border:1px solid #fde68a; }}
-.footer {{ color:var(--dim); }}
-.note {{ color:var(--text-secondary); }}
-a {{ color:var(--blue); }}
-
-/* ===== 竞彩编号徽章（2026-08-30: 体彩对账一等公民） ===== */
-.jc-no {{ background:var(--blue); color:#fff; border-radius:6px; padding:2px 7px;
-  font-weight:800; font-size:0.7rem; letter-spacing:.03em; display:inline-block; line-height:1.5; }}
-/* ===== 日期导航重塑（2026-08-30: 近7天 + 日历跳转 + 按月折叠） ===== */
-.date-nav-scroll {{ flex:1; display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }}
+/* ===== DATE NAV ===== */
+.date-nav {{ display:flex; align-items:center; gap:6px; margin-bottom:14px; }}
+.date-nav-scroll {{ flex:1; display:flex; gap:5px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }}
 .date-nav-scroll::-webkit-scrollbar {{ display:none; }}
-.date-jump {{ display:inline-flex; align-items:center; justify-content:center;
-  background:var(--surface); border:1px solid var(--border); border-radius:50%;
-  width:34px; height:34px; cursor:pointer; font-size:0.85rem; flex:none; }}
+.date-btn {{
+  padding:4px 11px; border-radius:7px; font-size:0.74rem; font-weight:600;
+  color:var(--text-secondary); background:var(--surface); border:1px solid var(--border);
+  text-decoration:none; white-space:nowrap; transition:var(--transition); font-variant-numeric:tabular-nums;
+}}
+.date-btn:hover {{ border-color:var(--blue); color:var(--blue); text-decoration:none; }}
+.date-btn.active {{ color:#fff; background:var(--text); border-color:var(--text); }}
+.date-btn.active:hover {{ color:#fff; }}
+.date-jump {{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--surface); border:1px solid var(--border); border-radius:7px;
+  width:30px; height:28px; cursor:pointer; font-size:0.8rem; flex:none;
+}}
 .date-jump:hover {{ border-color:var(--blue); }}
-.date-jump input {{ position:absolute; width:1px; height:1px; opacity:0;
-  border:none; padding:0; pointer-events:none; }}
+.date-jump input {{ position:absolute; width:1px; height:1px; opacity:0; border:none; padding:0; pointer-events:none; }}
 .date-all {{ position:relative; display:inline-block; }}
 .date-all > summary {{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; }}
 .date-all > summary::-webkit-details-marker {{ display:none; }}
-.date-all[open] > summary {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
-.date-btn {{ background:var(--surface); border:1px solid var(--border-light);
-  color:var(--text-secondary); font-weight:600; }}
-.date-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
-.date-btn.active {{ background:var(--blue); border-color:var(--blue); color:#fff; }}
-.date-all-panel {{ position:absolute; z-index:60; top:calc(100% + 6px); left:0;
-  background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  box-shadow:var(--shadow-lift); padding:12px 14px; max-height:70vh; overflow-y:auto;
-  width:max-content; max-width:86vw; }}
+.date-all[open] > summary {{ background:var(--text); border-color:var(--text); color:#fff; }}
+.date-all-panel {{
+  position:absolute; z-index:70; top:calc(100% + 6px); right:0;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow-lift); padding:12px 14px; max-height:65vh; overflow-y:auto;
+  width:max-content; max-width:88vw;
+}}
 .dam-month {{ margin-bottom:10px; }}
 .dam-month:last-child {{ margin-bottom:0; }}
-.dam-label {{ font-size:0.66rem; color:var(--dim); font-weight:700; margin-bottom:4px; }}
-.dam-links {{ display:flex; flex-wrap:wrap; gap:6px; }}
+.dam-label {{ font-size:0.68rem; color:var(--dim); font-weight:700; margin-bottom:4px; }}
+.dam-links {{ display:flex; flex-wrap:wrap; gap:5px; }}
+
+/* ===== FLAT HAIRLINE SUMMARY STRIP ===== */
+.summary-wrap {{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px;
+}}
+.summary-strip {{ display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); }}
+.sum-cell {{ padding:13px 15px; border-right:1px solid var(--border); min-width:0; }}
+.sum-cell:last-child {{ border-right:none; }}
+.sum-label {{ font-size:0.68rem; color:var(--dim); font-weight:600; }}
+.sum-val {{ font-size:1.25rem; font-weight:800; margin-top:3px; letter-spacing:-0.02em; }}
+.sum-sub {{ font-size:0.68rem; color:var(--text-secondary); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+.summary-foot {{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  padding:8px 15px; border-top:1px solid var(--border); background:var(--surface2);
+  font-size:0.72rem; color:var(--text-secondary);
+}}
+.bb-tickets {{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }}
+.bb-ticket {{ font-size:0.7rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:2px 8px; display:inline-flex; gap:6px; align-items:center; }}
+.bb-tag {{ font-weight:700; }}
+.bb-tag.stable {{ color:var(--green); }}
+.bb-tag.value {{ color:var(--blue); }}
+.bb-tag.lottery {{ color:var(--purple); }}
+.bb-n {{ color:var(--dim); }}
+.bb-empty {{ font-size:0.74rem; color:var(--text-secondary); }}
+.green {{ color:var(--green); }} .amber {{ color:var(--amber); }} .red {{ color:var(--red); }} .blue {{ color:var(--blue); }}
+
+/* ===== SECTION TITLE & FILTER NAV ===== */
+.section-head {{
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  margin:22px 0 10px;
+}}
+.section-title {{
+  font-size:0.9rem; font-weight:700; margin:24px 0 10px; color:var(--text);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}}
+.section-head .section-title {{ margin:0; }}
+.section-title .st-note {{ font-size:0.72rem; color:var(--dim); font-weight:500; }}
+.league-nav {{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }}
+.league-btn {{
+  padding:4px 11px; border-radius:16px; font-size:0.72rem; font-weight:600;
+  color:var(--text-secondary); background:var(--surface); border:1px solid var(--border);
+  cursor:pointer; transition:var(--transition); white-space:nowrap; font-family:inherit;
+}}
+.league-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
+.league-btn.active {{ background:var(--text); border-color:var(--text); color:#fff; }}
+.league-btn .cnt {{ font-size:0.64rem; color:var(--dim); margin-left:4px; }}
+.league-btn.active .cnt {{ color:rgba(255,255,255,.72); }}
+
+/* ===== FOTMOB-STYLE COMPACT MATCH BOARD ===== */
+.match-board {{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); overflow:hidden;
+}}
+.match-board-head {{
+  display:grid; grid-template-columns:112px minmax(190px, 1.35fr) 216px minmax(185px, 1fr) 22px;
+  gap:12px; align-items:center; padding:8px 16px;
+  background:var(--surface2); border-bottom:1px solid var(--border);
+  font-size:0.66rem; font-weight:700; color:var(--dim); letter-spacing:0.04em;
+}}
+.league-section.hidden {{ display:none; }}
+.match {{ border-bottom:1px solid var(--border); transition:var(--transition); }}
+.league-section:last-child .match {{ border-bottom:none; }}
+.match.value-pick {{ border-left:3px solid var(--green); }}
+.match-header {{
+  display:grid; grid-template-columns:112px minmax(190px, 1.35fr) 216px minmax(185px, 1fr) 22px;
+  gap:12px; align-items:center; padding:12px 16px; cursor:pointer; user-select:none;
+}}
+.match-header:hover {{ background:rgba(241,245,249,.65); }}
+.match.expanded .match-header {{ background:rgba(241,245,249,.55); }}
+
+.m-meta {{ display:flex; flex-direction:column; gap:3px; min-width:0; }}
+.m-meta-top {{ display:flex; align-items:center; gap:5px; }}
+.m-kickoff {{ font-size:0.78rem; font-weight:700; color:var(--text); }}
+.jc-no {{
+  font-size:0.64rem; font-weight:700; color:var(--text-secondary);
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:4px; padding:0 5px; line-height:1.5; white-space:nowrap;
+}}
+.league-tag {{
+  font-size:0.68rem; color:var(--text-secondary); font-weight:500;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}}
+
+.m-teams {{ display:flex; flex-direction:column; gap:3px; min-width:0; }}
+.m-team-row {{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }}
+.m-team-name {{
+  font-size:0.86rem; font-weight:600; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}}
+.m-team-name.fav {{ font-weight:800; }}
+.m-team-stat {{ font-size:0.72rem; color:var(--dim); font-weight:600; flex-shrink:0; }}
+.m-team-stat.score {{ font-size:0.88rem; font-weight:800; color:var(--text); }}
+
+.m-probs {{ display:flex; flex-direction:column; gap:5px; min-width:0; }}
+.m-prob-cols {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; text-align:center; }}
+.m-prob-col {{ display:flex; flex-direction:column; line-height:1.2; }}
+.m-p-val {{ font-size:0.78rem; font-weight:600; color:var(--text-secondary); }}
+.m-p-val.best.home {{ color:var(--blue); font-weight:800; }}
+.m-p-val.best.draw {{ color:var(--text); font-weight:800; }}
+.m-p-val.best.away {{ color:var(--red); font-weight:800; }}
+.m-p-odds {{ font-size:0.68rem; color:var(--dim); margin-top:1px; }}
+.prob-bar {{ display:flex; height:4px; border-radius:2px; overflow:hidden; background:var(--surface2); }}
+.prob-seg.h {{ background:var(--blue); }}
+.prob-seg.d {{ background:#94a3b8; }}
+.prob-seg.a {{ background:#e11d48; }}
+
+.m-pick {{ display:flex; flex-direction:column; gap:3px; min-width:0; }}
+.m-pick-top {{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }}
+.m-pick-sub {{
+  font-size:0.68rem; color:var(--dim); display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}}
+.pick-label {{ display:none; }}
+.pick-val {{
+  font-size:0.78rem; font-weight:700; padding:1px 7px; border-radius:5px; display:inline-block;
+}}
+.pick-val.home {{ color:var(--blue); background:var(--blue-dim); }}
+.pick-val.draw {{ color:var(--text-secondary); background:var(--surface2); }}
+.pick-val.away {{ color:var(--red); background:var(--red-dim); }}
+.value-badge {{
+  font-size:0.64rem; font-weight:700; color:var(--green); background:var(--green-dim);
+  padding:1px 6px; border-radius:4px; white-space:nowrap;
+}}
+.status-pill {{ font-size:0.64rem; font-weight:600; padding:1px 6px; border-radius:4px; white-space:nowrap; }}
+.status-pill.forbid {{ background:var(--red-dim); color:var(--red); }}
+.status-pill.recover {{ background:var(--amber-dim); color:var(--amber); }}
+.ar-hit {{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:0 5px; height:18px; border-radius:9px; font-size:0.66rem; font-weight:700;
+}}
+.ar-hit.hit {{ background:var(--green-dim); color:var(--green); }}
+.ar-hit.miss {{ background:var(--red-dim); color:var(--red); }}
+.hcap-label {{
+  background:var(--purple-dim); color:var(--purple); padding:1px 5px; border-radius:4px; font-weight:600; font-size:0.68rem;
+}}
+.pred-score {{ font-family:'SF Mono','Fira Code',monospace; font-size:0.68rem; color:var(--text-secondary); }}
+.risk-pill {{
+  font-size:0.64rem; font-weight:600; color:var(--amber); background:var(--amber-dim);
+  border-radius:4px; padding:0 5px; cursor:help;
+}}
+.m-chevron {{ color:var(--dim); font-size:0.78rem; text-align:right; transition:transform .15s; }}
+.match.expanded .m-chevron {{ transform:rotate(180deg); color:var(--text); }}
+
+/* ===== EXPANDED MATCH DETAIL DRAWER ===== */
+.match-detail {{ display:none; border-top:1px solid var(--border); background:var(--bg); }}
+.match.expanded .match-detail {{ display:block; }}
+.tab-bar {{ display:flex; gap:18px; padding:0 16px; border-bottom:1px solid var(--border); background:var(--surface); }}
+.tab-btn {{
+  padding:9px 2px; font-size:0.76rem; font-weight:600; color:var(--dim);
+  cursor:pointer; border:none; background:none; border-bottom:2px solid transparent;
+  transition:var(--transition); font-family:inherit;
+}}
+.tab-btn:hover {{ color:var(--text); }}
+.tab-btn.active {{ color:var(--blue); border-bottom-color:var(--blue); font-weight:700; }}
+.tab-content {{ display:none; padding:14px 16px; }}
+.tab-content.active {{ display:block; }}
+
+.risk-banner {{
+  background:var(--amber-dim); border:1px solid rgba(180,83,9,.22); border-radius:var(--radius-sm);
+  padding:8px 12px; margin-bottom:10px; font-size:0.74rem; color:var(--text); line-height:1.5;
+}}
+.signal-strip {{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }}
+.info-chip {{
+  font-size:0.68rem; color:var(--text-secondary); background:var(--surface);
+  border:1px solid var(--border); border-radius:5px; padding:2px 7px;
+  display:inline-flex; align-items:center; gap:4px;
+}}
+.info-chip b {{ color:var(--text); font-weight:600; }}
+
+.detail-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:10px; }}
+.card {{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow);
+}}
+
+table {{ width:100%; border-collapse:collapse; font-size:0.76rem; }}
+th {{ text-align:left; padding:7px 8px; color:var(--dim); font-weight:600; font-size:0.68rem; background:var(--surface2); border-bottom:1px solid var(--border); }}
+th:first-child {{ border-radius:6px 0 0 6px; }}
+th:last-child {{ border-radius:0 6px 6px 0; }}
+td {{ padding:7px 8px; border-bottom:1px solid var(--border); color:var(--text-secondary); vertical-align:middle; }}
+tr:last-child td {{ border-bottom:none; }}
+
+.model-table, .edge-table {{ width:100%; border-collapse:collapse; font-size:0.76rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }}
+.model-table .src-label, .edge-table .src-label {{ color:var(--text); font-weight:600; white-space:nowrap; }}
+.prob-bar-cell {{ width:62%; }}
+.mini-bar {{ display:flex; height:18px; border-radius:4px; overflow:hidden; background:var(--surface2); }}
+.mini-bar > div {{ display:flex; align-items:center; justify-content:center; font-size:0.64rem; font-weight:700; color:#fff; min-width:22px; }}
+.mb-h {{ background:var(--blue); }}
+.mb-d {{ background:#64748b; }}
+.mb-a {{ background:#e11d48; }}
+
+.elo-row {{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }}
+.elo-chip {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; flex:1; min-width:90px; }}
+.elo-label {{ color:var(--dim); font-size:0.64rem; }}
+.elo-val {{ font-size:1rem; font-weight:800; margin-top:2px; }}
+.wilson-meter {{ margin-top:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; }}
+.wilson-label {{ font-size:0.68rem; color:var(--dim); margin-bottom:5px; }}
+.wilson-track {{ height:7px; background:var(--surface2); border-radius:4px; overflow:hidden; }}
+.wilson-fill {{ height:100%; border-radius:4px; background:linear-gradient(90deg, var(--blue), var(--green)); }}
+.wilson-val {{ font-size:0.68rem; color:var(--text-secondary); margin-top:4px; }}
+
+/* Odds tab */
+.odds-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; margin-bottom:10px; }}
+.odds-box {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 11px; }}
+.ob-label {{ font-size:0.64rem; color:var(--dim); }}
+.ob-val {{ font-size:1rem; font-weight:700; margin-top:2px; }}
+.edge-table {{ margin-top:10px; }}
+.edge-pos {{ color:var(--green); font-weight:700; }}
+.edge-neg {{ color:var(--red); font-weight:600; }}
+.odds-meta-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:10px; }}
+.reverse-box, .same-odds-box {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; }}
+.reverse-box h5 {{ font-size:0.7rem; color:var(--amber); margin-bottom:6px; }}
+.same-odds-box h5 {{ font-size:0.7rem; color:var(--cyan); margin-bottom:6px; }}
+.reverse-row {{ display:flex; justify-content:space-between; font-size:0.72rem; padding:3px 0; border-bottom:1px dashed var(--border); }}
+.reverse-row:last-child {{ border-bottom:none; }}
+.reverse-row .rk {{ color:var(--dim); }}
+
+/* Distribution tab */
+.scores-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(68px, 1fr)); gap:6px; margin-bottom:12px; }}
+.score-cell {{ background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px 4px; text-align:center; }}
+.sc-score {{ font-size:0.8rem; font-weight:700; color:var(--text); }}
+.sc-prob {{ font-size:0.64rem; color:var(--dim); margin-top:1px; }}
+.goals-bars {{ margin:10px 0; }}
+.goal-bar-row, .xg-bar-row {{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }}
+.goal-bar-label, .xg-bar-label {{ font-size:0.68rem; color:var(--text-secondary); width:54px; text-align:right; flex-shrink:0; }}
+.goal-bar-track, .xg-bar-track {{ flex:1; height:18px; background:var(--surface2); border-radius:4px; overflow:hidden; }}
+.goal-bar-fill, .xg-bar-fill {{
+  height:100%; border-radius:4px; display:flex; align-items:center;
+  padding-left:6px; font-size:0.64rem; font-weight:700; color:#fff;
+  background:linear-gradient(90deg, #8b5cf6, var(--purple));
+}}
+.xg-bar-fill.home {{ background:linear-gradient(90deg, #3b82f6, var(--blue)); }}
+.xg-bar-fill.away {{ background:linear-gradient(90deg, #e11d48, var(--red)); }}
+.xg-compare {{ margin-top:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; }}
+.xg-compare h5 {{ font-size:0.7rem; color:var(--text-secondary); margin-bottom:8px; font-weight:700; }}
+
+/* ===== TICKETS / PARLAYS ===== */
+.ticket-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; }}
+.ticket-card {{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px 16px; box-shadow:var(--shadow);
+}}
+.ticket-card h4 {{ font-size:0.76rem; margin-bottom:8px; font-weight:700; }}
+.ticket-card h4.stable {{ color:var(--green); }}
+.ticket-card h4.value {{ color:var(--blue); }}
+.ticket-card h4.lottery {{ color:var(--purple); }}
+.ticket-item {{
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  font-size:0.74rem; padding:6px 0; border-bottom:1px solid var(--border);
+}}
+.ticket-item:last-child {{ border-bottom:none; }}
+.ti-match {{ color:var(--text-secondary); }}
+.ti-odds {{ color:var(--text); font-weight:600; white-space:nowrap; }}
+.tag-warn {{ background:var(--amber-dim); color:var(--amber); border-radius:4px; padding:0 4px; font-size:0.66rem; margin-left:4px; }}
+.ticket-empty {{ font-size:0.74rem; color:var(--dim); padding:6px 0; }}
+.ticket-summary {{ margin-top:10px; display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px; }}
+.ts-chip {{ background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:7px 9px; text-align:center; }}
+.ts-label {{ font-size:0.62rem; color:var(--dim); }}
+.ts-val {{ font-size:0.88rem; font-weight:700; margin-top:1px; }}
+.sp-detail summary {{ cursor:pointer; color:var(--blue); font-size:0.74rem; padding:3px 0; user-select:none; }}
+.ts-row {{ display:flex; justify-content:space-between; gap:10px; padding:4px 6px; font-size:0.74rem; color:var(--text-secondary); border-bottom:1px dashed var(--border); }}
+.ts-statline {{ font-size:0.78rem; padding:8px 0; color:var(--text-secondary); border-bottom:1px dashed var(--border); }}
+.ts-statline b {{ color:var(--text); }}
+.ts-note {{ font-size:0.72rem; color:var(--text-secondary); margin-top:6px; }}
+.sp-leg {{ white-space:nowrap; margin-right:6px; }}
+
+/* ===== REVIEW / SYSTEM / FOLDS / CTA ===== */
+.results-summary {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px; }}
+.stat {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; box-shadow:var(--shadow); }}
+.stat .label {{ font-size:0.68rem; color:var(--dim); }}
+.stat .value {{ font-size:1.25rem; font-weight:800; margin-top:2px; }}
+.results-table-wrap {{ overflow-x:auto; }}
+.results-table {{
+  width:100%; border-collapse:collapse; font-size:0.74rem;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow);
+}}
+.results-table tr.hit td {{ background:rgba(21,128,61,.03); }}
+.results-table tr.miss td {{ background:rgba(190,18,60,.03); }}
+.result-icon {{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; font-size:0.7rem; font-weight:800; }}
+.result-icon.hit {{ background:var(--green-dim); color:var(--green); }}
+.result-icon.miss {{ background:var(--red-dim); color:var(--red); }}
+
+.sys-grid {{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }}
+.sys-card {{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); }}
+.sys-card h4 {{ font-size:0.72rem; color:var(--dim); margin-bottom:8px; font-weight:700; }}
+.sys-row {{ display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; padding:4px 0; }}
+.sys-row .k {{ color:var(--dim); }}
+.sys-row .v {{ font-weight:600; color:var(--text); }}
+.hash {{
+  font-family:'SF Mono','Fira Code',monospace; font-size:0.64rem; color:var(--purple);
+  word-break:break-all; margin-top:8px; padding:7px; background:var(--surface2);
+  border-radius:6px; border:1px solid var(--border);
+}}
+.tier-indicator {{ padding:2px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; }}
+.tier-indicator.safe {{ background:var(--green-dim); color:var(--green); }}
+.tier-indicator.caution {{ background:var(--amber-dim); color:var(--amber); }}
+.tier-indicator.danger {{ background:var(--red-dim); color:var(--red); }}
+
+.deep-fold {{ border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); margin:14px 0; overflow:hidden; box-shadow:var(--shadow); }}
+.deep-fold > summary {{ list-style:none; cursor:pointer; user-select:none; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; }}
+.deep-fold > summary::-webkit-details-marker {{ display:none; }}
+.deep-fold > summary::before {{ content:'▸'; color:var(--dim); font-size:0.8rem; transition:transform .15s; }}
+.deep-fold[open] > summary::before {{ transform:rotate(90deg); }}
+.deep-fold-title {{ font-weight:700; font-size:0.84rem; color:var(--text); }}
+.deep-fold-meta {{ font-size:0.72rem; color:var(--dim); }}
+.deep-fold-hint {{ margin-left:auto; font-size:0.68rem; color:var(--blue); font-weight:600; }}
+.deep-fold[open] .deep-fold-hint {{ display:none; }}
+.deep-fold-body {{ padding:6px 16px 14px; border-top:1px solid var(--border); }}
+
+.tr-cta {{
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:15px 18px; margin:20px 0 6px; box-shadow:var(--shadow);
+}}
+.tr-cta-title {{ font-weight:700; font-size:0.9rem; color:var(--text); }}
+.tr-cta-sub {{ font-size:0.74rem; color:var(--text-secondary); margin-top:2px; }}
+.tr-cta-btn {{
+  background:var(--text); color:#fff; font-size:0.76rem; font-weight:600;
+  padding:7px 14px; border-radius:8px; white-space:nowrap; transition:var(--transition);
+}}
+.tr-cta-btn:hover {{ background:var(--blue); text-decoration:none; }}
+.stale-warn {{ display:inline-flex; align-items:center; gap:6px; background:var(--amber-dim); color:var(--amber); border:1px solid rgba(180,83,9,.25); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; }}
+
+.footer {{ margin-top:38px; padding-top:16px; border-top:1px solid var(--border); font-size:0.72rem; color:var(--dim); line-height:1.7; }}
+.footer .chain {{
+  font-family:'SF Mono','Fira Code',monospace; font-size:0.66rem; color:var(--text-secondary);
+  background:var(--surface); padding:8px 12px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); margin-bottom:8px; overflow-x:auto; white-space:nowrap;
+}}
+.footer .disclaimer {{ margin-top:4px; }}
+
+@media (max-width:900px) {{
+  .summary-strip {{ grid-template-columns:repeat(3, minmax(0, 1fr)); }}
+  .sum-cell {{ border-bottom:1px solid var(--border); }}
+  .sys-grid {{ grid-template-columns:1fr; }}
+}}
+@media (max-width:780px) {{
+  .match-board-head {{ display:none; }}
+  .match-header {{
+    grid-template-columns:1fr auto; grid-template-areas:"meta chev" "teams pick" "probs probs"; gap:8px 10px; padding:12px 14px;
+  }}
+  .m-meta {{ grid-area:meta; flex-direction:row; align-items:center; flex-wrap:wrap; gap:6px; }}
+  .m-chevron {{ grid-area:chev; }}
+  .m-teams {{ grid-area:teams; }}
+  .m-pick {{ grid-area:pick; align-items:flex-end; text-align:right; }}
+  .m-pick-top, .m-pick-sub {{ justify-content:flex-end; }}
+  .m-probs {{ grid-area:probs; }}
+}}
+@media (max-width:560px) {{
+  .page {{ padding:0 10px 40px; }}
+  .summary-strip {{ grid-template-columns:repeat(2, minmax(0, 1fr)); }}
+  .topbar {{ gap:8px; }}
+  .page-tab-btn {{ padding:5px 11px; font-size:0.75rem; }}
+}}
 </style>
 </head>
 <body>
 <div class="page">
-  <!-- HEADER -->
-  <div class="header">
-    <div class="header-left">
-      <h1>竞彩分析引擎</h1>
-      <div class="sub">{today} &middot; {_pipeline_desc()}</div>
+  <!-- STICKY TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <h1>竞彩分析</h1>
+      <span class="date-pill">{today}</span>
     </div>
-    <div class="header-right">
-      <a href="track-record.html" class="nav-link">📈 Track Record</a>
+    <div class="seg-tabs">
+      <button class="page-tab-btn active" data-panel="tab-decision">今日决策</button>
+      <button class="page-tab-btn" data-panel="tab-review">当日复盘</button>
+    </div>
+    <div class="topbar-right">
+      <a href="track-record.html" class="nav-link">全量战绩 ↗</a>
       {health_badge}
     </div>
   </div>
 
-  <!-- 日期导航（2026-08-30 重塑: 近7天pills + 原生日历跳转 + 按月折叠全量） -->
+  <!-- DATE NAV -->
   <div class="date-nav">
     <div class="date-nav-scroll">
     {''.join(f'<a href="{d}.html" class="date-btn {"active" if d == today else ""}">{d[5:]}</a>' for d in (all_dates or [today])[:7])}
@@ -2118,46 +1810,32 @@ a {{ color:var(--blue); }}
   <!-- UNIFIED DECISION SUMMARY -->
   {_battle_board(ticket, predictions, parlay_list, breaker_tier=tier, breaker_mult=breaker_mult)}
 
-  <!-- ===== TAB NAV (2026-08-14 吸顶重构：当日决策 vs 当日复盘) ===== -->
-  <div class="page-tabs">
-    <button class="page-tab-btn active" data-panel="tab-decision">🎯 今日决策</button>
-    <button class="page-tab-btn" data-panel="tab-review">📊 当日复盘</button>
-  </div>
-
   <!-- TAB: 今日决策 -->
   <div class="page-tab-panel active" id="tab-decision">
-    <!-- MATCH PREDICTIONS -->
-    <div class="section-title">比赛预测<span class="st-note">按开赛时间排序 · 点卡片展开模型/赔率/分布 · 详情含融合归因链与完整风险提醒</span></div>
-    {cards if cards else '<p style="color:var(--dim);padding:48px;text-align:center;font-size:0.85rem;">等待每日流水线运行...</p>'}
+    <div class="section-head">
+      <div class="section-title">今日赛程与预测 <span class="st-note">按开赛时间排序 · 点击行展开模型 / 赔率 / 分布</span></div>
+    </div>
+    {cards if cards else '<div class="card" style="color:var(--dim);padding:36px;text-align:center;font-size:0.84rem;">等待每日流水线运行...</div>'}
 
-    <!-- NEWS INTEL (2026-10-23, store-only) -->
     {f'''<details class="deep-fold">
       <summary>
-        <span class="deep-fold-title">📰 赛前资讯情报（仅参考·不入模型）</span>
+        <span class="deep-fold-title">📰 赛前资讯情报（仅参考 · 不入模型）</span>
         <span class="deep-fold-hint">点击展开 ▾</span>
       </summary>
       <div class="deep-fold-body">{news_html}</div>
     </details>''' if news_html else ''}
 
-    <!-- BETTING PLAN -->
     {ticket_html}
-
-    <!-- PARLAY (2026-08-08) -->
     {parlay_html}
-
-    <!-- SCORE PARLAY (2026-08-08) -->
     {score_parlay_html}
   </div>
 
   <!-- TAB: 当日复盘 -->
   <div class="page-tab-panel" id="tab-review">
-    <!-- RESULTS REVIEW（仅当日赛果对比） -->
     {results_html if results_html else '<div class="card" style="padding:18px;color:var(--text-secondary);font-size:0.84rem">⏳ 当日比赛尚未完赛或待回溯结算，赛果入账后自动更新。</div>'}
 
-    <!-- PARLAY SETTLE -->
     {parlay_settle_html}
 
-    <!-- ODDS SERIES -->
     {f'''<details class="deep-fold">
       <summary>
         <span class="deep-fold-title">水位监控</span>
@@ -2167,10 +1845,8 @@ a {{ color:var(--blue); }}
       <div class="deep-fold-body">{odds_series_html}</div>
     </details>''' if odds_series_html else ''}
 
-    <!-- SYSTEM STATUS -->
     {system_html}
 
-    <!-- LINK TO GLOBAL TRACK RECORD -->
     <div class="tr-cta">
       <div>
         <div class="tr-cta-title">📈 全量历史战绩与模型诊断</div>
@@ -2680,93 +2356,95 @@ def _collect_match_risks(p):
     return risks
 
 
+def _brief_handicap(p):
+    """主列表紧凑让球结论（完整多方向 EV 保留在展开抽屉）"""
+    hcap = p.get("handicap")
+    if hcap is None:
+        return ""
+    hhp, hdp, hap = (p.get("handicap_home_prob") or 0, p.get("handicap_draw_prob") or 0, p.get("handicap_away_prob") or 0)
+    if not (hhp or hdp or hap):
+        return ""
+    label = "主" if hhp >= hdp and hhp >= hap else ("平" if hdp >= hhp and hdp >= hap else "客")
+    prob = max(hhp, hdp, hap)
+    sign = "+" if hcap > 0 else ""
+    return f'<span class="hcap-label">让{sign}{hcap:g} {label}{prob:.0%}</span>'
+
+
 def _match_card(p, value_matches, idx, results_map=None):
-    """Render a single match card with expandable detail tabs."""
-    hp = p.get("home_win_prob", 0) * 100
-    dp = p.get("draw_prob", 0) * 100
-    ap = p.get("away_win_prob", 0) * 100
-    conf = p.get("confidence", 0)
-    conf_cls = "high" if conf > 0.6 else "med" if conf > 0.4 else "low"
+    """Render a compact FotMob-style horizontal match row with expandable detail drawer."""
+    hp = (p.get("home_win_prob") or 0) * 100
+    dp = (p.get("draw_prob") or 0) * 100
+    ap = (p.get("away_win_prob") or 0) * 100
     is_val = _is_value(p, value_matches)
     match_id = p.get("match_id", "")
     uid = f"m{idx}"
 
-    # Basic info
     odds_h = p.get("home_odds") or 0
     odds_d = p.get("draw_odds") or 0
     odds_a = p.get("away_odds") or 0
-    xg_h = p.get("home_xg", 0)
-    xg_a = p.get("away_xg", 0)
+    xg_h = p.get("home_xg") or 0
+    xg_a = p.get("away_xg") or 0
 
-    # 实际赛果对比
-    result_html = ""
+    kickoff_str = str(p.get("kickoff") or "")
+    kickoff_short = kickoff_str[11:16] if len(kickoff_str) >= 16 else (kickoff_str or "—")
+
+    # 确定主推方向用于表格视觉强调
+    d_field = p.get("direction") or ""
+    if d_field in ("home", "draw", "away"):
+        pred_dir = d_field
+    elif hp >= dp and hp >= ap:
+        pred_dir = "home"
+    elif dp >= hp and dp >= ap:
+        pred_dir = "draw"
+    else:
+        pred_dir = "away"
+
+    # 赛果解析（若已完赛则右列显示实际比分，否则显示模型 xG）
+    settled_hs = settled_as = None
+    settled_badge = ""
     if results_map:
         r = results_map.get(match_id)
         if not r:
-            # 队名匹配（最可靠，跨数据源通用；绝不用裸场次号"001"跨日期匹配——
-            # 那会把未开赛比赛匹配成历史赛果，伪造"实际比分"）
             home_team = p.get("home_team", "")
             away_team = p.get("away_team", "")
             if home_team and away_team:
-                team_key = f"{home_team}_vs_{away_team}"
-                r = results_map.get(team_key)
+                r = results_map.get(f"{home_team}_vs_{away_team}")
         if r and r.get("home_score") is not None:
-            hs, as_ = r["home_score"], r["away_score"]
-            if hs > as_:
-                actual_label, actual_cls = "主胜", "home"
-            elif hs == as_:
-                actual_label, actual_cls = "平局", "draw"
-            else:
-                actual_label, actual_cls = "客胜", "away"
-            # 判断命中
+            settled_hs, settled_as = int(r["home_score"]), int(r["away_score"])
             ph = p.get("home_win_prob") or 0
             pd_ = p.get("draw_prob") or 0
             pa = p.get("away_win_prob") or 0
-            if ph >= pd_ and ph >= pa:
-                pred_outcome = "home"
-            elif pd_ >= ph and pd_ >= pa:
-                pred_outcome = "draw"
-            else:
-                pred_outcome = "away"
-            hit = pred_outcome == ("home" if hs > as_ else "draw" if hs == as_ else "away")
+            pred_outcome = "home" if (ph >= pd_ and ph >= pa) else ("draw" if (pd_ >= ph and pd_ >= pa) else "away")
+            hit = pred_outcome == ("home" if settled_hs > settled_as else "draw" if settled_hs == settled_as else "away")
             hit_icon = "✓" if hit else "✗"
             hit_cls = "hit" if hit else "miss"
-            # 比分命中闭环展示（2026-08-05）：
-            #   预测比分主推5个 + 实际比分 + 命中位置徽标（🎯1=top1命中 ... 🎯5=主推前5命中, 未进=✗）
-            #   让"比分预测准但主推前三不靠谱"直观可见、可核查
-            score_hit_html = ""
             score_rank_html = ""
             top_scores = p.get("top_scores") or []
             _rank = 0
             for _i, item in enumerate(top_scores):
-                if isinstance(item, (list, tuple)) and len(item) >= 2 and int(item[0]) == hs and int(item[1]) == as_:
+                if isinstance(item, (list, tuple)) and len(item) >= 2 and int(item[0]) == settled_hs and int(item[1]) == settled_as:
                     _rank = _i + 1
                     break
             if _rank > 0:
                 _badge_cls = "hit" if _rank <= 5 else ""
                 score_rank_html = f' <span class="ar-hit {_badge_cls}" title="比分命中候选第{_rank}位">🎯{_rank}</span>'
-            else:
-                score_rank_html = ' <span class="ar-hit miss" title="比分未进候选列表">比分✗</span>'
-            # 预测比分主推（前5个）→ 实际比分对照，可核查
-            _pred_scores = []
-            for item in top_scores[:5]:
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    _pred_scores.append(f"{item[0]}-{item[1]}")
-            if _pred_scores:
-                # 标注比分来源（8/5 起双源融合：DJYY+MC / DJYY / MC）
-                _src_tag = p.get("score_sources") or ""
-                _src_html = f' <span style="font-size:0.6rem;color:var(--purple)">[{_src_tag}]</span>' if _src_tag else ""
-                score_hit_html = f' <span class="pred-score" style="font-size:0.66rem;color:var(--dim)">预测 {" / ".join(_pred_scores)}{_src_html}</span>'
-            result_html = f'<div class="actual-result"><span class="ar-label">实际</span> <span class="ar-score">{hs}-{as_}</span> <span class="ar-outcome {actual_cls}">{actual_label}</span> <span class="ar-hit {hit_cls}">{hit_icon}</span>{score_rank_html}{score_hit_html}</div>'
+            settled_badge = f'<span class="ar-hit {hit_cls}" title="赛果 {settled_hs}-{settled_as}">{hit_icon}</span>{score_rank_html}'
 
-    # 卡片头部：至多 1 个主状态徽章 + 1 个紧凑风险胶囊
+    if settled_hs is not None:
+        home_stat_html = f'<span class="m-team-stat score">{settled_hs}</span>'
+        away_stat_html = f'<span class="m-team-stat score">{settled_as}</span>'
+    else:
+        home_stat_html = f'<span class="m-team-stat" title="本场模型预期进球 xG">{xg_h:.2f}</span>'
+        away_stat_html = f'<span class="m-team-stat" title="本场模型预期进球 xG">{xg_a:.2f}</span>'
+
+    # 至多 1 个主状态徽章 + 1 个紧凑风险胶囊
     status_badge_html = ""
     if is_val:
         status_badge_html = '<span class="value-badge">价值精选</span>'
     elif p.get("league_forbidden"):
-        status_badge_html = '<span style="background:var(--red-dim);color:var(--red);border:1px solid rgba(220,38,38,0.35);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="送钱区联赛（累计ROI<-5%），此场不出注">🚫禁投联赛</span>'
+        status_badge_html = '<span class="status-pill forbid" title="送钱区联赛（累计ROI<-5%），此场不出注">禁投联赛</span>'
     elif p.get("league_recovered"):
-        status_badge_html = '<span style="background:var(--amber-dim);color:#b45309;border:1px solid rgba(217,119,6,0.35);padding:2px 6px;border-radius:4px;font-size:0.65rem;margin-right:4px" title="该联赛累计送钱但最近5场命中≥60%，已自动解禁">✅回暖解禁</span>'
+        status_badge_html = '<span class="status-pill recover" title="该联赛累计送钱但最近5场命中≥60%，已自动解禁">回暖解禁</span>'
 
     risks = _collect_match_risks(p)
     risk_pill_html = ""
@@ -2777,50 +2455,77 @@ def _match_card(p, value_matches, idx, results_map=None):
         _rtips = " | ".join(f"{n}: {d}" for n, d in risks)
         risk_pill_html = f'<span class="risk-pill" title="{_esc(_rtips, quote=True)}">⚠ {len(risks)}项提醒</span>'
 
-    # Build detail tabs
+    # 紧凑主推副行：前3最可能比分 + 简明让球 + 风险胶囊
+    _top3_scores = []
+    for item in (p.get("top_scores") or [])[:3]:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            _top3_scores.append(f"{item[0]}-{item[1]}")
+    brief_scores_html = f'<span class="pred-score">{" / ".join(_top3_scores)}</span>' if _top3_scores else ""
+    brief_hcap_html = _brief_handicap(p)
+
     model_tab = _tab_model(p, uid)
     odds_tab = _tab_odds(p, uid)
     dist_tab = _tab_distribution(p, uid)
 
+    def _fmt_odd(v):
+        return f"{v:.2f}" if v and v > 0 else "—"
+
     return f"""
   <div class="match {'value-pick' if is_val else ''}">
     <div class="match-header">
-      <div class="match-top">
+      <div class="m-meta" title="{_esc(kickoff_str, quote=True)}">
+        <div class="m-meta-top">
+          <span class="m-kickoff">{kickoff_short}</span>
+          <span class="jc-no" title="竞彩编号">{_jc_no(match_id)}</span>
+        </div>
         <span class="league-tag">{p.get('competition', '')}</span>
-        <span class="jc-no" title="竞彩编号（体彩官方对账口径）">{_jc_no(match_id)}</span>
-        <div class="match-meta">
-          {status_badge_html}{risk_pill_html}
-          {f'<span class="match-id" style="color:var(--amber)">{p.get("kickoff","")}</span>' if p.get('kickoff') else ''}
-          <span class="expand-icon">详情 &#9660;</span>
+      </div>
+
+      <div class="m-teams">
+        <div class="m-team-row">
+          <span class="m-team-name {'fav' if pred_dir == 'home' else ''}">{p.get('home_team', '')}</span>
+          {home_stat_html}
+        </div>
+        <div class="m-team-row">
+          <span class="m-team-name {'fav' if pred_dir == 'away' else ''}">{p.get('away_team', '')}</span>
+          {away_stat_html}
         </div>
       </div>
-      <div class="teams">
-        <span class="team home">{p.get('home_team', '')}</span>
-        <span class="vs">VS</span>
-        <span class="team away">{p.get('away_team', '')}</span>
+
+      <div class="m-probs">
+        <div class="m-prob-cols">
+          <div class="m-prob-col">
+            <span class="m-p-val {'best home' if pred_dir == 'home' else ''}">{hp:.0f}%</span>
+            <span class="m-p-odds">{_fmt_odd(odds_h)}</span>
+          </div>
+          <div class="m-prob-col">
+            <span class="m-p-val {'best draw' if pred_dir == 'draw' else ''}">{dp:.0f}%</span>
+            <span class="m-p-odds">{_fmt_odd(odds_d)}</span>
+          </div>
+          <div class="m-prob-col">
+            <span class="m-p-val {'best away' if pred_dir == 'away' else ''}">{ap:.0f}%</span>
+            <span class="m-p-odds">{_fmt_odd(odds_a)}</span>
+          </div>
+        </div>
+        <div class="prob-bar">
+          <div class="prob-seg h" style="width:{hp:.1f}%"></div>
+          <div class="prob-seg d" style="width:{dp:.1f}%"></div>
+          <div class="prob-seg a" style="width:{ap:.1f}%"></div>
+        </div>
       </div>
-      <div class="prob-row">
-        <div class="prob-seg h" style="width:{hp:.1f}%">H {hp:.0f}%</div>
-        <div class="prob-seg d" style="width:{dp:.1f}%">D {dp:.0f}%</div>
-        <div class="prob-seg a" style="width:{ap:.1f}%">A {ap:.0f}%</div>
+
+      <div class="m-pick">
+        <div class="m-pick-top">{_pred_pick(p)}{settled_badge or status_badge_html}</div>
+        <div class="m-pick-sub">{brief_scores_html}{brief_hcap_html}{risk_pill_html}</div>
       </div>
-      <div class="pred-pick">{_pred_pick(p)}{_pred_score(p)}{_handicap_pick(p)}</div>
-      {result_html}
-      <div class="match-info-row">
-        <span class="conf-meter"><span class="conf-dot {conf_cls}"></span><b>{conf:.0%}</b></span>
-        <span class="info-chip">模型xG <b>{xg_h:.2f} - {xg_a:.2f}</b></span>
-        <span class="info-chip">赔率 <b>{odds_h}/{odds_d}/{odds_a}</b></span>
-        {_odds_movement_chip(p)}
-        {_odds_series_chip(p)}
-        {_divergence_chip(p)}
-        {_context_chip(p)}
-      </div>
+
+      <div class="m-chevron">&#9662;</div>
     </div>
     <div class="match-detail">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="{uid}-model">模型</button>
-        <button class="tab-btn" data-tab="{uid}-odds">赔率</button>
-        <button class="tab-btn" data-tab="{uid}-dist">分布</button>
+        <button class="tab-btn active" data-tab="{uid}-model">模型与归因</button>
+        <button class="tab-btn" data-tab="{uid}-odds">赔率与边际</button>
+        <button class="tab-btn" data-tab="{uid}-dist">比分与分布</button>
       </div>
       <div class="tab-content active" id="{uid}-model">{_fusion_trace_row(p)}{model_tab}</div>
       <div class="tab-content" id="{uid}-odds">{odds_tab}</div>
@@ -2830,7 +2535,7 @@ def _match_card(p, value_matches, idx, results_map=None):
 
 
 def _tab_model(p, uid):
-    """模型 tab: model_raw vs market_fair vs djyy vs final, Elo, Wilson, + DJYY xG/ injuries."""
+    """模型 tab: signal strip, model_raw vs market_fair vs djyy vs final, Elo, Wilson, + DJYY xG/ injuries."""
     model_raw = p.get("model_raw") or {}
     market_fair = p.get("market_fair")
     djyy = p.get("djyy_model_prob")
@@ -2840,6 +2545,7 @@ def _tab_model(p, uid):
     elo_home = p.get("elo_home")
     elo_away = p.get("elo_away")
     wilson = p.get("wilson_trust") or 0
+    conf = p.get("confidence") or 0
 
     risks = _collect_match_risks(p)
     risk_banner = ""
@@ -2847,10 +2553,21 @@ def _tab_model(p, uid):
         _r_lines = "<br>".join(f"<b>⚠ {n}</b>：{d}" for n, d in risks)
         risk_banner = f'<div class="risk-banner">{_r_lines}</div>'
 
+    _hcap_full = _handicap_pick(p)
+    _chips = [f'<span class="info-chip">置信度 <b>{conf:.0%}</b></span>']
+    for _ch in (
+        _odds_movement_chip(p),
+        _odds_series_chip(p),
+        _divergence_chip(p),
+        _context_chip(p),
+    ):
+        if _ch:
+            _chips.append(_ch)
+    if _hcap_full:
+        _chips.append(f'<span class="info-chip">{_hcap_full}</span>')
+    signal_strip = f'<div class="signal-strip">{"".join(_chips)}</div>'
+
     # ===== DJYY 增强数据 =====
-    # xG 预期进球
-    xg_home = 0
-    xg_away = 0
     xg_html = ""
     djyy_xg = p.get("djyy_xg") or {}
     if djyy_xg:
@@ -2871,14 +2588,12 @@ def _tab_model(p, uid):
           <div class="xg-bar-track"><div class="xg-bar-fill away" style="width:{a_pct}%">{xg_away:.2f}</div></div>
         </div>
       </div>"""
-    
-    # 赛程密度/休息天数
+
     rest_html = ""
     rest_days = p.get("rest_days") or {}
     if rest_days:
         rh = rest_days.get("home") or 7
         ra = rest_days.get("away") or 7
-        # 颜色: <=2天=红色(疲劳), 3-4天=橙色, >=5天=绿色(充足)
         h_color = "var(--red)" if rh <= 2 else "var(--amber)" if rh <= 4 else "var(--green)"
         a_color = "var(--red)" if ra <= 2 else "var(--amber)" if ra <= 4 else "var(--green)"
         rest_html = f"""
@@ -2893,8 +2608,7 @@ def _tab_model(p, uid):
           <div class="xg-bar-track"><div class="xg-bar-fill" style="width:{min(ra/7*100, 100)}%; background:{a_color}">{ra}天</div></div>
         </div>
       </div>"""
-    
-    # 伤停预警
+
     inj_html = ""
     injuries = p.get("injuries") or {}
     if injuries:
@@ -2902,7 +2616,6 @@ def _tab_model(p, uid):
         h_att = injuries.get("home_attackers", 0)
         a_cnt = injuries.get("away_count", 0)
         a_att = injuries.get("away_attackers", 0)
-        # 前锋/中场缺阵 = 高亮预警
         h_warn = "⚠️" if h_att >= 1 else ""
         a_warn = "⚠️" if a_att >= 1 else ""
         inj_html = f"""
@@ -2913,13 +2626,11 @@ def _tab_model(p, uid):
       </div>"""
 
     rows = ""
-    # Model Raw (DC+MC)
     mr_h = model_raw.get("home", 0) * 100 if model_raw else 0
     mr_d = model_raw.get("draw", 0) * 100 if model_raw else 0
     mr_a = model_raw.get("away", 0) * 100 if model_raw else 0
     rows += _model_row("DC+MC 原始", mr_h, mr_d, mr_a)
 
-    # Market Fair (Shin)
     if market_fair and len(market_fair) >= 3:
         mf_h = market_fair[0] * 100
         mf_d = market_fair[1] * 100
@@ -2928,7 +2639,6 @@ def _tab_model(p, uid):
     else:
         rows += _model_row_empty("Shin公平")
 
-    # DJYY
     if djyy and djyy.get("home"):
         dj_h = djyy.get("home", 0) * 100
         dj_d = djyy.get("draw", 0) * 100
@@ -2937,10 +2647,8 @@ def _tab_model(p, uid):
     else:
         rows += _model_row_empty("DJYY模型")
 
-    # Final Fused
     rows += _model_row("最终融合", final_h * 100, final_d * 100, final_a * 100)
 
-    # Elo section
     elo_html = ""
     if elo_home is not None and elo_away is not None:
         elo_diff = (elo_home or 0) - (elo_away or 0)
@@ -2951,7 +2659,6 @@ def _tab_model(p, uid):
         <div class="elo-chip"><div class="elo-label">Elo差值</div><div class="elo-val" style="color:{'var(--green)' if elo_diff > 0 else 'var(--red)'}">{elo_diff:+.0f}</div></div>
       </div>"""
 
-    # Wilson trust
     wilson_pct = (wilson or 0) * 100
     wilson_html = f"""
       <div class="wilson-meter">
@@ -2960,15 +2667,17 @@ def _tab_model(p, uid):
         <div class="wilson-val">{wilson_pct:.1f}% 置信权重</div>
       </div>"""
 
+    extras = "".join(x for x in (xg_html, rest_html, inj_html) if x)
+    extras_grid = f'<div class="detail-grid">{extras}</div>' if extras else ""
+
     return f"""
       {risk_banner}
+      {signal_strip}
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         {rows}
       </table>
-      {xg_html}
-      {rest_html}
-      {inj_html}
+      {extras_grid}
       {elo_html}
       {wilson_html}"""
 
@@ -2978,10 +2687,10 @@ def _model_row(label, h, d, a):
         <tr>
           <td class="src-label">{label}</td>
           <td class="prob-bar-cell">
-            <div class="mini-bar-wrap">
-              <div class="mini-bar h" style="width:{h:.1f}%">{h:.0f}</div>
-              <div class="mini-bar d" style="width:{d:.1f}%">{d:.0f}</div>
-              <div class="mini-bar a" style="width:{a:.1f}%">{a:.0f}</div>
+            <div class="mini-bar">
+              <div class="mb-h" style="width:{h:.1f}%">{h:.0f}</div>
+              <div class="mb-d" style="width:{d:.1f}%">{d:.0f}</div>
+              <div class="mb-a" style="width:{a:.1f}%">{a:.0f}</div>
             </div>
           </td>
         </tr>"""
@@ -3127,18 +2836,20 @@ def _tab_odds(p, uid):
           <td class="{_ev_cls(ev_a)}">{_fmt_ev(ev_a)}</td>
         </tr>
       </table>
-      <div class="reverse-box">
-        <h5>逆向赔率分析</h5>
-        <div class="reverse-row"><span class="rk">冷门风险</span><span style="color:{'var(--red)' if upset > 40 else 'var(--text)'}; font-weight:700;">{upset:.0f}%</span></div>
-        <div class="reverse-row"><span class="rk">方向</span><span>{direction if direction else '暂无'}</span></div>
-        <div class="reverse-row"><span class="rk">压缩比</span><span>{compression:.2f}</span></div>
-      </div>
-      <div class="same-odds-box">
-        <h5>同赔历史</h5>
-        <div class="reverse-row"><span class="rk">匹配场次</span><span style="font-weight:700;">{same_matched}</span></div>
-        <div class="reverse-row"><span class="rk">历史置信</span><span>{same_conf:.0%}</span></div>
-        <div class="reverse-row"><span class="rk">偏差</span><span>{same_bias if same_bias else '中性'}</span></div>
-        <div class="reverse-row"><span class="rk">组合加成</span><span style="color:{'var(--green)' if combo_boost > 0 else 'var(--dim)'}">{combo_boost:+.2f}</span></div>
+      <div class="odds-meta-grid">
+        <div class="reverse-box">
+          <h5>逆向赔率分析</h5>
+          <div class="reverse-row"><span class="rk">冷门风险</span><span style="color:{'var(--red)' if upset > 40 else 'var(--text)'}; font-weight:700;">{upset:.0f}%</span></div>
+          <div class="reverse-row"><span class="rk">方向</span><span>{direction if direction else '暂无'}</span></div>
+          <div class="reverse-row"><span class="rk">压缩比</span><span>{compression:.2f}</span></div>
+        </div>
+        <div class="same-odds-box">
+          <h5>同赔历史</h5>
+          <div class="reverse-row"><span class="rk">匹配场次</span><span style="font-weight:700;">{same_matched}</span></div>
+          <div class="reverse-row"><span class="rk">历史置信</span><span>{same_conf:.0%}</span></div>
+          <div class="reverse-row"><span class="rk">偏差</span><span>{same_bias if same_bias else '中性'}</span></div>
+          <div class="reverse-row"><span class="rk">组合加成</span><span style="color:{'var(--green)' if combo_boost > 0 else 'var(--dim)'}">{combo_boost:+.2f}</span></div>
+        </div>
       </div>"""
 
 
@@ -3325,6 +3036,14 @@ def _ticket_section(ticket, predictions, st_index=None):
                      f'<span class="ti-odds">@{it.get("odds", 0):.2f} / &yen;{it.get("stake", 0):.0f}</span>{_res_badge}</div>')
         return html
 
+    if not stable and not value and not lottery:
+        return f"""
+  <div class="section-title">投注方案（三票制 60/30/10）<span class="st-note">单注投入 &yen;{total_stake:.0f} &middot; 资金池 &yen;{bankroll:.0f} &middot; 熔断 x{breaker_mult:.2f}</span></div>
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;font-size:0.78rem;color:var(--text-secondary)">
+    <span><b>今日单注空仓</b> — 当前无同时通过正 EV 与纪律门槛的推荐注单</span>
+    <span style="font-size:0.72rem;color:var(--dim)">稳胆 0 · 搏冷 0 · 彩票 0</span>
+  </div>"""
+
     return f"""
   <div class="section-title">投注方案（三票制 60/30/10）<span class="st-note">单注投入 &yen;{total_stake:.0f} &middot; 资金池 &yen;{bankroll:.0f} &middot; 熔断 x{breaker_mult:.2f}</span></div>
   <div class="ticket-grid">
@@ -3504,9 +3223,9 @@ def _parlay_section(ticket, predictions, st_index=None):
         else:
             badge = ('<span class="pick-val draw" style="font-size:.75em" '
                      'title="校准后负EV，系统不据此出注">⚠ 负EV</span>')
-        _card_style = ("border-color:var(--green)" if rec
-                       else "border-color:#e6a23c;opacity:.9" if state == "reference"
-                       else "border-color:var(--red);opacity:.85")
+        _card_style = ("border-left:3px solid var(--green)" if rec
+                       else "border-left:3px solid var(--amber)" if state == "reference"
+                       else "border-left:3px solid var(--border-light)")
         # 市场腿串票用市场口径 ROI 标注（诚实），推荐串用校准口径
         ev = t.get("cal_ev", 0)
         if src == "market" and not rec:
@@ -3567,7 +3286,7 @@ def _parlay_section(ticket, predictions, st_index=None):
             _why = "无可串腿：未过价值门槛或不足 2 条"
         return f"""
   <div class="section-title">串关方案（过关玩法）</div>
-  <div class="ticket-card" style="border-color:var(--amber);opacity:.9">
+  <div class="ticket-card" style="border-left:3px solid var(--amber)">
     <h4 class="lottery">🎯 今日无串关 <span class="pick-val draw" style="font-size:.75em">空仓</span></h4>
     <div style="font-size:.8rem;opacity:.8;padding:4px 0">
       {_why}—— 竞彩串关吃双重抽水，宁可不串，不送钱。
@@ -4214,7 +3933,7 @@ def _battle_board(ticket, predictions, parlay, breaker_tier=0, breaker_mult=1.0)
             reasons.append(("无正EV", sum(1 for p in predictions if not p.get("kelly_edge"))))
         _rs = " · ".join(f"{k} {v}" for k, v in reasons if v) or "赔率/概率未达门槛"
         foot_html = (
-            f'<div class="bb-empty" style="margin-top:8px">今日无单注价值推荐 '
+            f'<div class="bb-empty">今日无单注价值推荐 '
             f'<span style="color:var(--dim);font-size:.72rem">（{len(predictions or [])} 场已扫描 · 拦截: {_rs}）</span>'
             f'<span style="font-size:.68rem;color:var(--dim);margin-left:8px">空仓也是决策</span></div>'
         )
@@ -4226,39 +3945,38 @@ def _battle_board(ticket, predictions, parlay, breaker_tier=0, breaker_mult=1.0)
         )
 
     return f"""
-  <div class="decision-bar">
-    <div class="bb-head">
-      <span>🎯 今日决策总览</span>
-      <span style="font-size:.66rem;color:var(--dim);font-weight:500">资金与敞口统一口径（含串关）</span>
-    </div>
-    <div class="db-grid">
-      <div class="db-card">
-        <div class="bb-label">今日场次</div>
-        <div class="bb-val">{len(predictions or [])}</div>
-        <div class="db-sub">{n_val} 场价值候选</div>
+  <div class="summary-wrap">
+    <div class="summary-strip">
+      <div class="sum-cell">
+        <div class="sum-label">今日场次</div>
+        <div class="sum-val">{len(predictions or [])}</div>
+        <div class="sum-sub">{n_val} 场价值候选</div>
       </div>
-      <div class="db-card">
-        <div class="bb-label">今日出手</div>
-        <div class="bb-val" style="color:{action_color}">{action_val}</div>
-        <div class="db-sub">{'单注+串关建议' if (n_bets or n_parlay) else '负 EV 不出手'}</div>
+      <div class="sum-cell">
+        <div class="sum-label">今日出手</div>
+        <div class="sum-val" style="color:{action_color}">{action_val}</div>
+        <div class="sum-sub">{'单注+串关建议' if (n_bets or n_parlay) else '负 EV 不出手'}</div>
       </div>
-      <div class="db-card">
-        <div class="bb-label">实际总敞口</div>
-        <div class="bb-val" style="color:var(--amber)">&yen;{actual_exposure:.0f}</div>
-        <div class="db-sub">单注 &yen;{total_stake:.0f} &middot; 串关 &yen;{parlay_stake:.0f}</div>
+      <div class="sum-cell">
+        <div class="sum-label">实际总敞口</div>
+        <div class="sum-val" style="color:var(--amber)">&yen;{actual_exposure:.0f}</div>
+        <div class="sum-sub">单注 &yen;{total_stake:.0f} &middot; 串关 &yen;{parlay_stake:.0f}</div>
       </div>
-      <div class="db-card">
-        <div class="bb-label">预期回报</div>
-        <div class="bb-val" style="color:{roi_color}">{roi_text}</div>
-        <div class="db-sub">{'三票组合预期 ROI' if n_bets else '无单注不出手'}</div>
+      <div class="sum-cell">
+        <div class="sum-label">预期回报</div>
+        <div class="sum-val" style="color:{roi_color}">{roi_text}</div>
+        <div class="sum-sub">{'三票组合预期 ROI' if n_bets else '无单注不出手'}</div>
       </div>
-      <div class="db-card">
-        <div class="bb-label">资金池 · 熔断</div>
-        <div class="bb-val">&yen;{bankroll:.0f}</div>
-        <div class="db-sub" style="color:{'var(--green)' if breaker_tier == 0 else 'var(--red)'}">T{breaker_tier} &middot; x{breaker_mult:.2f}</div>
+      <div class="sum-cell">
+        <div class="sum-label">资金池 · 熔断</div>
+        <div class="sum-val">&yen;{bankroll:.0f}</div>
+        <div class="sum-sub" style="color:{'var(--green)' if breaker_tier == 0 else 'var(--red)'}">T{breaker_tier} &middot; x{breaker_mult:.2f}</div>
       </div>
     </div>
-    {foot_html}
+    <div class="summary-foot">
+      {foot_html}
+      <span style="font-size:0.68rem;color:var(--dim)">资金与敞口统一口径（含串关）</span>
+    </div>
   </div>"""
 
 
