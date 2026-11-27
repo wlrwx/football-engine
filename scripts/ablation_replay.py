@@ -49,6 +49,97 @@ def brier(probs, actual_idx):
     return sum((p - (1.0 if i == actual_idx else 0.0)) ** 2 for i, p in enumerate(probs))
 
 
+def logloss(probs, actual_idx):
+    p = max(1e-15, min(1.0 - 1e-15, float(probs[actual_idx])))
+    return -math.log(p)
+
+
+def evaluate_fusion_modes(recs, feats, cfg, switches, val):
+    """配对对比线性融合 (linear) 与对数赔率池化 (logit) 的样本内/外表现。"""
+    lin_cfg = {**cfg, "fusion_mode": "linear"}
+    log_cfg = {**cfg, "fusion_mode": "logit"}
+
+    def _run_pair(subset):
+        b_diffs, ll_diffs = [], []
+        b_lin, b_log, ll_lin, ll_log = [], [], [], []
+        for r in subset:
+            p_lin = fuse_probabilities(build_input(r, feats, lin_cfg, switches)).probs
+            p_log = fuse_probabilities(build_input(r, feats, log_cfg, switches)).probs
+            act = r["actual_idx"]
+            bl1, bl2 = brier(p_lin, act), brier(p_log, act)
+            l1, l2 = logloss(p_lin, act), logloss(p_log, act)
+            b_lin.append(bl1)
+            b_log.append(bl2)
+            ll_lin.append(l1)
+            ll_log.append(l2)
+            # Δ = logit - linear (< 0 表示 logit 更好)
+            b_diffs.append(bl2 - bl1)
+            ll_diffs.append(l2 - l1)
+        bs = paired_stats(b_diffs)
+        ls = paired_stats(ll_diffs)
+        n = len(subset)
+        return {
+            "n": n,
+            "linear_brier": sum(b_lin) / n if n else 0.0,
+            "logit_brier": sum(b_log) / n if n else 0.0,
+            "delta_brier": bs["mean"],
+            "t_brier": bs["t"],
+            "linear_logloss": sum(ll_lin) / n if n else 0.0,
+            "logit_logloss": sum(ll_log) / n if n else 0.0,
+            "delta_logloss": ls["mean"],
+            "t_logloss": ls["t"],
+        }
+
+    return {"full": _run_pair(recs), "val": _run_pair(val)}
+
+
+def evaluate_temperature_scaling(train, val):
+    """仅用 train 段拟合 TemperatureScaler，并在 val 段评估样本外配对 ΔBrier / ΔLogLoss。"""
+    import tempfile
+    import numpy as np
+    from engine.prediction.temperature_scaling import TemperatureScaler
+
+    if len(train) < 30 or not val:
+        return {"n_train": len(train), "n_val": len(val), "fitted": False}
+    with tempfile.TemporaryDirectory(prefix="abl_temp_") as tmpdir:
+        scaler = TemperatureScaler(Path(tmpdir) / "temp.json")
+        scaler.fit(
+            np.array([r["final_prob"] for r in train], dtype=float),
+            np.array([r["actual_idx"] for r in train], dtype=int),
+        )
+        b_diffs, ll_diffs = [], []
+        b_raw, b_cal, ll_raw, ll_cal = [], [], [], []
+        for r in val:
+            raw = tuple(r["final_prob"])
+            cal = scaler.calibrate(raw)
+            act = r["actual_idx"]
+            br, bc = brier(raw, act), brier(cal, act)
+            lr, lc = logloss(raw, act), logloss(cal, act)
+            b_raw.append(br)
+            b_cal.append(bc)
+            ll_raw.append(lr)
+            ll_cal.append(lc)
+            b_diffs.append(bc - br)
+            ll_diffs.append(lc - lr)
+    bs = paired_stats(b_diffs)
+    ls = paired_stats(ll_diffs)
+    nv = len(val)
+    return {
+        "fitted": scaler._fitted,
+        "temperature": round(float(scaler.temperature), 6),
+        "n_train": len(train),
+        "n_val": nv,
+        "val_brier_before": sum(b_raw) / nv,
+        "val_brier_after": sum(b_cal) / nv,
+        "delta_brier": bs["mean"],
+        "t_brier": bs["t"],
+        "val_logloss_before": sum(ll_raw) / nv,
+        "val_logloss_after": sum(ll_cal) / nv,
+        "delta_logloss": ls["mean"],
+        "t_logloss": ls["t"],
+    }
+
+
 def load_ledger():
     path = ROOT / "data/state/review_ledger.jsonl"
     recs = []
@@ -387,6 +478,21 @@ def main():
         "delta_vs_champion": -pms["mean"], "t": pms["t"], "n": pm["n"],
     }
 
+    # --- 融合模式对比（linear vs logit） & 温度缩放样本外验证 ---
+    fusion_mode_cmp = evaluate_fusion_modes(recs, feats, cfg, prod_switches, val)
+    print("\n=== 融合模式 OOS 对比 (logit - linear, 负数=logit更好) ===")
+    for split_name in ("full", "val"):
+        fm = fusion_mode_cmp[split_name]
+        print(f"  [{split_name:<4}] n={fm['n']} ΔBrier={fm['delta_brier']:+.5f} (t={fm['t_brier']:+.2f}) "
+              f"ΔLogLoss={fm['delta_logloss']:+.5f} (t={fm['t_logloss']:+.2f})")
+
+    temp_oos = evaluate_temperature_scaling(train, val)
+    print("\n=== Temperature Scaling OOS 验证 (train 拟合 → val 评估, 负数=更好) ===")
+    if temp_oos.get("fitted"):
+        print(f"  T={temp_oos['temperature']:.4f} n_val={temp_oos['n_val']} "
+              f"ΔBrier={temp_oos['delta_brier']:+.5f} (t={temp_oos['t_brier']:+.2f}) "
+              f"ΔLogLoss={temp_oos['delta_logloss']:+.5f} (t={temp_oos['t_logloss']:+.2f})")
+
     report = {
         # 2026-10-28 修：原实现写的是**上一次**报告文件的 mtime，不是本次生成时间。
         "generated_at": beijing_now().isoformat(timespec="seconds"),
@@ -419,6 +525,8 @@ def main():
             "arms": sweep,
             "pure_market": sweep_pure_market,
         },
+        "fusion_mode_comparison": fusion_mode_cmp,
+        "temperature_scaling_oos": temp_oos,
     }
     out_path = ROOT / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)

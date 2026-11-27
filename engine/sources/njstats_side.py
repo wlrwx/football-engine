@@ -102,12 +102,22 @@ class SideSignal:
 
 
 def _parse_ts(s: str) -> datetime | None:
+    text = str(s or "").strip()
+    if not text:
+        return None
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
-            return datetime.strptime(str(s).strip(), fmt)
-        except (TypeError, ValueError):
+            return datetime.strptime(text, fmt)
+        except ValueError:
             continue
-    return None
+    try:
+        iso_text = text[:-1] + "+00:00" if text.endswith("Z") else text
+        dt = datetime.fromisoformat(iso_text)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
+        return dt
+    except ValueError:
+        return None
 
 
 def _row_kickoff(row: dict) -> datetime | None:

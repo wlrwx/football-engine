@@ -112,9 +112,11 @@ def main() -> int:
         import sqlite3
         from engine.prediction.shrinkage_dc import (
             ShrinkageDCConfig,
+            fit_league_shrinkage_dc,
             fit_shrinkage_dc,
             save_model,
         )
+        from engine.pipeline.helpers import _canon_league
         from engine.sources.base import MatchResult
         from engine.backtest.ts_split import brier_score as _brier_score
 
@@ -141,7 +143,7 @@ def main() -> int:
                                 away_team=_canon_team(_r["away_team"]),
                                 home_score=int(_r["home_score"]),
                                 away_score=int(_r["away_score"]),
-                                competition=_r.get("competition", ""),
+                                competition=_canon_league(_r.get("competition", "")),
                             )
                         )
                     except (ValueError, KeyError, TypeError):
@@ -149,8 +151,10 @@ def main() -> int:
             print(f"  ✓ shrinkage_dc: 并入历史库 {sum(1 for m in _matches if m.match_id.startswith('csv_'))} 场")
         if _db_path.exists():
             _conn = sqlite3.connect(_db_path)
+            _cols = {row[1] for row in _conn.execute("PRAGMA table_info(match_history)").fetchall()}
+            _lg_expr = "league" if "league" in _cols else "''"
             _rows = _conn.execute(
-                "SELECT match_id, date, home_team, away_team, score_home, score_away "
+                f"SELECT match_id, date, home_team, away_team, score_home, score_away, {_lg_expr} "
                 "FROM match_history WHERE score_home IS NOT NULL AND score_away IS NOT NULL"
             ).fetchall()
             _conn.close()
@@ -160,7 +164,7 @@ def main() -> int:
                         match_id=str(_m[0]), match_date=str(_m[1]),
                         home_team=_canon_team(str(_m[2])), away_team=_canon_team(str(_m[3])),
                         home_score=int(_m[4]), away_score=int(_m[5]),
-                        competition="",
+                        competition=_canon_league(str(_m[6] or "")),
                     )
                 )
 
@@ -255,19 +259,30 @@ def main() -> int:
                     else "hold"
                 ),
             })
-        # 全量历史快照（供后续复用/页面展示）
+        # 全量历史快照（供后续复用/页面展示：优先拟合带分联赛收缩先验的 LeagueShrinkageDCModel）
         if len(_matches) >= _cfg.min_matches:
             try:
-                _full = fit_shrinkage_dc(_matches, _cfg)
+                _full = fit_league_shrinkage_dc(_matches, _cfg)
                 save_model(_full, state_dir / "shrinkage_dc_model.json")
                 _sdc_report["snapshot"] = {
                     "n_matches": _full.n_matches,
                     "teams": len(_full.teams),
+                    "leagues": len(_full.league_params),
                     "rho": round(_full.rho, 4),
                     "fitted_at": _full.fitted_at,
                 }
             except (ValueError, RuntimeError) as _e:
-                _sdc_report["snapshot"] = {"error": str(_e)}
+                try:
+                    _full_g = fit_shrinkage_dc(_matches, _cfg)
+                    save_model(_full_g, state_dir / "shrinkage_dc_model.json")
+                    _sdc_report["snapshot"] = {
+                        "n_matches": _full_g.n_matches,
+                        "teams": len(_full_g.teams),
+                        "rho": round(_full_g.rho, 4),
+                        "fitted_at": _full_g.fitted_at,
+                    }
+                except (ValueError, RuntimeError) as _e2:
+                    _sdc_report["snapshot"] = {"error": str(_e2)}
         report["steps"]["shrinkage_dc"] = _sdc_report
         print(f"  ✓ shrinkage_dc: {json.dumps(_sdc_report, ensure_ascii=False)}")
     except Exception as e:

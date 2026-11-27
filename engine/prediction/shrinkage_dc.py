@@ -393,6 +393,18 @@ class LeagueShrinkageDCModel:
     def teams(self) -> tuple[str, ...]:
         return self.global_model.teams
 
+    @property
+    def n_matches(self) -> int:
+        return self.global_model.n_matches
+
+    @property
+    def rho(self) -> float:
+        return self.global_model.rho
+
+    @property
+    def fitted_at(self) -> str:
+        return self.global_model.fitted_at
+
     def expected_goals(
         self, home: str, away: str, competition: str | None = None
     ) -> tuple[float, float]:

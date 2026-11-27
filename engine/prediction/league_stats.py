@@ -11,6 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from engine.learning.freshness import LEAGUE_NAME_MAP
+from engine.pipeline.helpers import _canon_league
 
 MATRIX_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "league_matrix.json"
 DEFAULT_AVG_GOALS = 2.5
@@ -26,9 +27,13 @@ def _matrix(path_str: str) -> dict[str, tuple[float, float]]:
     out: dict[str, tuple[float, float]] = {}
     for lg in raw.get("leagues") or []:
         goals, home_win = lg.get("avg_goals"), lg.get("home_win_pct")
-        if goals is None or home_win is None:
+        if goals is None:
             continue
-        goals, home_win = float(goals), float(home_win)
+        goals = float(goals)
+        if home_win is None:
+            home_win = DEFAULT_HOME_WIN_RATE * 100.0
+        else:
+            home_win = float(home_win)
         if not 0.5 <= goals <= 8.0 or not 0.0 <= home_win <= 100.0:
             continue
         for key in (lg.get("name_zh"), lg.get("short_zh")):
@@ -41,10 +46,14 @@ def league_stats(competition: str | None,
                  path: Path | None = None) -> tuple[float, float]:
     """(场均总进球, 主胜率)；没有该联赛时返回 build_features 的默认值。"""
     tbl = _matrix(str(path or MATRIX_PATH))
-    name = LEAGUE_NAME_MAP.get(competition or "", competition or "")
-    hit = tbl.get(name)
-    if hit is None and competition:
-        hit = tbl.get(competition)
-    if hit is None:
-        return DEFAULT_AVG_GOALS, DEFAULT_HOME_WIN_RATE
-    return hit
+    raw_comp = competition or ""
+    canon_comp = _canon_league(raw_comp)
+    for cand in (
+        LEAGUE_NAME_MAP.get(raw_comp, ""),
+        LEAGUE_NAME_MAP.get(canon_comp, ""),
+        canon_comp,
+        raw_comp,
+    ):
+        if cand and cand in tbl:
+            return tbl[cand]
+    return DEFAULT_AVG_GOALS, DEFAULT_HOME_WIN_RATE
