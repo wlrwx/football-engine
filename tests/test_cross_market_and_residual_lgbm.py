@@ -159,3 +159,48 @@ def test_lgbm_residual_mode_init_score_and_predict(tmp_path: Path):
 
     init = probs_to_init_score(np.array([[0.5, 0.3, 0.2]]))
     assert init.mean() == pytest.approx(0.0, abs=1e-9)
+
+
+def test_extract_cross_market_real_djyy_production_schema():
+    """真实 context_cache.json 契约回归测试（prob pinnacle_odds + 无 line 的 totals/numeric-key handicap）。"""
+    # 来自真实 2026-11-26/context_cache.json 样本
+    om_real = {
+        "1x2_fulltime": {
+            "bookmaker": "Pinnacle",
+            "opening": {"away": 1.71, "draw": 4.2, "home": 4.34},
+            "current": {"away": 1.65, "draw": 4.33, "home": 4.61},
+            "prob_shift": {"away": 0.01985, "draw": -0.006916, "home": -0.012934},
+            "legs": 3,
+        },
+        "totals_main": {
+            "bookmaker": "Pinnacle",
+            "opening": {"over": 1.98, "under": 1.85},
+            "current": {"over": 1.98, "under": 1.87},
+            "prob_shift": {"over": 0.002686, "under": -0.002686},
+            "legs": 2,
+        },
+        "handicap": {
+            "bookmaker": "Pinnacle",
+            "opening": {"+0.75": 2.0, "+1": 1.82},
+            "current": {"+0.75": 2.05, "+1": 1.79},
+            "prob_shift": {"+0.75": -0.010294, "+1": 0.010294},
+            "legs": 2,
+        },
+    }
+    cm = extract_cross_market_features(opening_movement=om_real)
+    assert cm["cross_market_missing"] == 0.0
+    assert cm["pin_implied_home"] + cm["pin_implied_draw"] + cm["pin_implied_away"] == pytest.approx(1.0, abs=1e-4)
+    assert cm["pin_total_xg"] > 1.5
+    assert cm["pin_xg_diff"] < 0.0  # 主受让 +0.75，说明客队更强、xg_diff < 0
+    assert cm["pin_ah_shift"] == pytest.approx(-0.010294)
+    assert cm["pin_totals_shift"] == pytest.approx(0.002686)
+
+    # 当 opening_movement 缺失时，pinnacle_odds 实盘存的是 0..1 概率字典，也必须正确接住
+    cm_prob = extract_cross_market_features(
+        opening_movement=None,
+        pinnacle_odds={"home": 0.205820, "draw": 0.219130, "away": 0.575050},
+    )
+    assert cm_prob["cross_market_missing"] == 0.0
+    assert cm_prob["pin_implied_home"] == pytest.approx(0.205820, abs=1e-4)
+    assert cm_prob["pin_implied_away"] == pytest.approx(0.575050, abs=1e-4)
+

@@ -589,10 +589,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # （训练用落盘的模型 xG，服务用 DJYY fixture xG）。这里只取一次、
         # 随预测落盘，训练侧原样回放，保证两端逐位同参。
         _lg_goals, _lg_home_win = league_stats(fixture.competition)
-        from engine.prediction.cross_market import extract_cross_market_features
+        from engine.prediction.cross_market import _parse_pinnacle_1x2, extract_cross_market_features
         _djyy_ctx = djyy_data.get("context") or {}
         _pin_ref = djyy_data.get("pinnacle_odds")
-        if not _pin_ref and _djyy_ssr.get("home_odds_djyy"):
+        if _parse_pinnacle_1x2(_pin_ref) is None and _djyy_ssr.get("home_odds_djyy"):
             _pin_ref = (
                 _djyy_ssr.get("home_odds_djyy"),
                 _djyy_ssr.get("draw_odds_djyy"),

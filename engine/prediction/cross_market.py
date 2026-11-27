@@ -190,14 +190,48 @@ def _safe_float(val: Any) -> float | None:
 
 
 def _parse_pinnacle_1x2(pinnacle_odds: Any) -> tuple[float, float, float] | None:
+    """解析 Pinnacle 1X2：同时支持欧赔 (>1.0) 与去水/隐含概率 (0..1)。"""
+    vals: tuple[Any, Any, Any] | None = None
     if isinstance(pinnacle_odds, (list, tuple)) and len(pinnacle_odds) >= 3:
-        return devig_three_way(pinnacle_odds[0], pinnacle_odds[1], pinnacle_odds[2])
-    if isinstance(pinnacle_odds, dict):
-        h = pinnacle_odds.get("home") or pinnacle_odds.get("1")
-        d = pinnacle_odds.get("draw") or pinnacle_odds.get("X")
-        a = pinnacle_odds.get("away") or pinnacle_odds.get("2")
-        return devig_three_way(h, d, a)
+        vals = (pinnacle_odds[0], pinnacle_odds[1], pinnacle_odds[2])
+    elif isinstance(pinnacle_odds, dict):
+        h = pinnacle_odds.get("home") if pinnacle_odds.get("home") is not None else pinnacle_odds.get("1")
+        d = pinnacle_odds.get("draw") if pinnacle_odds.get("draw") is not None else pinnacle_odds.get("X")
+        a = pinnacle_odds.get("away") if pinnacle_odds.get("away") is not None else pinnacle_odds.get("2")
+        vals = (h, d, a)
+    if vals is None:
+        return None
+    fh, fd, fa = _safe_float(vals[0]), _safe_float(vals[1]), _safe_float(vals[2])
+    if fh is None or fd is None or fa is None:
+        return None
+    if min(fh, fd, fa) > 1.0:
+        return devig_three_way(fh, fd, fa)
+    if min(fh, fd, fa) > 0.0 and max(fh, fd, fa) < 1.0:
+        tot = fh + fd + fa
+        if 0.90 <= tot <= 1.10:
+            return (fh / tot, fd / tot, fa / tot)
     return None
+
+
+def _extract_numeric_ah_primary(
+    hdp_cur: dict[str, Any],
+) -> tuple[float, str, float, float] | None:
+    """解析 DJYY 实盘 handicap 结构（键为让球线字符串如 '+0.75'/'-0.25'/'0'，值为对应主队赔率）。"""
+    entries: list[tuple[float, str, float]] = []
+    for k, v in hdp_cur.items():
+        if k in ("home", "away", "1", "2", "line"):
+            continue
+        lv = _safe_float(k)
+        ov = _safe_float(v)
+        if lv is not None and ov is not None and ov > 1.0:
+            entries.append((lv, str(k), ov))
+    if not entries:
+        return None
+    primary_line, primary_key, ah_h = min(entries, key=lambda x: abs(x[2] - 2.0))
+    # Pinnacle 亚盘典型抽水 ~2.5%：由此反推同盘口客队近似赔率供二元去水
+    p_home = min(0.95, max(0.05, (1.0 / ah_h) / 1.025))
+    ah_a = 1.0 / (1.025 * (1.0 - p_home))
+    return primary_line, primary_key, ah_h, ah_a
 
 
 def extract_cross_market_features(
@@ -239,7 +273,7 @@ def extract_cross_market_features(
     if tot_shift:
         out["pin_totals_shift"] = round(_safe_float(tot_shift.get("over")) or 0.0, 6)
     hdp_shift = hdp_mkt.get("prob_shift") if isinstance(hdp_mkt.get("prob_shift"), dict) else {}
-    if hdp_shift:
+    if hdp_shift and ("home" in hdp_shift or "1" in hdp_shift):
         out["pin_ah_shift"] = round(_safe_float(hdp_shift.get("home") or hdp_shift.get("1")) or 0.0, 6)
 
     tot_cur = tot_mkt.get("current") if isinstance(tot_mkt.get("current"), dict) else {}
@@ -250,6 +284,20 @@ def extract_cross_market_features(
     ah_a = _safe_float(hdp_cur.get("away") or hdp_cur.get("2"))
     ov_o = _safe_float(tot_cur.get("over"))
     un_o = _safe_float(tot_cur.get("under"))
+
+    if tot_line is None and ov_o is not None and un_o is not None and ov_o > 1.0 and un_o > 1.0:
+        tot_line = 2.5
+
+    if None in (ah_line, ah_h, ah_a) and hdp_cur:
+        num_ah = _extract_numeric_ah_primary(hdp_cur)
+        if num_ah is not None:
+            ah_line, primary_key, ah_h, ah_a = num_ah
+            if hdp_shift and "home" not in hdp_shift and "1" not in hdp_shift:
+                out["pin_ah_shift"] = round(_safe_float(hdp_shift.get(primary_key)) or 0.0, 6)
+            out["cross_market_missing"] = 0.0
+
+    if ov_o is not None and un_o is not None and ov_o > 1.0 and un_o > 1.0:
+        out["cross_market_missing"] = 0.0
 
     if None not in (ah_line, ah_h, ah_a, tot_line, ov_o, un_o):
         inv = implied_xg_from_ah_totals(
