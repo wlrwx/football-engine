@@ -327,6 +327,17 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         mc_config=mc_cfg,
         weights=dynamic_weights,
     )
+    _use_shrinkage_dc = bool(pred_cfg.get("prediction", {}).get("use_shrinkage_dc", False))
+    _shrinkage_dc = None
+    if _use_shrinkage_dc:
+        _sdc_path = ROOT / "data" / "models" / "shrinkage_dc.json"
+        if _sdc_path.exists():
+            try:
+                from engine.prediction.shrinkage_dc import load_model as _load_sdc
+                _shrinkage_dc = _load_sdc(_sdc_path)
+                print(f"  ✓ ShrinkageDC 已加载 ({len(_shrinkage_dc.teams)} 队)")
+            except Exception as _sdc_err:
+                print(f"  ⚠ ShrinkageDC 加载失败（回退经典 DC）: {_sdc_err}")
 
     # 融合参数（可由 param_optimizer 自动调整，不写死）
     fusion_cfg = pred_cfg.get("fusion", {})
@@ -372,13 +383,16 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     # 校准层自动启用状态（结算侧写 data/state/calibration_status.json）：
     # 洁净样本通过验证段显著性检验后自动放行 isotonic，无需人工改 config
     _cal_auto_enabled = False
+    _cal_auto_method = str(pred_cfg.get("calibration_auto", {}).get("method", "isotonic")).lower()
     try:
         _cal_status = json.loads((ROOT / "data" / "state" / "calibration_status.json").read_text(encoding="utf-8"))
         _cal_auto_enabled = bool(_cal_status.get("enabled", False))
+        if _cal_status.get("method"):
+            _cal_auto_method = str(_cal_status["method"]).lower()
     except Exception:
         _cal_auto_enabled = False
     if _cal_auto_enabled:
-        print("  校准层: isotonic 已由洁净样本验证自动启用")
+        print(f"  校准层: {_cal_auto_method} 已由洁净样本验证自动启用")
 
     predictions = []
     # 侧挂信号索引：整轮只建一次（446 场量级，比每场重读快照便宜得多）。
@@ -487,6 +501,31 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             market_odds=market_odds,
             handicap=fixture.handicap,
         )
+        if _shrinkage_dc is not None:
+            _sdc_teams = set(_shrinkage_dc.teams)
+            if home_rating.name in _sdc_teams and away_rating.name in _sdc_teams:
+                try:
+                    if hasattr(_shrinkage_dc, "league_params"):
+                        _sdc_probs = _shrinkage_dc.predict_probs(
+                            home_rating.name, away_rating.name,
+                            competition=_canon_league(fixture.competition),
+                        )
+                    else:
+                        _sdc_probs = _shrinkage_dc.predict_probs(home_rating.name, away_rating.name)
+                    _mc_sub = next((m for m in model.models if m.name == "monte_carlo"), None)
+                    _dc_w = float(dynamic_weights.get("dixon_coles", 0.6))
+                    _mc_w = float(dynamic_weights.get("monte_carlo", 0.4))
+                    if _mc_sub is not None:
+                        _mc_p = _mc_sub.predict(
+                            home=home_rating, away=away_rating,
+                            market_odds=market_odds, handicap=fixture.handicap,
+                        )
+                        _wsum = max(1e-8, _dc_w + _mc_w)
+                        pred.home_win_prob = round((_dc_w * _sdc_probs[0] + _mc_w * _mc_p.home_win_prob) / _wsum, 4)
+                        pred.draw_prob = round((_dc_w * _sdc_probs[1] + _mc_w * _mc_p.draw_prob) / _wsum, 4)
+                        pred.away_win_prob = round((_dc_w * _sdc_probs[2] + _mc_w * _mc_p.away_win_prob) / _wsum, 4)
+                except Exception:
+                    pass
         pred.match_id = fixture.match_id
         # 联赛名归一化（2026-08-12）：瑞超→瑞典超、韩职→K1联赛，保证 R1/锚定/账本口径统一
         pred.competition = _canon_league(fixture.competition)
@@ -617,7 +656,10 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
         # 洁净样本通过显著性验证后由结算侧自动翻转 enabled，预测侧据此放行 isotonic。
         _pf_switches = dict(fusion_cfg.get("post_fusion", {}))
         if _cal_auto_enabled:
-            _pf_switches["isotonic"] = True
+            if _cal_auto_method == "temperature":
+                _pf_switches["temperature"] = True
+            else:
+                _pf_switches["isotonic"] = True
 
         _fusion_out = fuse_probabilities(FusionInput(
             model_probs=(pred.home_win_prob, pred.draw_prob, pred.away_win_prob),

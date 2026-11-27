@@ -49,6 +49,7 @@ class ShrinkageDCConfig:
     rho_bound: float = 0.2         # rho 的 tanh 边界
     max_iter: int = 600
     min_matches: int = 20
+    xg_blend_weight: float = 0.0   # 实测 xG 混合权重 (0.0=纯比分，保持逐点等价)
 
 
 @dataclass
@@ -211,6 +212,20 @@ def fit_shrinkage_dc(
                       dtype=np.float64, count=_n)
     _AG = np.fromiter((int(getattr(r, away_score_attr)) for r in rows),
                       dtype=np.float64, count=_n)
+    if 0.0 < cfg.xg_blend_weight <= 1.0:
+        _w_xg = float(cfg.xg_blend_weight)
+        for _idx_r, _r in enumerate(rows):
+            _hxg = getattr(_r, "home_xg", None)
+            _axg = getattr(_r, "away_xg", None)
+            if _hxg is not None and _axg is not None:
+                try:
+                    _hxg_f = float(_hxg)
+                    _axg_f = float(_axg)
+                    if math.isfinite(_hxg_f) and math.isfinite(_axg_f) and _hxg_f >= 0.0 and _axg_f >= 0.0:
+                        _HG[_idx_r] = (1.0 - _w_xg) * _HG[_idx_r] + _w_xg * _hxg_f
+                        _AG[_idx_r] = (1.0 - _w_xg) * _AG[_idx_r] + _w_xg * _axg_f
+                except (TypeError, ValueError):
+                    pass
     _W = np.fromiter(
         (math.exp(-cfg.decay * max(0, (newest - _parse_date(getattr(r, date_attr))).days))
          for r in rows),
@@ -361,7 +376,150 @@ def save_model(model: ShrinkageDCModel, path) -> None:
 def load_model(path) -> ShrinkageDCModel:
     import pathlib
     payload = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    if "league_params" in payload and "global_model" in payload:
+        return LeagueShrinkageDCModel.from_dict(payload)  # type: ignore[return-value]
     return ShrinkageDCModel.from_dict(payload)
+
+
+@dataclass
+class LeagueShrinkageDCModel:
+    """带分联赛分层收缩先验 (intercept, home_advantage) 的 ShrinkageDCModel 包装。"""
+
+    global_model: ShrinkageDCModel
+    league_params: dict[str, dict[str, float]] = field(default_factory=dict)
+    league_prior_matches: float = 40.0
+
+    @property
+    def teams(self) -> tuple[str, ...]:
+        return self.global_model.teams
+
+    def expected_goals(
+        self, home: str, away: str, competition: str | None = None
+    ) -> tuple[float, float]:
+        lp = self.league_params.get(competition or "", {})
+        intercept = float(lp.get("intercept", self.global_model.intercept))
+        home_adv = float(lp.get("home_advantage", self.global_model.home_advantage))
+        home_xg = math.exp(
+            intercept
+            + home_adv
+            + self.global_model.attack.get(home, 0.0)
+            + self.global_model.defence.get(away, 0.0)
+        )
+        away_xg = math.exp(
+            intercept
+            + self.global_model.attack.get(away, 0.0)
+            + self.global_model.defence.get(home, 0.0)
+        )
+        return max(0.2, min(4.5, home_xg)), max(0.2, min(4.5, away_xg))
+
+    def predict_probs(
+        self, home: str, away: str, competition: str | None = None
+    ) -> tuple[float, float, float]:
+        home_xg, away_xg = self.expected_goals(home, away, competition=competition)
+        n = 9
+        rho = self.global_model.rho
+        home_win = draw = away_win = 0.0
+        for i in range(n):
+            for j in range(n):
+                p = (
+                    poisson_pmf(i, home_xg)
+                    * poisson_pmf(j, away_xg)
+                    * max(0.0, dc_tau(i, j, home_xg, away_xg, rho))
+                )
+                if i > j:
+                    home_win += p
+                elif i == j:
+                    draw += p
+                else:
+                    away_win += p
+        total = home_win + draw + away_win
+        if total <= 0:
+            return 1 / 3, 1 / 3, 1 / 3
+        return home_win / total, draw / total, away_win / total
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "global_model": self.global_model.to_dict(),
+            "league_params": self.league_params,
+            "league_prior_matches": self.league_prior_matches,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "LeagueShrinkageDCModel":
+        return cls(
+            global_model=ShrinkageDCModel.from_dict(payload["global_model"]),
+            league_params={
+                str(k): {
+                    "intercept": float(v["intercept"]),
+                    "home_advantage": float(v["home_advantage"]),
+                    "n": int(v.get("n", 0)),
+                }
+                for k, v in payload.get("league_params", {}).items()
+            },
+            league_prior_matches=float(payload.get("league_prior_matches", 40.0)),
+        )
+
+
+def fit_league_shrinkage_dc(
+    matches: Iterable[Any],
+    config: ShrinkageDCConfig | None = None,
+    league_prior_matches: float = 40.0,
+    *,
+    competition_attr: str = "competition",
+    home_attr: str = "home_team",
+    away_attr: str = "away_team",
+    home_score_attr: str = "home_score",
+    away_score_attr: str = "away_score",
+    date_attr: str = "match_date",
+) -> LeagueShrinkageDCModel:
+    """拟合全局 ShrinkageDCModel，并按样本量收缩估计各联赛截距与主场优势偏移。"""
+    rows = list(matches)
+    global_model = fit_shrinkage_dc(
+        rows,
+        config=config,
+        home_attr=home_attr,
+        away_attr=away_attr,
+        home_score_attr=home_score_attr,
+        away_score_attr=away_score_attr,
+        date_attr=date_attr,
+    )
+    all_h = [float(getattr(r, home_score_attr)) for r in rows]
+    all_a = [float(getattr(r, away_score_attr)) for r in rows]
+    mu_h_g = max(0.2, sum(all_h) / len(all_h))
+    mu_a_g = max(0.2, sum(all_a) / len(all_a))
+    log_ha_g = math.log(mu_h_g / mu_a_g)
+
+    by_league: dict[str, list[tuple[float, float]]] = {}
+    for r in rows:
+        comp = str(getattr(r, competition_attr, "") or "").strip()
+        if not comp:
+            continue
+        by_league.setdefault(comp, []).append(
+            (float(getattr(r, home_score_attr)), float(getattr(r, away_score_attr)))
+        )
+
+    league_params: dict[str, dict[str, float]] = {}
+    prior = max(1.0, float(league_prior_matches))
+    for comp, pairs in by_league.items():
+        n_l = len(pairs)
+        if n_l < 5:
+            continue
+        mu_h_l = max(0.2, sum(h for h, _ in pairs) / n_l)
+        mu_a_l = max(0.2, sum(a for _, a in pairs) / n_l)
+        w = n_l / (n_l + prior)
+        d_int = w * math.log(mu_a_l / mu_a_g)
+        d_ha = w * (math.log(mu_h_l / mu_a_l) - log_ha_g)
+        league_params[comp] = {
+            "intercept": round(global_model.intercept + d_int, 6),
+            "home_advantage": round(global_model.home_advantage + d_ha, 6),
+            "n": n_l,
+        }
+
+    return LeagueShrinkageDCModel(
+        global_model=global_model,
+        league_params=league_params,
+        league_prior_matches=prior,
+    )
 
 
 if __name__ == "__main__":

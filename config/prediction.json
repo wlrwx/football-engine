@@ -43,7 +43,8 @@
       ]
     ],
     "handicap_smoothing": 0.274,
-    "allow_odds_xg_fallback": false
+    "allow_odds_xg_fallback": false,
+    "use_shrinkage_dc": false
   },
   "ensemble": {
     "dixon_coles_weight": 0.6,
@@ -60,6 +61,7 @@
     "trust_shrink_enabled": true,
     "djyy_min_confidence": 0.5,
     "djyy_disagree_penalty": 0.5,
+    "fusion_mode": "linear",
     "post_fusion": {
       "same_odds_bias": true,
       "combo_boost": false,
@@ -121,13 +123,16 @@
         0.4
       ]
     },
-    "min_z": 1.96
+    "min_z": 1.96,
+    "method": "softmax_brier",
+    "min_new_matches": 0
   },
   "review": {
     "bias_min_samples": 5,
     "bias_gap_threshold": 0.1
   },
   "calibration_auto": {
+    "method": "isotonic",
     "min_samples": 100,
     "val_frac": 0.4,
     "min_improvement": 0.002,

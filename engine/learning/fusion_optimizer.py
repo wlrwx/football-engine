@@ -90,6 +90,9 @@ class FusionOptimizer:
             "djyy": [0.00, 0.40],
         })
         self.val_matches = self.cfg.get("val_matches", 100)
+        # 优化方法 ("softmax_brier" | "logit_nll") 与最小新增场次冷却门槛
+        self.method = str(self.cfg.get("method", "softmax_brier"))
+        self.min_new_matches = int(self.cfg.get("min_new_matches", 0))
         # 显著性阈值：晋升要求 improvement ≥ max(min_improvement, min_z × SE)
         # 2026-08-14：n=20 时 SE≈0.015，0.002-0.005 的阈值比噪声小一个量级，
         # 157 次决策 126 hold/16 promote 与随机游走无法区分。窗口提到 100
@@ -143,6 +146,31 @@ class FusionOptimizer:
             decision.compute_hash()
             self._log(decision)
             return decision
+
+        # 非重叠验证冷却门槛：未积累够新增场次时不重复检验高度重叠的窗口
+        if self.min_new_matches > 0:
+            last_n = self._load_last_eval_n()
+            if last_n is not None and (n - last_n) < self.min_new_matches:
+                decision = OptimizerDecision(
+                    timestamp=datetime.now().isoformat(),
+                    action="hold",
+                    champion=champion.to_dict(),
+                    candidate=None,
+                    metrics={
+                        "n_samples": n,
+                        "last_eval_ledger_n": last_n,
+                        "min_new_matches": self.min_new_matches,
+                    },
+                    reason=(
+                        f"新增已结算场次不足 ({n - last_n} < {self.min_new_matches})，"
+                        f"跳过重叠验证窗口"
+                    ),
+                    guard_rails_applied=["cooldown_min_new_matches"],
+                    prev_decision_hash=prev_hash,
+                )
+                decision.compute_hash()
+                self._log(decision)
+                return decision
 
         # train/val 切分
         train, val = self.ledger.split_train_val(self.val_matches)
@@ -210,7 +238,7 @@ class FusionOptimizer:
                         guard_rails.append("rollback_triggered")
 
         # 8. 持久化
-        self._save_state(new_champion, champion)
+        self._save_state(new_champion, champion, ledger_n=n)
 
         decision = OptimizerDecision(
             timestamp=datetime.now().isoformat(),
@@ -228,7 +256,10 @@ class FusionOptimizer:
         return decision
 
     def _propose(self, train: list[MatchReview], champion: FusionWeights) -> FusionWeights:
-        """由 per-source 指数加权 Brier 反推目标权重"""
+        """由训练段反推目标权重（softmax_brier 或带共线性正则的 logit_nll）。"""
+        if self.method == "logit_nll" and train:
+            return self._propose_logit_nll(train, champion)
+
         # 计算各源的指数加权 Brier
         source_briers = {"model": [], "market": [], "djyy": []}
         for i, r in enumerate(train):
@@ -261,6 +292,76 @@ class FusionOptimizer:
         )
 
         # 平滑: new = (1-lr)*champion + lr*target
+        lr = self.learning_rate
+        return FusionWeights(
+            model=(1 - lr) * champion.model + lr * target.model,
+            market=(1 - lr) * champion.market + lr * target.market,
+            djyy=(1 - lr) * champion.djyy + lr * target.djyy,
+        )
+
+    def _propose_logit_nll(self, train: list[MatchReview], champion: FusionWeights) -> FusionWeights:
+        """在 log-odds 空间直接最小化时间衰减加权 NLL + L2 正则（处理多源共线性）。"""
+        import numpy as np
+        from scipy.optimize import minimize
+
+        n = len(train)
+        weights_t = np.array([self.decay_factor ** (n - 1 - i) for i in range(n)], dtype=float)
+        weights_t /= max(1e-12, float(weights_t.sum()))
+        eps = 1e-6
+
+        rows_log = np.zeros((n, 3, 3), dtype=float)
+        masks = np.zeros((n, 3), dtype=float)
+        labels = np.zeros(n, dtype=int)
+        valid_rows = 0
+        for i, r in enumerate(train):
+            if not (r.model_raw and len(r.model_raw) >= 3) or r.actual_idx is None:
+                continue
+            m_arr = np.clip(np.asarray(r.model_raw[:3], dtype=float), eps, 1.0 - eps)
+            rows_log[valid_rows, 0] = np.log(m_arr / m_arr.sum())
+            masks[valid_rows, 0] = 1.0
+            if r.market_fair and len(r.market_fair) >= 3:
+                k_arr = np.clip(np.asarray(r.market_fair[:3], dtype=float), eps, 1.0 - eps)
+                rows_log[valid_rows, 1] = np.log(k_arr / k_arr.sum())
+                masks[valid_rows, 1] = 1.0
+            if r.djyy_prob and len(r.djyy_prob) >= 3 and any(r.djyy_prob):
+                d_arr = np.clip(np.asarray(r.djyy_prob[:3], dtype=float), eps, 1.0 - eps)
+                rows_log[valid_rows, 2] = np.log(d_arr / d_arr.sum())
+                masks[valid_rows, 2] = 1.0
+            labels[valid_rows] = int(r.actual_idx)
+            weights_t[valid_rows] = weights_t[i]
+            valid_rows += 1
+
+        if valid_rows < 10:
+            return champion
+
+        rows_log = rows_log[:valid_rows]
+        masks = masks[:valid_rows]
+        labels = labels[:valid_rows]
+        wt = weights_t[:valid_rows]
+        wt /= max(1e-12, float(wt.sum()))
+
+        bnds = self.weight_bounds
+        bounds = [tuple(bnds["model"]), tuple(bnds["market"]), tuple(bnds["djyy"])]
+        x0 = np.array([champion.model, champion.market, champion.djyy], dtype=float)
+
+        def _obj(w: np.ndarray) -> float:
+            active_w = masks * w[None, :]
+            denom = np.maximum(active_w.sum(axis=1, keepdims=True), 1e-8)
+            nw = active_w / denom
+            logits = np.einsum("ns,nsc->nc", nw, rows_log)
+            logits -= logits.max(axis=1, keepdims=True)
+            exp_v = np.exp(logits)
+            probs = np.clip(exp_v / exp_v.sum(axis=1, keepdims=True), 1e-12, 1.0 - 1e-12)
+            nll = float(-np.sum(wt * np.log(probs[np.arange(valid_rows), labels])))
+            reg = 0.02 * float(np.sum(w ** 2))
+            return nll + reg
+
+        res = minimize(_obj, x0, method="L-BFGS-B", bounds=bounds)
+        opt = np.maximum(0.0, res.x if res.x is not None else x0)
+        tot = float(opt.sum())
+        if tot <= 0:
+            return champion
+        target = FusionWeights(float(opt[0] / tot), float(opt[1] / tot), float(opt[2] / tot))
         lr = self.learning_rate
         return FusionWeights(
             model=(1 - lr) * champion.model + lr * target.model,
@@ -329,6 +430,7 @@ class FusionOptimizer:
                 "model_weight": w.model,
                 "market_weight": w.market,
                 "djyy_weight": w.djyy,
+                "fusion_mode": "logit" if self.method == "logit_nll" else "linear",
             },
             post_fusion={k: False for k in DEFAULT_POST_FUSION},
         )
@@ -389,13 +491,30 @@ class FusionOptimizer:
             guard_rails.append("bounds_clipped")
         return result
 
-    def _save_state(self, new_champion: FusionWeights, old_champion: FusionWeights):
+    def _load_last_eval_n(self) -> int | None:
+        if not self.state_path.exists():
+            return None
+        try:
+            state = json.loads(self.state_path.read_text(encoding="utf-8"))
+            val = state.get("last_eval_ledger_n")
+            return int(val) if val is not None else None
+        except Exception:
+            return None
+
+    def _save_state(
+        self,
+        new_champion: FusionWeights,
+        old_champion: FusionWeights,
+        ledger_n: int | None = None,
+    ):
         """持久化冠军权重 (保留previous供回滚)"""
         state = {
             "champion": new_champion.to_dict(),
             "previous": old_champion.to_dict(),
             "updated_at": datetime.now().isoformat(),
         }
+        if ledger_n is not None:
+            state["last_eval_ledger_n"] = int(ledger_n)
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         self.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
