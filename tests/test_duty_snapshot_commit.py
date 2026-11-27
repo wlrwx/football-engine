@@ -287,8 +287,10 @@ def _truth_duty(tmp_path, monkeypatch, recs, board=None, local=None):
     duty = _load_duty()
     monkeypatch.setattr(duty, "ROOT", tmp_path)
     monkeypatch.setattr(duty.api, "my_predictions", lambda *a, **k: recs)
-    monkeypatch.setattr(duty.api, "board_with_odds",
-                        lambda *a, **k: board if board is not None else [])
+    # 2026-11-27：采集侧改调 board_fetch（多带一个「为什么没有」），
+    # board_with_odds 只剩下单链在用。桩不打这层，测试就会真去读 JWT 打网络。
+    monkeypatch.setattr(duty.api, "board_fetch",
+                        lambda *a, **k: (board if board is not None else [], ""))
     state = tmp_path / "data" / "state"
     state.mkdir(parents=True, exist_ok=True)
     (state / "challenge_state.json").write_text(json.dumps(

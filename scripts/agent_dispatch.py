@@ -57,6 +57,10 @@ HUMAN_ONLY = {
     "error_branch",
     # 厂商 API 5xx：人也修不了，只能等；派给 agent 更没用
     "error_upstream",
+    # 厂商全板（msgId=1）在 HTTP 200 里返回「系统错误!!」：症状是站点赔率快照断供，
+    # 但 duty 在跑、也在推其它快照。派给 agent 只会让它去查一条没坏的 git 链路
+    # （2026-11-27 issue #29 就是这个形状），等厂商恢复即可。
+    "odds_board_upstream",
     # 服务端真值 0 条/断更 = token 半失效或私有端点降级，修法是用户重新登录或等厂商；
     # agent 既不能登录也不该碰账本
     "truth_snapshot_empty",

@@ -211,7 +211,7 @@ def test_duty_log_line_and_digest_regex_stay_in_lockstep(tmp_path, monkeypatch):
 
     monkeypatch.setattr(duty, "ROOT", tmp_path)
     monkeypatch.setattr(duty.api, "my_predictions", lambda *a, **k: [])
-    monkeypatch.setattr(duty.api, "board_with_odds", lambda *a, **k: [])
+    monkeypatch.setattr(duty.api, "board_fetch", lambda *a, **k: ([], ""))
     state = tmp_path / "data" / "state"
     state.mkdir(parents=True, exist_ok=True)
     (state / "challenge_state.json").write_text(
