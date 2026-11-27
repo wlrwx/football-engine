@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-27T22:27:25",
+  "generated_at": "2026-11-28T06:58:43",
   "summary": {
-    "total": 10,
+    "total": 11,
     "critical": 0,
     "healed": 0
   },
@@ -42,7 +42,15 @@
       "id": "data/yesterday",
       "layer": "data",
       "severity": "ok",
-      "detail": "昨日(2026-11-26)已结算",
+      "detail": "昨日(2026-11-27)已结算",
+      "healable": false,
+      "healed": false
+    },
+    {
+      "id": "source/djyy",
+      "layer": "source",
+      "severity": "ok",
+      "detail": "DJYY 存活率 2026-11-28:68%",
       "healable": false,
       "healed": false
     },
@@ -50,15 +58,15 @@
       "id": "model/draw",
       "layer": "model",
       "severity": "ok",
-      "detail": "平局均值 23.1% 在先验带内",
+      "detail": "平局均值 23.0% 在先验带内",
       "healable": false,
       "healed": false
     },
     {
       "id": "model/weights",
       "layer": "model",
-      "severity": "ok",
-      "detail": "融合权重归一",
+      "severity": "warn",
+      "detail": "融合名义权重和 1632.000 ≠ 1（优化器输出畸变）",
       "healable": false,
       "healed": false
     },
