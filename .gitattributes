@@ -13,3 +13,23 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
+# 追加式水位序列：并发追加必须能自动合并（2026-11-28，ci-sync run #201 根因）
+#
+# 现象：ci-sync「提交回仓库」步骤红，日志里 69 个 `CONFLICT (content):
+# Merge conflict in data/state/odds_series/2026-11-29_*.jsonl`，一步不落全在同一类文件上。
+# 根因：`fetch_sina_odds.py` 是**追加写**，而它同时挂在 ci-sync（每小时 :47）和
+# daily-forecast 两个 workflow 上。两个写入方都在文件末尾插一行，git 三方合并
+# 的插入点完全重合 → 只要 daily-forecast 在 ci-sync 那 9 分钟的 run 期间推了 main，
+# ci-sync 的 `git pull --rebase` 必冲突。工作流按设计「不覆盖上游，红一轮」exit 1，
+# 于是这类红是结构性的，跟代码质量无关，只会一直随机红。
+#
+# 修法：把这类**只追加**的 jsonl 声明成 git 内置的 union 合并驱动——两侧新增行都保留，
+# 不再冲突。daily-forecast 也顺带受益：它原先的兜底是「本次生成版本胜出」（`--theirs`），
+# 一旦 odds_series 撞上就整文件丢弃对端那一行，也就是**悄悄丢样本**；union 让它的
+# rebase 根本不进入冲突分支。
+#
+# 代价与处置：union 输出是「上游侧行 + 本地侧重放行」，当上游行写得比我们晚时顺序会
+# 倒挂（实测），因此读侧 `engine/odds_series.py:sort_snapshots` 统一按 ts 归一化。
+# 实测现有 2253 个序列文件 0 个乱序、0 个重复行，排序对既有数据是 no-op；
+# 两侧追加**同一行**时 git 内置 union 不会重复输出（实测去重）。
+data/state/odds_series/*.jsonl merge=union

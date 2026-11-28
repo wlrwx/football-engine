@@ -13,9 +13,9 @@ import pytest
 import engine.odds_series as osd
 
 
-def _snap(ts, match_no="周日002", match_time="2026-08-30"):
+def _snap(ts, match_no="周日002", match_time="2026-08-30", euro=(2.0, 3.2, 3.5)):
     return {"ts": ts, "match_no": match_no, "match_time": match_time,
-            "euro": {"home": 2.0, "draw": 3.2, "away": 3.5}}
+            "euro": {"home": euro[0], "draw": euro[1], "away": euro[2]}}
 
 
 def _write_series(tmp_path, name, snaps):
@@ -74,3 +74,25 @@ def test_series_features_short_returns_points_only(series_dir):
     _write_series(series_dir, "3632618.jsonl", [_snap("2026-08-30T04:43:00")])
     feat = osd.series_features("2026-08-30_周日002")
     assert feat == {"points": 1}
+
+
+def test_union_merged_lines_are_read_in_time_order(series_dir):
+    """并发追加 + git `merge=union` 后，落盘顺序可能时间倒挂（2026-11-28 ci-sync #201）。
+
+    series_features 取的是 seq[0]/[-1]/[-2]，倒挂会把 overall/recent 算反、
+    span_min 甚至算成负数。读侧按 ts 归一化后，方向必须等于"按真实时间追加"的那份序列。
+    """
+    _write_series(series_dir, "3632619.jsonl", [
+        _snap("2026-08-29T10:00:00", euro=(2.00, 3.2, 3.5)),   # 首
+        _snap("2026-08-30T14:00:00", euro=(2.20, 3.1, 3.4)),   # 末（真实最新）
+        _snap("2026-08-30T12:00:00", euro=(2.10, 3.15, 3.45)),  # 上游先推、其实写得更早
+    ])
+    seq = osd.load_series("2026-08-30_周日002")
+    assert [s["ts"] for s in seq] == ["2026-08-29T10:00:00", "2026-08-30T12:00:00",
+                                      "2026-08-30T14:00:00"], "读侧必须给出时间正序"
+
+    feat = osd.series_features("2026-08-30_周日002")
+    assert feat["points"] == 3
+    assert feat["overall_home"] == round((2.20 - 2.00) / 2.00 * 100, 2)   # +10.0
+    assert feat["recent_home"] == round((2.20 - 2.10) / 2.10 * 100, 2)    # +4.76
+    assert feat["span_min"] == 1680.0  # 8/29 10:00 → 8/30 14:00，28 小时

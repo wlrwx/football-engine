@@ -21,6 +21,21 @@ from pathlib import Path
 SERIES_DIR = Path(__file__).resolve().parent.parent / "data" / "state" / "odds_series"
 
 
+def sort_snapshots(rows: list[dict]) -> list[dict]:
+    """按 ts 稳定升序归一化水位序列。
+
+    序列文件是**追加式**的，同时被 ci-sync（每小时）和 daily-forecast 两个写入方
+    追加，git 侧用 `merge=union` 保证并发追加不冲突（见 .gitattributes，2026-11-28
+    ci-sync #201）。union 的合并结果是「上游侧新增行 + 本地侧新增行」，当上游那一行
+    其实写得更晚时，落盘顺序就会倒挂；而 series_features 取的是 seq[0]/[-1]/[-2]，
+    倒挂会把 overall/recent 两个方向算反，span_min 甚至算成负数。
+    所以在读侧钉一次顺序：ts 格式是 `%Y-%m-%d %H:%M:%S`，字符串序即时间序；
+    无法解析的快照排到最前，行为与旧数据一致（实测现有 2253 个文件全部已升序，
+    本函数对既有数据是 no-op）。稳定排序，同 ts 保持文件内相对顺序。
+    """
+    return sorted(rows, key=lambda r: str(r.get("ts", "")))
+
+
 def load_series(match_id: str) -> list[dict]:
     """读取某场比赛的水位时间序列（按时间正序）。
 
@@ -85,7 +100,7 @@ def load_series(match_id: str) -> list[dict]:
         try:
             _sale_d = _dt.strptime(_sale, "%Y-%m-%d").date()
         except Exception:
-            return out
+            return sort_snapshots(out)
         kept = []
         for r in out:
             try:
@@ -95,7 +110,7 @@ def load_series(match_id: str) -> list[dict]:
             if -3 <= (_ts_d - _sale_d).days <= 1:
                 kept.append(r)
         out = kept
-    return out
+    return sort_snapshots(out)
 
 
 def series_features(match_id: str) -> dict:
