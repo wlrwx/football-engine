@@ -1,0 +1,76 @@
+{
+  "stable": [],
+  "value": [],
+  "lottery": [],
+  "total_stake": 0,
+  "expected_roi": 0.0,
+  "bankroll": 3666.3059000000003,
+  "breaker_multiplier": 0.25,
+  "parlay": [
+    {
+      "type": "2串1",
+      "legs": [
+        {
+          "match": "2026-11-29_周日004",
+          "home": "仁川联",
+          "away": "江原FC",
+          "league": "K1联赛",
+          "sel": "home",
+          "odds": 2.24,
+          "prob": 0.414,
+          "cal_prob": 0.472,
+          "market_prob": 0.392,
+          "source": "fusion",
+          "hit_prob": 0.472
+        },
+        {
+          "match": "2026-11-29_周日016",
+          "home": "图卢兹",
+          "away": "雷恩",
+          "league": "法甲",
+          "sel": "home",
+          "odds": 2.26,
+          "prob": 0.407,
+          "cal_prob": 0.472,
+          "market_prob": 0.388,
+          "source": "fusion",
+          "hit_prob": 0.472
+        }
+      ],
+      "total_odds": 5.06,
+      "model_ev": -0.3,
+      "cal_ev": 1.71,
+      "cal_roi": 0.1297,
+      "market_ev": -0.46,
+      "market_roi": -0.2292,
+      "hit_prob_cal": 0.223,
+      "recommended": true,
+      "stake": 13.2,
+      "n_bets": 1,
+      "potential": 66.82,
+      "worst_win": 0.0,
+      "note": "两场全中才赢",
+      "source": "calibrated"
+    }
+  ],
+  "parlay_pool_n": 2,
+  "score_parlay": [],
+  "parlay_stake": 13.2,
+  "total_exposure": 13.2,
+  "_stake_note": "total_stake = Kelly 分配池（stable/value/lottery）；total_exposure = total_stake + parlay_stake，才是真实投注额",
+  "parlay_calibration": {
+    "overall": 0.5491,
+    "n": 1641,
+    "table": {
+      "0.35": 0.4218,
+      "0.4": 0.4724,
+      "0.45": 0.4864,
+      "0.5": 0.4891,
+      "0.55": 0.5269,
+      "0.6": 0.6573,
+      "0.65": 0.6894,
+      "0.7": 0.798
+    },
+    "note": "串关 EV 用账本校准命中率（模型概率高估，0.55-0.60 段仅 31.6% 命中）；推荐=校准EV>0"
+  }
+}
