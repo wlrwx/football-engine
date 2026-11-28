@@ -87,6 +87,9 @@ th:last-child { border-radius:0 6px 6px 0; }
 td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text-secondary); }
 tr:last-child td { border-bottom:none; }
 .edge-table, .data-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+.ev-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.ev-grid > div { min-width:0; }
+.ev-table-wrap { overflow-x:auto; }
 .note { color:var(--text-secondary); font-size:0.72rem; margin-top:8px; }
 
 .evo-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; }
@@ -128,6 +131,7 @@ tr:last-child td { border-bottom:none; }
   .summary-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .topbar { gap:8px; }
   .page-tab-btn { padding:5px 10px; font-size:0.75rem; }
+  .ev-grid { grid-template-columns:1fr; }
 }
 </style></head><body>
 <div class="page">
@@ -231,15 +235,15 @@ tr:last-child td { border-bottom:none; }
       <div class="stat"><div class="label">整体 ROI（每场押1单位）</div><div class="value amber">-8.5%</div></div>
     </div>
     <ul style="padding-left:18px;margin-bottom:16px;"><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>整体 1639 场命中率 54.9%，ROI -8.5%</li><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>送钱区(回避): L2 热(1.5-1.8), L3 中(1.8-2.2)</li><li style='color:var(--text-secondary);font-size:0.82rem;margin:3px 0;'>送钱联赛(回避): 瑞典超, 欧罗巴, 英超, 英冠, 德甲, 西甲, 葡超</li></ul>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
-      <div>
+    <div class="ev-grid">
+      <div class="ev-table-wrap">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:var(--text);">按赔率区间（押注结构诊断）</div>
         <table class="data-table" style="width:100%;font-size:0.82rem;">
           <tr><th>区间</th><th>场数</th><th>命中率</th><th>ROI</th><th>判读</th></tr>
           <tr><td>L1 大热(<1.5)</td><td>546</td><td>72.0%</td><td class='amber'>-7.1%</td><td class='amber'>中性</td></tr><tr><td>L2 热(1.5-1.8)</td><td>379</td><td>52.8%</td><td class='red'>-14.0%</td><td class='red'>送钱区 ❌</td></tr><tr><td>L3 中(1.8-2.2)</td><td>405</td><td>44.9%</td><td class='red'>-10.8%</td><td class='red'>送钱区 ❌</td></tr><tr><td>L4 冷(2.2-3.0)</td><td>268</td><td>42.2%</td><td class='amber'>-0.8%</td><td class='amber'>中性</td></tr><tr><td>L5 深冷(≥3.0)</td><td>41</td><td>26.8%</td><td class='amber'>-3.8%</td><td class='amber'>谨慎</td></tr>
         </table>
       </div>
-      <div>
+      <div class="ev-table-wrap">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:var(--text);">按联赛（≥3场）</div>
         <table class="data-table" style="width:100%;font-size:0.82rem;">
           <tr><th>联赛</th><th>场数</th><th>命中率</th><th>ROI</th></tr>
