@@ -490,7 +490,7 @@ tr:last-child td { border-bottom:none; }
     </div>
     <div class="topbar-right">
       <a href="track-record.html" class="nav-link">全量战绩 ↗</a>
-      <span class="badge ok" title="⚠ 2026-11-28: DJYY 覆盖率偏低 5/19——该源大面积失效; ⚠ 2026-11-28: 模型有效权重均值仅 5.9%（名义 0.1）——系统实质接近纯市场基准">正常（2条提示）</span>
+      <span class="badge ok" title="⚠ 2026-11-28: DJYY 覆盖率偏低 7/23——该源大面积失效; ⚠ 2026-11-28: 模型有效权重均值仅 5.9%（名义 0.1）——系统实质接近纯市场基准">正常（2条提示）</span>
     </div>
   </div>
 
@@ -2682,11 +2682,11 @@ tr:last-child td { border-bottom:none; }
       <div class="m-teams">
         <div class="m-team-row">
           <span class="m-team-name ">哥伦布机员</span>
-          <span class="m-team-stat" title="本场模型预期进球 xG">2.12</span>
+          <span class="m-team-stat score">1</span>
         </div>
         <div class="m-team-row">
           <span class="m-team-name fav">迈阿密国际</span>
-          <span class="m-team-stat" title="本场模型预期进球 xG">1.13</span>
+          <span class="m-team-stat score">0</span>
         </div>
       </div>
 
@@ -2713,7 +2713,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-pick">
-        <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span></div>
+        <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span><span class="ar-hit miss" title="赛果 1-0">✗</span> <span class="ar-hit hit" title="比分命中候选第1位">🎯1</span></div>
         <div class="m-pick-sub"><span class="pred-score">1-0 / 1-1 / 2-0</span><span class="hcap-label">让+1 主78%</span><span class="risk-pill" title="数据新鲜度风险（watch/alert）">⚠ 数据新鲜度</span></div>
         <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 主胜 59% · 市场 客胜 43% · 最终 客胜 41%</div>
       </div>
@@ -2928,11 +2928,11 @@ tr:last-child td { border-bottom:none; }
     
   <div class="section-title">赛果复盘</div>
   <div class="results-summary">
-    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">11% (1/9)</div></div>
-    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.849</div></div>
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">10% (1/10)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.826</div></div>
     <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
   </div>
-  <div class="results-summary" style="margin-top:6px;"><div class="ts-chip"><div class="ts-label">LogLoss(final)</div><div class="ts-val" style="color:var(--amber)">1.337</div></div><div class="ts-chip"><div class="ts-label">进球框架</div><div class="ts-val" style="color:var(--green)">56% (5/9)</div></div><div class="ts-chip"><div class="ts-label">概率分段</div><div class="ts-val" style="font-size:0.68rem;">40-50%:20% · 50-60%:0% · 60%+:0% · <40%:0%</div></div><div class="ts-chip"><div class="ts-label">新鲜度分层</div><div class="ts-val" style="font-size:0.68rem;">ok:0% · watch:25%</div></div></div>
+  <div class="results-summary" style="margin-top:6px;"><div class="ts-chip"><div class="ts-label">LogLoss(final)</div><div class="ts-val" style="color:var(--amber)">1.305</div></div><div class="ts-chip"><div class="ts-label">进球框架</div><div class="ts-val" style="color:var(--green)">50% (5/10)</div></div><div class="ts-chip"><div class="ts-label">概率分段</div><div class="ts-val" style="font-size:0.68rem;">40-50%:17% · 50-60%:0% · 60%+:0% · <40%:0%</div></div><div class="ts-chip"><div class="ts-label">新鲜度分层</div><div class="ts-val" style="font-size:0.68rem;">alert:0% · ok:0% · watch:25%</div></div></div>
   <div class="results-table-wrap">
     <table class="results-table">
       <tr><th>比赛</th><th>比分</th><th>实际</th><th>让球</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
@@ -3027,6 +3027,16 @@ tr:last-child td { border-bottom:none; }
           <td style="font-family:monospace;font-size:0.68rem;">0.814</td>
           <td style="color:var(--dim);font-weight:600;">0</td>
         </tr>
+        <tr class="miss">
+          <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五011</span>哥伦布机员 vs 迈阿密国际</td>
+          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td>主胜</td>
+          <td style="font-size:0.75rem;color:var(--dim);">(+1) <span style="color:var(--green);font-size:0.72rem;">让球主胜</span></td>
+          <td>客胜 (41%)</td>
+          <td style="text-align:center;"><span class="result-icon miss">✗</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.623</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
     </table>
   </div>
 
@@ -3054,8 +3064,8 @@ tr:last-child td { border-bottom:none; }
       <div class="sys-card">
         <h4>熔断器</h4>
         <div class="sys-row"><span class="k">状态</span><span class="tier-indicator caution">T2 · Shadow &middot; x1.00</span></div>
-        <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-7</span></div>
-        <div class="sys-row"><span class="k">胜率</span><span class="v">50.2% (1119胜 / 1110负)</span></div>
+        <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-8</span></div>
+        <div class="sys-row"><span class="k">胜率</span><span class="v">50.2% (1119胜 / 1111负)</span></div>
         <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--green)">&yen;+0</span></div>
         <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-18</span></div>
       </div>

@@ -9,6 +9,101 @@
     "djyy": 0.578,
     "final": 0.502
   },
+  "diagnostics": {
+    "source_direction": {
+      "final": {
+        "n": 12,
+        "hits": 8,
+        "hit_rate": 0.6667,
+        "expected_hits": 6.9701,
+        "tail_prob_le_observed": 0.81983
+      },
+      "market": {
+        "n": 10,
+        "hits": 8,
+        "hit_rate": 0.8,
+        "expected_hits": 5.9624,
+        "tail_prob_le_observed": 0.961404
+      },
+      "model": {
+        "n": 12,
+        "hits": 4,
+        "hit_rate": 0.3333,
+        "expected_hits": 6.3897,
+        "tail_prob_le_observed": 0.129904
+      }
+    },
+    "direction_confusion": {
+      "final": {
+        "home": {
+          "home": 3,
+          "draw": 1,
+          "away": 0
+        },
+        "draw": {
+          "home": 1,
+          "draw": 0,
+          "away": 0
+        },
+        "away": {
+          "home": 2,
+          "draw": 0,
+          "away": 5
+        }
+      },
+      "market": {
+        "home": {
+          "home": 3,
+          "draw": 0,
+          "away": 0
+        },
+        "draw": {
+          "home": 0,
+          "draw": 0,
+          "away": 0
+        },
+        "away": {
+          "home": 2,
+          "draw": 0,
+          "away": 5
+        }
+      },
+      "model": {
+        "home": {
+          "home": 0,
+          "draw": 1,
+          "away": 1
+        },
+        "draw": {
+          "home": 3,
+          "draw": 0,
+          "away": 0
+        },
+        "away": {
+          "home": 3,
+          "draw": 0,
+          "away": 4
+        }
+      }
+    },
+    "market_agreement": {
+      "n": 10,
+      "agreements": 10,
+      "rate": 1.0
+    },
+    "effective_weights": {
+      "n": 12,
+      "average": {
+        "model": 0.1969,
+        "market": 0.7031,
+        "djyy": 0.1
+      },
+      "market_dominant_n": 5,
+      "model_dominant_n": 2,
+      "djyy_active_n": 6
+    },
+    "tail_probability_assumption": "independent Bernoulli using each source's top probability"
+  },
   "by_league": {
     "亚冠乙": {
       "n": 1,
@@ -146,6 +241,6 @@
     }
   ],
   "total_pnl": 0.0,
-  "generated_at": "2026-11-28T02:23:43.055956",
-  "sha256": "9b791fd88fb52f78293e030b4d828a6c"
+  "generated_at": "2026-11-28T04:00:20.412228",
+  "sha256": "3cdf3daacc56d36a95bfe41cc0495064"
 }
