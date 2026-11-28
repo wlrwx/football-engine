@@ -299,6 +299,9 @@ def test_daily_dom_css_exposure_and_scoping(tmp_path, monkeypatch):
     assert "单注 &yen;0 &middot; 串关 &yen;16" in html
     assert "var(--dim)\">—<" in html
     assert "track-record.html" in html
+    assert "<title>足球预测 - 2026-11-27</title>" in html
+    assert "<h1>足球预测</h1>" in html
+    assert "精彩分析" not in html
     for global_only in ("高置信反向样本库", "预测时点分桶", "联赛分层（送钱区禁投"):
         assert global_only not in html
 
@@ -325,6 +328,8 @@ def test_track_record_dom_css_and_v2_sections(tmp_path):
     assert "DJYY 覆盖 29.5%" in html
     assert "5/75/20" in html
     assert "holdout n=480" in html
+    assert "<title>Track Record · 足球预测</title>" in html
+    assert "← 今日预测" in html
     assert "高置信反向样本库" in html
     assert "预测时点分桶" in html
     assert "联赛分层" in html
