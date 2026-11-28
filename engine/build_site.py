@@ -791,7 +791,7 @@ def _render_track_record(state_dir: Path, web_dir: Path) -> str:
     html = f'''<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Track Record · 竞彩分析</title>
+<title>Track Record · 足球预测</title>
 <style>
 :root {{
   --bg:#f8fafc; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e2e8f0;
@@ -935,7 +935,7 @@ tr:last-child td {{ border-bottom:none; }}
       <button class="page-tab-btn" data-panel="tr-betting">联赛与投注</button>
       <button class="page-tab-btn" data-panel="tr-diagnostics">模型诊断</button>
     </div>
-    <a href="index.html" class="nav-link">← 今日分析</a>
+    <a href="index.html" class="nav-link">← 今日预测</a>
   </div>
 
   <div class="summary-strip">
@@ -1376,7 +1376,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>竞彩分析 - {today}</title>
+<title>足球预测 - {today}</title>
 <style>
 :root {{
   --bg:#f8fafc; --surface:#ffffff; --card:var(--surface); --surface2:#f1f5f9; --surface3:#e2e8f0;
@@ -2013,7 +2013,7 @@ tr:last-child td {{ border-bottom:none; }}
   <!-- STICKY TOPBAR -->
   <div class="topbar">
     <div class="brand">
-      <h1>竞彩分析</h1>
+      <h1>足球预测</h1>
       <span class="date-pill">{today}</span>
     </div>
     <div class="seg-tabs">
@@ -2087,7 +2087,7 @@ tr:last-child td {{ border-bottom:none; }}
         <div class="tr-cta-title">📈 全量历史战绩与模型诊断</div>
         <div class="tr-cta-sub">v2 vs 市场配对检验 · 进化仪表盘 · 联赛分层 · 高置信反向样本 · 每周回测已集中至 Track Record</div>
       </div>
-      <a href="track-record.html" class="tr-cta-btn">查看全量分析 →</a>
+      <a href="track-record.html" class="tr-cta-btn">查看全量预测 →</a>
     </div>
   </div>
 
