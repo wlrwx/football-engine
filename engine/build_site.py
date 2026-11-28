@@ -877,6 +877,9 @@ th:last-child {{ border-radius:0 6px 6px 0; }}
 td {{ padding:8px 10px; border-bottom:1px solid var(--border); color:var(--text-secondary); }}
 tr:last-child td {{ border-bottom:none; }}
 .edge-table, .data-table {{ width:100%; border-collapse:collapse; font-size:0.78rem; }}
+.ev-grid {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }}
+.ev-grid > div {{ min-width:0; }}
+.ev-table-wrap {{ overflow-x:auto; }}
 .note {{ color:var(--text-secondary); font-size:0.72rem; margin-top:8px; }}
 
 .evo-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; }}
@@ -1530,6 +1533,13 @@ a:hover {{ text-decoration:underline; }}
   font-size:0.68rem; color:var(--dim); display:flex; align-items:center; gap:6px; flex-wrap:wrap;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }}
+.provenance-inline {{ color:var(--text-secondary); }}
+.provenance-box {{ margin:8px 0 12px; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; }}
+.provenance-grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }}
+.provenance-grid > div {{ display:flex; flex-direction:column; gap:3px; min-width:0; }}
+.provenance-grid span {{ color:var(--dim); font-size:0.68rem; }}
+.provenance-grid strong {{ color:var(--text); font-size:0.82rem; }}
+.provenance-box p {{ margin:7px 0 0; color:var(--text-secondary); font-size:0.72rem; }}
 .pick-label {{ display:none; }}
 .pick-val {{
   font-size:0.78rem; font-weight:700; padding:1px 7px; border-radius:5px; display:inline-block;
@@ -1771,6 +1781,7 @@ tr:last-child td {{ border-bottom:none; }}
   .summary-strip {{ grid-template-columns:repeat(2, minmax(0, 1fr)); }}
   .topbar {{ gap:8px; }}
   .page-tab-btn {{ padding:5px 11px; font-size:0.75rem; }}
+  .ev-grid {{ grid-template-columns:1fr; }}
 }}
 </style>
 </head>
@@ -1992,6 +2003,102 @@ def _odds_series_chip(p):
     if span:
         parts.append(f"跨{span:.0f}min")
     return f'<span class="info-chip" style="color:var(--teal, #14b8a6)">{" · ".join(parts)}</span>'
+
+
+def _prob3(value):
+    if isinstance(value, dict):
+        vals = [value.get(k) for k in ("home", "draw", "away")]
+    elif isinstance(value, (list, tuple)) and len(value) >= 3:
+        vals = list(value[:3])
+    else:
+        return None
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals):
+        return None
+    return [float(v) for v in vals]
+
+
+def _direction_view(value):
+    probs = _prob3(value)
+    if probs is None:
+        return None
+    idx = max(range(3), key=lambda i: probs[i])
+    return idx, probs[idx]
+
+
+def _format_direction_view(view):
+    if view is None:
+        return "—"
+    return f"{('主胜', '平局', '客胜')[view[0]]} {view[1]:.0%}"
+
+
+def _prediction_provenance(p):
+    probs = _prob3([
+        p.get("home_win_prob"), p.get("draw_prob"), p.get("away_win_prob"),
+    ])
+    final = _direction_view(probs)
+    direction = p.get("direction")
+    if probs is not None and direction in ("home", "draw", "away"):
+        idx = ("home", "draw", "away").index(direction)
+        final = (idx, probs[idx])
+    return {
+        "model": _direction_view(p.get("model_raw")),
+        "market": _direction_view(p.get("market_fair")),
+        "final": final,
+    }
+
+
+def _market_reading(p):
+    views = _prediction_provenance(p)
+    market, final = views["market"], views["final"]
+    if market is None or final is None:
+        return ""
+    labels = ("主胜", "平局", "客胜")
+    if final[0] != market[0]:
+        return f"市场比最终倾向更看好{labels[market[0]]}；最终融合更看好{labels[final[0]]}"
+    gap = (final[1] - market[1]) * 100
+    if gap > 3:
+        return f"最终融合比市场更看好{labels[final[0]]}，高 {gap:.0f} 个百分点"
+    if gap < -3:
+        return f"市场比最终融合更看好{labels[final[0]]}，高 {-gap:.0f} 个百分点"
+    return "最终倾向与市场基本一致"
+
+
+def _effective_weight_text(p):
+    weights = p.get("fusion_effective_weights")
+    if not isinstance(weights, dict):
+        return ""
+    vals = [float(weights.get(k) or 0) for k in ("model", "market", "djyy")]
+    return f"实际权重：模型 {vals[0]:.0%} · 市场 {vals[1]:.0%} · DJYY {vals[2]:.0%}"
+
+
+def _prediction_provenance_html(p):
+    views = _prediction_provenance(p)
+    labels = (("原始模型", "model"), ("市场", "market"), ("最终", "final"))
+    cells = "".join(
+        f'<div><span>{label}</span><strong>{_format_direction_view(views[key])}</strong></div>'
+        for label, key in labels
+    )
+    reading = _market_reading(p)
+    weights = _effective_weight_text(p)
+    details = "".join(f'<p>{text}</p>' for text in (reading, weights) if text)
+    return f'<div class="provenance-box"><div class="provenance-grid">{cells}</div>{details}</div>'
+
+
+def _market_follow_summary(predictions):
+    views = [_prediction_provenance(p) for p in (predictions or [])]
+    paired = [v for v in views if v["market"] is not None and v["final"] is not None]
+    agreements = sum(v["market"][0] == v["final"][0] for v in paired)
+    weight_rows = [
+        p.get("fusion_effective_weights") for p in (predictions or [])
+        if isinstance(p.get("fusion_effective_weights"), dict)
+    ]
+    parts = []
+    if paired:
+        parts.append(f"最终跟随市场 {agreements}/{len(paired)} 场")
+    if weight_rows:
+        avg_market = sum(float(w.get("market") or 0) for w in weight_rows) / len(weight_rows)
+        parts.append(f"平均市场权重 {avg_market:.0%}")
+    return " · ".join(parts)
 
 
 def _divergence_chip(p):
@@ -2466,6 +2573,12 @@ def _match_card(p, value_matches, idx, results_map=None):
     model_tab = _tab_model(p, uid)
     odds_tab = _tab_odds(p, uid)
     dist_tab = _tab_distribution(p, uid)
+    provenance = _prediction_provenance(p)
+    provenance_inline = (
+        f'模型 {_format_direction_view(provenance["model"])} · '
+        f'市场 {_format_direction_view(provenance["market"])} · '
+        f'最终 {_format_direction_view(provenance["final"])}'
+    )
 
     def _fmt_odd(v):
         return f"{v:.2f}" if v and v > 0 else "—"
@@ -2517,6 +2630,7 @@ def _match_card(p, value_matches, idx, results_map=None):
       <div class="m-pick">
         <div class="m-pick-top">{_pred_pick(p)}{settled_badge or status_badge_html}</div>
         <div class="m-pick-sub">{brief_scores_html}{brief_hcap_html}{risk_pill_html}</div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">{provenance_inline}</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -2673,6 +2787,7 @@ def _tab_model(p, uid):
     return f"""
       {risk_banner}
       {signal_strip}
+      {_prediction_provenance_html(p)}
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         {rows}
@@ -3560,15 +3675,15 @@ def _ev_section(ev_report):
       <div class="stat"><div class="label">整体 ROI（每场押1单位）</div><div class="value {_cls(t['roi'])}">{t['roi']*100:+.1f}%</div></div>
     </div>
     <ul style="padding-left:18px;margin-bottom:16px;">{tk}</ul>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
-      <div>
+    <div class="ev-grid">
+      <div class="ev-table-wrap">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:var(--text);">按赔率区间（押注结构诊断）</div>
         <table class="data-table" style="width:100%;font-size:0.82rem;">
           <tr><th>区间</th><th>场数</th><th>命中率</th><th>ROI</th><th>判读</th></tr>
           {rows}
         </table>
       </div>
-      <div>
+      <div class="ev-table-wrap">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:var(--text);">按联赛（≥3场）</div>
         <table class="data-table" style="width:100%;font-size:0.82rem;">
           <tr><th>联赛</th><th>场数</th><th>命中率</th><th>ROI</th></tr>
@@ -3944,6 +4059,12 @@ def _battle_board(ticket, predictions, parlay, breaker_tier=0, breaker_mult=1.0)
             f'</div>'
         )
 
+    provenance_summary = _market_follow_summary(predictions)
+    provenance_html = (
+        f'<span class="provenance-inline" title="方向是否与去水市场一致，以及本场实际用于融合的市场权重">{provenance_summary}</span>'
+        if provenance_summary else ""
+    )
+
     return f"""
   <div class="summary-wrap">
     <div class="summary-strip">
@@ -3974,7 +4095,7 @@ def _battle_board(ticket, predictions, parlay, breaker_tier=0, breaker_mult=1.0)
       </div>
     </div>
     <div class="summary-foot">
-      {foot_html}
+      {foot_html}{provenance_html}
       <span style="font-size:0.68rem;color:var(--dim)">资金与敞口统一口径（含串关）</span>
     </div>
   </div>"""
@@ -4152,23 +4273,44 @@ def _build_daily_brief(
                 label = {"home": "主胜", "draw": "平局", "away": "客胜"}.get(sel, sel)
             lines.append(f"- {mid} [{label}] @{it.get('odds', 0):.2f} × ¥{it.get('stake', 0):.0f}\n")
     else:
-        lines.append("## 💰 今日投注\n")
-        lines.append("**空仓不出手**（无正 EV 价值注，避免送钱）\n")
+        parlay_plans = list(ticket.get("parlay") or []) + list(ticket.get("score_parlay") or [])
+        if parlay_plans:
+            exposure = float(ticket.get("total_exposure") or ticket.get("parlay_stake") or 0)
+            lines.append("## 💰 今日投注\n")
+            lines.append(f"**无单场方案**，仅有 {len(parlay_plans)} 张高风险串关，合计 **¥{exposure:.0f}**。\n")
+            for plan in parlay_plans:
+                legs = " / ".join(
+                    f"{leg.get('home', '')} vs {leg.get('away', '')} "
+                    f"{('比分 ' + str(leg.get('score'))) if leg.get('score') else leg.get('sel', '')}"
+                    for leg in (plan.get("legs") or [])
+                )
+                lines.append(
+                    f"- {plan.get('type', '串关')}：{legs or '组合待更新'} "
+                    f"@{float(plan.get('total_odds') or 0):.2f} × ¥{float(plan.get('stake') or 0):.0f}\n"
+                )
+        else:
+            lines.append("## 💰 今日投注\n")
+            lines.append("**空仓不出手**（无正 EV 价值注，避免送钱）\n")
 
     # 预测清单
     if predictions:
         lines.append("\n## 🔮 今日预测\n")
-        lines.append("| 场次 | 联赛 | 预测 | 置信 | 主推赔率 | 冷门风险 |\n")
-        lines.append("|---|---|---|---|---|---|\n")
+        lines.append("原始模型 = 独立统计判断；市场 = 赔率去水后的价格观点；最终 = 按实际权重融合后的倾向。\n")
+        lines.append("| 场次 | 联赛 | 原始模型 | 市场 | 最终 | 最终概率 | 实际权重(模/市/D) |\n")
+        lines.append("|---|---|---|---|---|---|---|\n")
         for p in predictions:
-            direction = p.get("direction", "?")
-            dlabel = {"home": "主胜", "draw": "平局", "away": "客胜"}.get(direction, direction)
-            odds = p.get(f"{direction}_odds", 0) or 0
-            _conf = p.get("confidence") or 0
-            _risk = p.get("reverse_upset_risk") or 0
+            views = _prediction_provenance(p)
+            final_prob = views["final"][1] if views["final"] else 0
+            weights = p.get("fusion_effective_weights") or {}
+            weight_text = "—"
+            if isinstance(weights, dict):
+                weight_text = "/".join(
+                    f"{float(weights.get(k) or 0):.0%}" for k in ("model", "market", "djyy")
+                )
             lines.append(
-                f"| {p.get('match_id', '')} | {p.get('competition', '')} | {dlabel} "
-                f"| {_conf:.0%} | {odds:.2f} | {_risk:.0f}% |\n"
+                f"| {p.get('match_id', '')} | {p.get('competition', '')} "
+                f"| {_format_direction_view(views['model'])} | {_format_direction_view(views['market'])} "
+                f"| {_format_direction_view(views['final'])} | {final_prob:.0%} | {weight_text} |\n"
             )
 
     # 联赛状态
