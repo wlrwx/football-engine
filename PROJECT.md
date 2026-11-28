@@ -1,6 +1,3 @@
-# PROJECT.md — football-engine（竞彩足球概率引擎）
-
-> [!IMPORTANT] 交接卡（收工必更新；冷启动只读这块）
 > 状态: doing　更新: 2026-11-28（三源展示：原始模型 / 市场 / 最终融合）
 > 本轮(11-28, 自动化 agent): 11-27 的 1/9（11.1%）已查清：最终、去水市场、原始模型
 >           各中 1 场，最终 9/9 跟随市场方向；强模型 PR 没改当日原始概率。模型侧 PR #134
@@ -8,6 +5,19 @@
 >           错配，增加逐源命中、泊松二项尾概率、市场一致率和有效权重诊断。站点侧 PR #135 基于
 >           #132/#133 的新版紧凑布局展示三源方向、实际有效权重和市场分歧，并在每日简报分列
 >           三源；仅有比分串关不再误报“空仓不出手”。未改预测、选注、EV、阈值或冻结实验判据。
+> 本轮(11-28, 自动化 agent): ci-sync run #201 红在「提交回仓库」，69 个
+>           `CONFLICT (content)` 全落在 `data/state/odds_series/2026-11-29_*.jsonl`。
+>           根因不是代码质量，是**数据结构**：`scripts/fetch_sina_odds.py` 在文件末尾
+>           追加一行，而它同时挂在 ci-sync（每小时 :47）和 daily-forecast（15/45）上；
+>           两方都在同一个 EOF 插行，git 三方合并插入点重合 → 只要 daily 在 ci-sync
+>           那 9 分钟里推了 main，`git pull --rebase` 必冲突，工作流按设计「不覆盖上游」
+>           exit 1。这类红会一直随机出现。修法：`.gitattributes` 把这类只追加 jsonl 声明成
+>           git 内置 `merge=union`（两侧行都留，不冲突）；daily-forecast 顺带不再触发
+>           它的 `--theirs` 兜底——那条会整文件丢弃对端那一行，等于悄悄丢样本。
+>           代价：union 输出是「上游行 + 本地行」，上游写得晚时落盘时间倒挂，故读侧
+>           `engine/odds_series.py:sort_snapshots` 统一按 ts 归一化（实测 2253 个现有序列
+>           文件 0 乱序 0 重复，对既有数据是 no-op），`odds_series_coverage` 同样受益。
+>           真 git + 裸库行为测试见 `tests/test_ci_sync_append_rebase.py`。
 > 状态: doing　更新: 2026-11-27 00:40（站点赔率断供：采集留字 + 归因分叉）
 > 本轮(11-27, 自动化 agent): 站点赔率快照断供是**厂商在 HTTP 200 里报错**，duty 却
 >           一句话没说，害得自动派单去查一条没坏的 git 链路（dykily#29）。

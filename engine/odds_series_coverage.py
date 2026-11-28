@@ -47,6 +47,7 @@ from datetime import datetime
 from pathlib import Path
 
 from engine.beijing_time import beijing_now
+from engine.odds_series import sort_snapshots
 
 ROOT = Path(__file__).resolve().parent.parent
 SERIES_DIR = ROOT / "data" / "state" / "odds_series"
@@ -101,6 +102,10 @@ def measure() -> dict:
             continue
         if not rows:
             continue
+        # 序列文件由 ci-sync 与 daily-forecast 并发追加，git 侧 union 合并后
+        # 落盘顺序可能倒挂（见 .gitattributes）。本函数的 rows[0]/rows[-1] 与
+        # 相邻间隔都假设时间正序，倒挂会把"末快照距开赛"算到旧点上。
+        rows = sort_snapshots(rows)
         n_snap_dist[len(rows)] += 1
 
         e0 = rows[0].get("euro", {}) or {}

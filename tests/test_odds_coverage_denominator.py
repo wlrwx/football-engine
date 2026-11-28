@@ -104,3 +104,18 @@ def test_real_dataset_still_reports_the_measured_35_percent():
     assert rep["total_matches"] > 300, "真实数据缺失，先修测试环境"
     assert 0.0 <= rep["closing_coverage"]["ratio"] < 0.20, \
         f"收盘覆盖率已离开个位数区间（{rep['closing_coverage']}），需要重判 CLV 可用性结论"
+
+
+def test_last_snapshot_is_picked_by_time_not_by_line_position(monkeypatch, tmp_path):
+    """并发追加（git `merge=union`，2026-11-28 ci-sync #201）后文件的**最后一行
+    不一定是最后一次观测**——本指标全靠"末快照距开赛"，倒挂会把 1h 内的收盘价
+    读成 9h 前的旧价，closing_coverage 直接被低估。"""
+    now = beijing_now().replace(tzinfo=None)
+    ko = now - timedelta(hours=3)  # 已开赛，进分母
+    # 文件里先写 1h（较晚）、后写 9h（较早）：行序与时间序相反
+    rep = _measure(monkeypatch, tmp_path, [
+        (ko, [(1.0, (2.1, 3.4, 4.1)), (9.0, (2.0, 3.5, 4.0))]),
+    ])
+    assert rep["closing_coverage"]["n"] == 1, "末快照按行序取，把 1h 内的收盘价读丢了"
+    assert rep["lead_to_kickoff_hours"]["median_last"] == 1.0
+    assert rep["lead_to_kickoff_hours"]["median_first"] == 9.0
