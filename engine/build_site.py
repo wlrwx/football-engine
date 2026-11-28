@@ -1227,7 +1227,7 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
         )
     ]
 
-    # 联赛筛选导航 + FotMob 风格齐整看板容器
+    # 联赛筛选导航 + 体彩快筛/排序栏 + 齐整看板容器
     from collections import Counter
     league_counts = Counter(p.get("competition", "其他") for p in sorted_preds)
     nav_html = ""
@@ -1240,24 +1240,78 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
             nav_html += f'<button class="league-btn" data-league="{_slug(lg)}">{lg}<span class="cnt">{cnt}</span></button>'
         nav_html += '</div>'
 
+    def _is_pred_settled(p):
+        if not results_map:
+            return False
+        _mid = p.get("match_id", "")
+        _r = results_map.get(_mid)
+        if not _r and p.get("home_team") and p.get("away_team"):
+            _r = results_map.get(f"{p['home_team']}_vs_{p['away_team']}")
+        return bool(_r and _r.get("home_score") is not None)
+
     board_rows = ""
-    global_idx = 0
-    for p in sorted_preds:
+    n_single = n_ev = n_steady = n_risk = n_settled = 0
+    for global_idx, p in enumerate(sorted_preds):
         lg = p.get("competition", "其他")
-        _is_v = '1' if _is_value(p, value_matches) else '0'
-        board_rows += f'<div class="league-section" data-league="{_slug(lg)}" data-value="{_is_v}">'
+        _is_v = _is_value(p, value_matches)
+        _sk = _match_sort_key(p)
+        _num_ord = _sk[0] * 1000 + _sk[1]
+        _bev, _, _ = _best_match_ev(p)
+        _mp = max((p.get("home_win_prob") or 0), (p.get("draw_prob") or 0), (p.get("away_win_prob") or 0))
+        _single_f = bool(p.get("had_single") or p.get("hhad_single"))
+        _risk_f = bool(_collect_match_risks(p) or p.get("league_forbidden"))
+        _settled_f = _is_pred_settled(p)
+        _ev_f = bool(_is_v or _bev >= 0.01 or (p.get("play_ev") or {}))
+        _steady_f = bool(_mp >= 0.58 and not _risk_f)
+
+        n_single += int(_single_f)
+        n_ev += int(_ev_f)
+        n_steady += int(_steady_f)
+        n_risk += int(_risk_f)
+        n_settled += int(_settled_f)
+
+        board_rows += (
+            f'<div class="league-section" data-league="{_slug(lg)}"'
+            f' data-value="{"1" if _is_v else "0"}"'
+            f' data-time-order="{global_idx}"'
+            f' data-num-order="{_num_ord}"'
+            f' data-best-ev="{_bev:.4f}"'
+            f' data-max-prob="{_mp:.4f}"'
+            f' data-single="{"1" if _single_f else "0"}"'
+            f' data-risk="{"1" if _risk_f else "0"}"'
+            f' data-settled="{"1" if _settled_f else "0"}"'
+            f' data-has-ev="{"1" if _ev_f else "0"}">'
+        )
         board_rows += _match_card(p, value_matches, global_idx, results_map)
         board_rows += '</div>'
-        global_idx += 1
 
     if board_rows:
+        _settled_btn = f'<button type="button" class="qf-btn" data-qf="settled">已完赛<span class="cnt">{n_settled}</span></button>' if n_settled else ""
+        _toolbar_html = (
+            f'<div class="board-toolbar">'
+            f'<div class="qf-group">'
+            f'<button type="button" class="qf-btn active" data-qf="all">全部<span class="cnt">{len(sorted_preds)}</span></button>'
+            f'<button type="button" class="qf-btn" data-qf="single">单关<span class="cnt">{n_single}</span></button>'
+            f'<button type="button" class="qf-btn" data-qf="ev">正EV/全玩法<span class="cnt">{n_ev}</span></button>'
+            f'<button type="button" class="qf-btn" data-qf="steady">高稳胆<span class="cnt">{n_steady}</span></button>'
+            f'<button type="button" class="qf-btn" data-qf="risk">防冷避坑<span class="cnt">{n_risk}</span></button>'
+            f'{_settled_btn}'
+            f'</div>'
+            f'<div class="sort-group">'
+            f'<button type="button" class="sort-btn active" data-sort="time">按时间</button>'
+            f'<button type="button" class="sort-btn" data-sort="num">按编号</button>'
+            f'<button type="button" class="sort-btn" data-sort="ev">按EV</button>'
+            f'</div>'
+            f'</div>'
+        )
         cards = (
             f'{nav_html}'
-            f'<div class="match-board">'
+            f'{_toolbar_html}'
+            f'<div class="match-board" id="match-board">'
             f'<div class="match-board-head">'
-            f'<div>时间 / 赛事</div>'
+            f'<div>时间 / 编号</div>'
             f'<div>对阵与预期</div>'
-            f'<div style="text-align:center">主 &middot; 平 &middot; 客</div>'
+            f'<div style="text-align:center">胜平负 · 让球（点击选号串关）</div>'
             f'<div>主推结论</div>'
             f'<div></div>'
             f'</div>'
@@ -1266,6 +1320,15 @@ def _render_html(today, predictions, bundle, ticket, breaker, health, results=No
         )
     else:
         cards = ""
+
+    focus_bar_html = _sporttery_focus_bar(sorted_preds, results_map)
+    parlay_cal = (ticket.get("parlay_calibration") if isinstance(ticket, dict) else None) or {}
+    if not parlay_cal:
+        try:
+            from engine.strategy.parlay import load_calibration
+            parlay_cal = load_calibration(ROOT / "data" / "state" / "review_ledger.jsonl") or {}
+        except Exception:
+            parlay_cal = {}
 
     # 三票方案 / 串关 / 比分串（2026-08-30: 传入结算索引, 推荐卡直接标注中/未中）
     # 注意: _ps 正式加载在下方复盘区块, 此处自包含提前读（幂等读文件, 开销可忽略）
@@ -1476,7 +1539,7 @@ a:hover {{ text-decoration:underline; }}
   box-shadow:var(--shadow); overflow:hidden;
 }}
 .match-board-head {{
-  display:grid; grid-template-columns:112px minmax(190px, 1.35fr) 216px minmax(185px, 1fr) 22px;
+  display:grid; grid-template-columns:112px minmax(175px, 1.15fr) 264px minmax(185px, 1fr) 22px;
   gap:12px; align-items:center; padding:8px 16px;
   background:var(--surface2); border-bottom:1px solid var(--border);
   font-size:0.66rem; font-weight:700; color:var(--dim); letter-spacing:0.04em;
@@ -1486,7 +1549,7 @@ a:hover {{ text-decoration:underline; }}
 .league-section:last-child .match {{ border-bottom:none; }}
 .match.value-pick {{ border-left:3px solid var(--green); }}
 .match-header {{
-  display:grid; grid-template-columns:112px minmax(190px, 1.35fr) 216px minmax(185px, 1fr) 22px;
+  display:grid; grid-template-columns:112px minmax(175px, 1.15fr) 264px minmax(185px, 1fr) 22px;
   gap:12px; align-items:center; padding:12px 16px; cursor:pointer; user-select:none;
 }}
 .match-header:hover {{ background:rgba(241,245,249,.65); }}
@@ -1776,14 +1839,173 @@ tr:last-child td {{ border-bottom:none; }}
   .m-pick {{ grid-area:pick; align-items:flex-end; text-align:right; }}
   .m-pick-top, .m-pick-sub {{ justify-content:flex-end; }}
   .m-probs {{ grid-area:probs; }}
+  .focus-strip {{ grid-template-columns:1fr; }}
+  .board-toolbar {{ flex-direction:column; align-items:stretch; }}
 }}
 @media (max-width:560px) {{
-  .page {{ padding:0 10px 40px; }}
+  .page {{ padding:0 10px 76px; }}
   .summary-strip {{ grid-template-columns:repeat(2, minmax(0, 1fr)); }}
   .topbar {{ gap:8px; }}
   .page-tab-btn {{ padding:5px 11px; font-size:0.75rem; }}
   .ev-grid {{ grid-template-columns:1fr; }}
+  .slip-panel {{ left:10px; right:10px; width:auto; bottom:72px; }}
+  .slip-fab {{ right:12px; bottom:14px; }}
 }}
+
+/* ===== SPORTTERY PRO WORKBENCH (2026-11-28) ===== */
+.focus-strip {{
+  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px;
+  margin:0 0 12px;
+}}
+.focus-col {{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:10px 12px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:4px;
+  border-top:2px solid var(--blue);
+}}
+.focus-col.focus-ev {{ border-top-color:var(--green); }}
+.focus-col.focus-stable {{ border-top-color:var(--blue); }}
+.focus-col.focus-risk {{ border-top-color:var(--amber); }}
+.focus-kicker {{ font-size:0.64rem; font-weight:700; color:var(--dim); letter-spacing:0.03em; display:flex; justify-content:space-between; align-items:center; }}
+.focus-main {{ font-size:0.84rem; font-weight:800; color:var(--text); line-height:1.3; }}
+.focus-sub {{ font-size:0.68rem; color:var(--text-secondary); }}
+
+.board-toolbar {{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  margin-bottom:10px;
+}}
+.qf-group, .sort-group {{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }}
+.qf-btn, .sort-btn {{
+  padding:4px 10px; border-radius:7px; font-size:0.72rem; font-weight:600;
+  color:var(--text-secondary); background:var(--surface); border:1px solid var(--border);
+  cursor:pointer; transition:var(--transition); font-family:inherit; display:inline-flex; align-items:center; gap:4px;
+}}
+.qf-btn:hover, .sort-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
+.qf-btn.active {{ background:var(--blue); color:#fff; border-color:var(--blue); }}
+.qf-btn.active .cnt {{ opacity:0.85; color:#fff; }}
+.sort-btn.active {{ background:var(--text); color:#fff; border-color:var(--text); }}
+
+.m-meta-top {{ flex-wrap:wrap; }}
+.single-tag {{
+  font-size:0.6rem; font-weight:800; color:#fff; background:var(--red);
+  border-radius:4px; padding:0 4px; line-height:1.45; white-space:nowrap;
+}}
+.cutoff-tag {{
+  font-size:0.6rem; font-weight:700; color:var(--amber); background:var(--amber-dim);
+  border:1px solid rgba(180,83,9,.22); border-radius:4px; padding:0 4px; line-height:1.4; white-space:nowrap;
+}}
+.play-ev-pill {{
+  font-size:0.64rem; font-weight:700; color:var(--purple); background:var(--purple-dim);
+  border-radius:4px; padding:1px 6px; white-space:nowrap;
+}}
+
+.odd-row {{ display:grid; grid-template-columns:28px repeat(3, minmax(0, 1fr)); gap:4px; align-items:stretch; }}
+.mkt-tag {{
+  font-size:0.64rem; font-weight:700; color:var(--text-secondary); background:var(--surface2);
+  border:1px solid var(--border); border-radius:5px;
+  display:flex; align-items:center; justify-content:center; padding:0 2px;
+}}
+.mkt-tag.hhad {{ color:var(--purple); background:var(--purple-dim); border-color:rgba(109,40,217,.2); }}
+.odd-cell {{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:4px 3px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
+  cursor:pointer; transition:var(--transition); font-family:inherit; line-height:1.15; min-width:0;
+}}
+.odd-cell:hover:not(:disabled) {{ border-color:var(--blue); background:var(--blue-dim); }}
+.odd-cell:disabled {{ opacity:0.45; cursor:default; }}
+.odd-cell .oc-p {{ font-size:0.72rem; font-weight:700; color:var(--text-secondary); }}
+.odd-cell .oc-o {{ font-size:0.66rem; color:var(--dim); margin-top:1px; font-variant-numeric:tabular-nums; }}
+.odd-cell.best {{ background:var(--surface2); border-color:var(--border-light); }}
+.odd-cell.best .oc-p {{ color:var(--text); font-weight:800; }}
+.odd-cell.best.home .oc-p {{ color:var(--blue); }}
+.odd-cell.best.away .oc-p {{ color:var(--red); }}
+.odd-cell.pos-ev {{ border-color:rgba(21,128,61,.45); background:rgba(21,128,61,.05); }}
+.odd-cell.pos-ev .oc-o {{ color:var(--green); font-weight:700; }}
+.odd-cell.selected {{
+  background:var(--text); border-color:var(--text); color:#fff; box-shadow:var(--shadow);
+}}
+.odd-cell.selected .oc-p, .odd-cell.selected .oc-o {{ color:#fff; font-weight:800; }}
+
+.sc-odd {{ font-size:0.64rem; color:var(--blue); font-weight:700; margin-top:1px; }}
+.score-cell.pos-ev {{ border-color:rgba(21,128,61,.45); background:rgba(21,128,61,.06); }}
+.sc-ev-badge {{ font-size:0.58rem; font-weight:700; color:var(--green); margin-top:1px; }}
+.tag-ev {{
+  font-size:0.62rem; font-weight:700; color:var(--green); background:var(--green-dim);
+  border-radius:4px; padding:0 5px; margin-left:6px; white-space:nowrap;
+}}
+.hafu-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:6px; margin-bottom:12px; }}
+.hafu-cell {{
+  background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:7px 9px;
+  display:flex; flex-direction:column; gap:2px;
+}}
+.hafu-cell.pos-ev {{ border-color:rgba(21,128,61,.45); background:rgba(21,128,61,.05); }}
+.hafu-top {{ display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; font-weight:700; color:var(--text); }}
+.hafu-sub {{ display:flex; justify-content:space-between; align-items:center; font-size:0.66rem; color:var(--dim); }}
+
+.slip-fab {{
+  position:fixed; right:20px; bottom:20px; z-index:90;
+  display:none; align-items:center; gap:8px; padding:10px 16px;
+  border-radius:999px; border:none; background:var(--text); color:#fff;
+  font-size:0.78rem; font-weight:700; cursor:pointer; box-shadow:var(--shadow-lift);
+  font-family:inherit; transition:var(--transition);
+}}
+.slip-fab.visible {{ display:inline-flex; }}
+.slip-fab:hover {{ background:var(--blue); }}
+.slip-fab-cnt {{
+  background:var(--green); color:#fff; border-radius:999px; padding:1px 7px; font-size:0.7rem; font-weight:800;
+}}
+.slip-panel {{
+  position:fixed; right:20px; bottom:74px; z-index:95; width:360px; max-height:76vh;
+  display:none; flex-direction:column;
+  background:var(--surface); border:1px solid var(--border-light); border-radius:var(--radius);
+  box-shadow:var(--shadow-lift); overflow:hidden;
+}}
+.slip-panel.open {{ display:flex; }}
+.slip-head {{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:10px 14px; background:var(--surface2); border-bottom:1px solid var(--border);
+}}
+.slip-title {{ font-size:0.82rem; font-weight:800; color:var(--text); }}
+.slip-head-actions {{ display:flex; gap:6px; }}
+.slip-mini-btn {{
+  padding:3px 8px; border-radius:5px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-secondary); font-size:0.68rem; font-weight:600; cursor:pointer; font-family:inherit;
+}}
+.slip-mini-btn:hover {{ border-color:var(--blue); color:var(--blue); }}
+.slip-body {{ padding:10px 14px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px; }}
+.slip-match {{
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; background:var(--bg);
+}}
+.slip-match-head {{ display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:5px; }}
+.slip-match-name {{ font-size:0.74rem; font-weight:700; color:var(--text); }}
+.slip-chips {{ display:flex; flex-wrap:wrap; gap:5px; }}
+.slip-chip {{
+  display:inline-flex; align-items:center; gap:4px; padding:3px 7px; border-radius:5px;
+  background:var(--surface); border:1px solid var(--border); font-size:0.68rem; font-weight:600; color:var(--text);
+  cursor:pointer; font-family:inherit;
+}}
+.slip-chip:hover {{ border-color:var(--red); color:var(--red); }}
+.slip-warn {{
+  font-size:0.68rem; color:var(--amber); background:var(--amber-dim); border-radius:5px; padding:5px 8px; font-weight:600;
+}}
+.slip-foot {{
+  padding:10px 14px; border-top:1px solid var(--border); background:var(--surface2);
+  display:flex; flex-direction:column; gap:8px;
+}}
+.slip-metrics {{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px; }}
+.slip-metric {{ background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px 8px; }}
+.slip-metric .k {{ font-size:0.62rem; color:var(--dim); }}
+.slip-metric .v {{ font-size:0.8rem; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }}
+.slip-ctrl {{ display:flex; align-items:center; justify-content:space-between; gap:8px; }}
+.slip-mult-wrap {{ display:flex; align-items:center; gap:6px; font-size:0.72rem; font-weight:600; color:var(--text-secondary); }}
+.slip-mult-input {{
+  width:56px; padding:4px 6px; border:1px solid var(--border); border-radius:6px;
+  text-align:center; font-weight:700; font-size:0.76rem; background:var(--surface); color:var(--text);
+}}
+.slip-copy-btn {{
+  flex:1; padding:7px 12px; border:none; border-radius:7px; background:var(--blue); color:#fff;
+  font-size:0.74rem; font-weight:700; cursor:pointer; font-family:inherit;
+}}
+.slip-copy-btn:hover {{ opacity:0.92; }}
 </style>
 </head>
 <body>
@@ -1824,8 +2046,9 @@ tr:last-child td {{ border-bottom:none; }}
 
   <!-- TAB: 今日决策 -->
   <div class="page-tab-panel active" id="tab-decision">
+    {focus_bar_html}
     <div class="section-head">
-      <div class="section-title">今日赛程与预测 <span class="st-note">按开赛时间排序 · 点击行展开模型 / 赔率 / 分布</span></div>
+      <div class="section-title">今日赛程与预测 <span class="st-note">点击胜平负/让球格子选号串关 · 点击空白处展开详情</span></div>
     </div>
     {cards if cards else '<div class="card" style="color:var(--dim);padding:36px;text-align:center;font-size:0.84rem;">等待每日流水线运行...</div>'}
 
@@ -1874,11 +2097,31 @@ tr:last-child td {{ border-bottom:none; }}
     <p>数据源: 体彩 / 新浪 / 500万 / DJYY &middot; 零服务器 GitHub Actions &middot; <a href="https://github.com/wlrwx/football-engine">源代码</a></p>
     <p class="disclaimer">仅供研究学习，不构成任何投注建议。模型输出为概率估计，不保证准确性。</p>
   </div>
+
+  <button type="button" id="slip-fab" class="slip-fab">🎫 串关计算器 <span class="slip-fab-cnt" id="slip-fab-cnt">0场</span></button>
+  <div id="slip-panel" class="slip-panel" aria-hidden="true">
+    <div class="slip-head">
+      <div class="slip-title">体彩模拟串关票</div>
+      <div class="slip-head-actions">
+        <button type="button" class="slip-mini-btn" id="slip-clear">清空</button>
+        <button type="button" class="slip-mini-btn" id="slip-close">收起</button>
+      </div>
+    </div>
+    <div class="slip-body" id="slip-body"></div>
+    <div class="slip-foot" id="slip-foot">
+      <div class="slip-metrics" id="slip-metrics"></div>
+      <div class="slip-ctrl">
+        <label class="slip-mult-wrap">倍数 <input type="number" id="slip-mult" class="slip-mult-input" min="1" max="999" value="1"> 倍</label>
+        <button type="button" class="slip-copy-btn" id="slip-copy">复制方案文本</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 // ===== DATE JUMP (2026-08-30: 原生日历 → 最接近的可用日期) =====
 var ALL_DATES = {json.dumps(all_dates or [])};
+var PARLAY_CAL = {json.dumps(parlay_cal, ensure_ascii=False)};
 document.getElementById('date-jump-label').addEventListener('click', function(e) {{
   var inp = document.getElementById('date-jump');
   try {{ if (inp.showPicker) inp.showPicker(); else {{ inp.focus(); inp.click(); }} }}
@@ -1928,33 +2171,311 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {{
     e.stopPropagation();
     var panel = this.closest('.match-detail');
     var tabId = this.getAttribute('data-tab');
-    // Deactivate all tabs in this panel
     panel.querySelectorAll('.tab-btn').forEach(function(b) {{ b.classList.remove('active'); }});
     panel.querySelectorAll('.tab-content').forEach(function(c) {{ c.classList.remove('active'); }});
-    // Activate clicked
     this.classList.add('active');
     panel.querySelector('#' + tabId).classList.add('active');
   }});
 }});
 
-// ===== LEAGUE FILTER =====
+// ===== JOINT LEAGUE + QUICK FILTER + SORT (2026-11-28) =====
+var activeLeague = 'all';
+var activeQf = 'all';
+
+function applyBoardFilters() {{
+  document.querySelectorAll('.league-section').forEach(function(sec) {{
+    var lgOk = (activeLeague === 'all')
+      || (sec.getAttribute('data-league') === activeLeague)
+      || (activeLeague === 'value' && sec.getAttribute('data-value') === '1');
+    var qfOk = true;
+    if (activeQf === 'single') {{
+      qfOk = sec.getAttribute('data-single') === '1';
+    }} else if (activeQf === 'ev') {{
+      qfOk = sec.getAttribute('data-has-ev') === '1';
+    }} else if (activeQf === 'steady') {{
+      var mp = parseFloat(sec.getAttribute('data-max-prob') || '0');
+      qfOk = mp >= 0.58 && sec.getAttribute('data-risk') === '0';
+    }} else if (activeQf === 'risk') {{
+      qfOk = sec.getAttribute('data-risk') === '1';
+    }} else if (activeQf === 'settled') {{
+      qfOk = sec.getAttribute('data-settled') === '1';
+    }}
+    if (lgOk && qfOk) {{
+      sec.classList.remove('hidden');
+    }} else {{
+      sec.classList.add('hidden');
+    }}
+  }});
+}}
+
 document.querySelectorAll('.league-btn').forEach(function(btn) {{
   btn.addEventListener('click', function() {{
-    var league = this.getAttribute('data-league');
-    // Update active button
+    activeLeague = this.getAttribute('data-league') || 'all';
     document.querySelectorAll('.league-btn').forEach(function(b) {{ b.classList.remove('active'); }});
     this.classList.add('active');
-    // Show/hide sections
-    document.querySelectorAll('.league-section').forEach(function(sec) {{
-      if (league === 'all' || sec.getAttribute('data-league') === league
-        || (league === 'value' && sec.getAttribute('data-value') === '1')) {{
-        sec.classList.remove('hidden');
-      }} else {{
-        sec.classList.add('hidden');
-      }}
-    }});
+    applyBoardFilters();
   }});
 }});
+
+document.querySelectorAll('.qf-btn').forEach(function(btn) {{
+  btn.addEventListener('click', function() {{
+    activeQf = this.getAttribute('data-qf') || 'all';
+    document.querySelectorAll('.qf-btn').forEach(function(b) {{ b.classList.remove('active'); }});
+    this.classList.add('active');
+    applyBoardFilters();
+  }});
+}});
+
+document.querySelectorAll('.sort-btn').forEach(function(btn) {{
+  btn.addEventListener('click', function() {{
+    var mode = this.getAttribute('data-sort') || 'time';
+    document.querySelectorAll('.sort-btn').forEach(function(b) {{ b.classList.remove('active'); }});
+    this.classList.add('active');
+    var board = document.getElementById('match-board');
+    if (!board) return;
+    var items = Array.prototype.slice.call(board.querySelectorAll('.league-section'));
+    items.sort(function(a, b) {{
+      if (mode === 'num') {{
+        return (parseInt(a.getAttribute('data-num-order') || '0', 10))
+          - (parseInt(b.getAttribute('data-num-order') || '0', 10));
+      }}
+      if (mode === 'ev') {{
+        var diff = (parseFloat(b.getAttribute('data-best-ev') || '0'))
+          - (parseFloat(a.getAttribute('data-best-ev') || '0'));
+        if (Math.abs(diff) > 1e-6) return diff;
+      }}
+      return (parseInt(a.getAttribute('data-time-order') || '0', 10))
+        - (parseInt(b.getAttribute('data-time-order') || '0', 10));
+    }});
+    items.forEach(function(el) {{ board.appendChild(el); }});
+  }});
+}});
+
+// ===== INTERACTIVE SPORTTERY PARLAY SLIP =====
+var slipSelections = {{}};
+var slipLastSummary = '';
+
+function escHtml(s) {{
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}}
+
+function calProb(rawProb, isTop) {{
+  var p = parseFloat(rawProb) || 0;
+  if (!p || !PARLAY_CAL || !PARLAY_CAL.table || !isTop) return p;
+  var tbl = PARLAY_CAL.table;
+  var keys = Object.keys(tbl);
+  for (var i = 0; i < keys.length; i++) {{
+    var lo = parseFloat(keys[i]);
+    var hi = lo >= 0.70 ? 1.01 : lo + 0.05;
+    if (p >= lo - 1e-6 && p < hi) {{
+      return Math.max(0.03, Math.min(0.96, parseFloat(tbl[keys[i]]) || p));
+    }}
+  }}
+  if (PARLAY_CAL.overall) {{
+    return Math.min(p, Math.max(p * 0.92, parseFloat(PARLAY_CAL.overall)));
+  }}
+  return p;
+}}
+
+function syncOddCellClasses() {{
+  document.querySelectorAll('.odd-cell').forEach(function(btn) {{
+    var k = btn.getAttribute('data-mid') + '|' + btn.getAttribute('data-mkt') + '|' + btn.getAttribute('data-sel');
+    if (slipSelections[k]) btn.classList.add('selected');
+    else btn.classList.remove('selected');
+  }});
+}}
+
+function renderSlip() {{
+  syncOddCellClasses();
+  var fab = document.getElementById('slip-fab');
+  var panel = document.getElementById('slip-panel');
+  var fabCnt = document.getElementById('slip-fab-cnt');
+  var body = document.getElementById('slip-body');
+  var metrics = document.getElementById('slip-metrics');
+  var multInp = document.getElementById('slip-mult');
+  if (!fab || !panel || !body || !metrics) return;
+
+  var grouped = {{}};
+  var matchOrder = [];
+  Object.keys(slipSelections).forEach(function(k) {{
+    var s = slipSelections[k];
+    if (!grouped[s.mid]) {{
+      grouped[s.mid] = [];
+      matchOrder.push(s.mid);
+    }}
+    grouped[s.mid].push(s);
+  }});
+
+  var mCount = matchOrder.length;
+  fabCnt.textContent = mCount + '场';
+  if (mCount === 0) {{
+    fab.classList.remove('visible');
+    panel.classList.remove('open');
+    body.innerHTML = '';
+    metrics.innerHTML = '';
+    slipLastSummary = '';
+    return;
+  }}
+  fab.classList.add('visible');
+
+  var mult = Math.max(1, parseInt(multInp.value || '1', 10) || 1);
+  var combos = 1;
+  var minOdds = 1;
+  var maxOdds = 1;
+  var expUnitSum = 1;
+  var ticketHitProb = 1;
+  var hasNonSingle = false;
+  var hasMixedMarket = false;
+  var bodyHtml = '';
+  var summaryParts = [];
+
+  matchOrder.forEach(function(mid) {{
+    var items = grouped[mid];
+    combos *= items.length;
+    var mkts = {{}};
+    var mMin = Infinity;
+    var mMax = 0;
+    var mExp = 0;
+    var mHit = 0;
+    var chipsHtml = '';
+    var txtParts = [];
+    items.forEach(function(s) {{
+      mkts[s.mkt] = true;
+      if (s.single !== '1') hasNonSingle = true;
+      if (s.odd < mMin) mMin = s.odd;
+      if (s.odd > mMax) mMax = s.odd;
+      var cp = calProb(s.prob, s.isTop === '1');
+      mExp += cp * s.odd;
+      mHit += cp;
+      var prefix = s.mkt === 'hhad' ? (s.mktLabel + '·') : '';
+      chipsHtml += '<button type="button" class="slip-chip" data-slip-key="' + escHtml(s.key) + '">'
+        + escHtml(prefix + s.selLabel + ' ' + s.odd.toFixed(2)) + ' ×</button>';
+      txtParts.push(prefix + s.selLabel + s.odd.toFixed(2));
+    }});
+    if (Object.keys(mkts).length > 1) hasMixedMarket = true;
+    minOdds *= mMin;
+    maxOdds *= mMax;
+    expUnitSum *= mExp;
+    ticketHitProb *= Math.min(0.95, mHit);
+
+    var headText = (items[0].jc ? (items[0].jc + ' · ') : '') + items[0].match;
+    bodyHtml += '<div class="slip-match">'
+      + '<div class="slip-match-head"><span class="slip-match-name">' + escHtml(headText) + '</span></div>'
+      + '<div class="slip-chips">' + chipsHtml + '</div>'
+      + '</div>';
+    summaryParts.push((items[0].jc || items[0].match) + '[' + txtParts.join('/') + ']');
+  }});
+
+  if (mCount === 1 && hasNonSingle) {{
+    bodyHtml += '<div class="slip-warn">⚠ 所选包含非单关玩法，体彩至少需 2 场串关</div>';
+  }}
+  if (hasMixedMarket) {{
+    bodyHtml += '<div class="slip-warn">⚠ 同场同时选胜平负与让球不可混串，出票需拆单</div>';
+  }}
+  if (mCount > 8) {{
+    bodyHtml += '<div class="slip-warn">⚠ 已超体彩过关 8 场上限</div>';
+  }}
+  body.innerHTML = bodyHtml;
+
+  body.querySelectorAll('.slip-chip').forEach(function(chip) {{
+    chip.addEventListener('click', function() {{
+      var key = this.getAttribute('data-slip-key');
+      delete slipSelections[key];
+      renderSlip();
+    }});
+  }});
+
+  var cost = 2 * combos * mult;
+  var minRet = 2 * mult * minOdds;
+  var maxRet = 2 * mult * maxOdds;
+  var expRet = 2 * mult * expUnitSum;
+  var calEv = cost > 0 ? (expRet / cost - 1) : 0;
+  var passLabel = mCount === 1 ? '单关' : (mCount + '串1');
+  var oddsText = Math.abs(maxOdds - minOdds) < 0.01 ? minOdds.toFixed(2) : (minOdds.toFixed(2) + '~' + maxOdds.toFixed(2));
+  var retText = Math.abs(maxRet - minRet) < 0.05 ? ('¥' + minRet.toFixed(2)) : ('¥' + minRet.toFixed(2) + '~' + maxRet.toFixed(2));
+  var evColor = calEv >= 0 ? 'var(--green)' : 'var(--red)';
+
+  metrics.innerHTML = ''
+    + '<div class="slip-metric"><div class="k">' + passLabel + ' · 组合与投入</div><div class="v">' + combos + '注 × ' + mult + '倍 = ¥' + cost + '</div></div>'
+    + '<div class="slip-metric"><div class="k">总赔率 / 预计奖金</div><div class="v">' + oddsText + ' · ' + retText + '</div></div>'
+    + '<div class="slip-metric"><div class="k">校准命中率参考</div><div class="v">' + (Math.min(0.99, ticketHitProb) * 100).toFixed(1) + '%</div></div>'
+    + '<div class="slip-metric"><div class="k">校准预期 EV</div><div class="v" style="color:' + evColor + '">' + (calEv >= 0 ? '+' : '') + (calEv * 100).toFixed(1) + '%</div></div>';
+
+  slipLastSummary = summaryParts.join(' × ') + ' | ' + passLabel + ' · ' + combos + '注×' + mult + '倍=¥' + cost + ' · 奖金' + retText;
+}}
+
+document.querySelectorAll('.odd-cell').forEach(function(btn) {{
+  btn.addEventListener('click', function(e) {{
+    e.stopPropagation();
+    if (this.disabled) return;
+    var odd = parseFloat(this.getAttribute('data-odd') || '0');
+    if (!odd || odd <= 1.0) return;
+    var mid = this.getAttribute('data-mid') || '';
+    var mkt = this.getAttribute('data-mkt') || 'had';
+    var sel = this.getAttribute('data-sel') || '';
+    var key = mid + '|' + mkt + '|' + sel;
+    if (slipSelections[key]) {{
+      delete slipSelections[key];
+    }} else {{
+      slipSelections[key] = {{
+        key: key,
+        mid: mid,
+        jc: this.getAttribute('data-jc') || '',
+        match: this.getAttribute('data-match') || '',
+        mkt: mkt,
+        mktLabel: this.getAttribute('data-mkt-label') || '',
+        sel: sel,
+        selLabel: this.getAttribute('data-sel-label') || '',
+        odd: odd,
+        prob: parseFloat(this.getAttribute('data-prob') || '0'),
+        isTop: this.getAttribute('data-is-top') || '0',
+        single: this.getAttribute('data-single') || '0'
+      }};
+      var panel = document.getElementById('slip-panel');
+      if (panel && Object.keys(slipSelections).length === 1) {{
+        panel.classList.add('open');
+      }}
+    }}
+    renderSlip();
+  }});
+}});
+
+(function() {{
+  var fab = document.getElementById('slip-fab');
+  var panel = document.getElementById('slip-panel');
+  var clearBtn = document.getElementById('slip-clear');
+  var closeBtn = document.getElementById('slip-close');
+  var multInp = document.getElementById('slip-mult');
+  var copyBtn = document.getElementById('slip-copy');
+  if (fab && panel) {{
+    fab.addEventListener('click', function() {{ panel.classList.toggle('open'); }});
+  }}
+  if (closeBtn && panel) {{
+    closeBtn.addEventListener('click', function() {{ panel.classList.remove('open'); }});
+  }}
+  if (clearBtn) {{
+    clearBtn.addEventListener('click', function() {{ slipSelections = {{}}; renderSlip(); }});
+  }}
+  if (multInp) {{
+    multInp.addEventListener('input', renderSlip);
+  }}
+  if (copyBtn) {{
+    copyBtn.addEventListener('click', function() {{
+      if (!slipLastSummary) return;
+      var btnEl = this;
+      var done = function() {{
+        var prev = btnEl.textContent;
+        btnEl.textContent = '已复制 ✓';
+        setTimeout(function() {{ btnEl.textContent = prev; }}, 1400);
+      }};
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(slipLastSummary).then(done, done);
+      }} else {{
+        done();
+      }}
+    }});
+  }}
+}})();
 </script>
 </body>
 </html>"""
@@ -2478,6 +2999,166 @@ def _brief_handicap(p):
     return f'<span class="hcap-label">让{sign}{hcap:g} {label}{prob:.0%}</span>'
 
 
+def _best_match_ev(p):
+    """提取单场跨玩法（胜平负 / 让球 / 全玩法）最佳正EV信息: (edge, label, odd_str)"""
+    candidates = []
+    _dir_names = (("home", "主胜"), ("draw", "平局"), ("away", "客胜"))
+    for k, lbl in _dir_names:
+        prob = p.get(f"{'home_win' if k == 'home' else ('away_win' if k == 'away' else 'draw')}_prob") or 0
+        odd = p.get(f"{k}_odds") or 0
+        if odd and odd > 1.0 and prob > 0:
+            ev = prob * odd - 1.0
+            if 0.01 < ev <= 0.35:
+                candidates.append((ev, f"胜平负·{lbl}", f"@{odd:.2f}"))
+    _ke = p.get("kelly_edge")
+    if isinstance(_ke, (int, float)) and _ke > 0.01:
+        _kd = p.get("direction") or "home"
+        _kl = {"home": "主胜", "draw": "平局", "away": "客胜"}.get(_kd, _kd)
+        _ko = p.get(f"{_kd}_odds") or 0
+        candidates.append((float(_ke), f"胜平负·{_kl}", f"@{_ko:.2f}" if _ko and _ko > 1.0 else ""))
+
+    hev = p.get("handicap_ev") or {}
+    hcap = hev.get("handicap", p.get("handicap"))
+    h_edges = hev.get("edges") or {}
+    h_odds = hev.get("odds") or {}
+    if hcap is not None and isinstance(h_edges, dict):
+        sign = "+" if hcap > 0 else ""
+        for k, lbl in (("home", "让胜"), ("draw", "让平"), ("away", "让客")):
+            ev = h_edges.get(k)
+            odd = h_odds.get(k) or 0
+            if isinstance(ev, (int, float)) and 0.01 < ev <= 0.35:
+                candidates.append((float(ev), f"让{sign}{hcap:g}·{lbl}", f"@{odd:.2f}" if odd and odd > 1.0 else ""))
+
+    _pev = p.get("play_ev") or {}
+    if isinstance(_pev, dict):
+        _pnames = {"ttg": "总进球", "crs": "比分", "hafu": "半全场"}
+        for k, ev in _pev.items():
+            if isinstance(ev, (int, float)) and 0.01 < ev <= 0.35:
+                candidates.append((float(ev), _pnames.get(k, str(k)), "全玩法"))
+
+    if not candidates:
+        return (0.0, "", "")
+    return max(candidates, key=lambda x: x[0])
+
+
+def _sporttery_focus_bar(predictions, results_map=None):
+    """体彩今日三焦点栏：最佳玩法机会 · 低损稳胆参考 · 头号防冷避坑。"""
+    if not predictions:
+        return ""
+
+    def _is_settled_pred(p):
+        if not results_map:
+            return False
+        mid = p.get("match_id", "")
+        r = results_map.get(mid)
+        if not r and p.get("home_team") and p.get("away_team"):
+            r = results_map.get(f"{p['home_team']}_vs_{p['away_team']}")
+        return bool(r and r.get("home_score") is not None)
+
+    pool = [p for p in predictions if not _is_settled_pred(p)] or list(predictions)
+
+    # 1) 最佳玩法机会（优先非禁投场次）
+    best_ev_row = None
+    for prefer_allowed in (True, False):
+        for p in pool:
+            if prefer_allowed and p.get("league_forbidden"):
+                continue
+            ev, lbl, odd_s = _best_match_ev(p)
+            if ev > 0.01 and (best_ev_row is None or ev > best_ev_row[0]):
+                best_ev_row = (ev, lbl, odd_s, p)
+        if best_ev_row:
+            break
+
+    if best_ev_row:
+        _ev, _lbl, _os, _ep = best_ev_row
+        _ejc = _esc(_jc_no(_ep.get("match_id", "")))
+        _etm = _esc(f"{_ep.get('home_team', '')} vs {_ep.get('away_team', '')}")
+        _ev_single = "单关" if (_ep.get("had_single") or _ep.get("hhad_single")) else "串关"
+        ev_main = f"{_ejc} · {_etm}"
+        ev_sub = f"{_esc(_lbl)} {_os} · EV {_ev:+.0%} · {_ev_single}"
+    else:
+        ev_main = "今日暂无显著正 EV"
+        ev_sub = "不强行凑单 · 可仅观察低损稳胆或休战"
+
+    # 2) 低损稳胆参考
+    steady_cands = []
+    for p in pool:
+        probs = (
+            ("home", "主胜", p.get("home_win_prob") or 0, p.get("home_odds") or 0),
+            ("draw", "平局", p.get("draw_prob") or 0, p.get("draw_odds") or 0),
+            ("away", "客胜", p.get("away_win_prob") or 0, p.get("away_odds") or 0),
+        )
+        top = max(probs, key=lambda x: x[2])
+        pen = 0
+        if p.get("league_forbidden"):
+            pen += 3
+        if p.get("draw_alert"):
+            pen += 2
+        if p.get("prob_band_5060"):
+            pen += 1
+        steady_cands.append((pen, -top[2], p, top))
+    steady_cands.sort(key=lambda x: (x[0], x[1]))
+    _, _, _sp, _stop = steady_cands[0]
+    _sjc = _esc(_jc_no(_sp.get("match_id", "")))
+    _stm = _esc(f"{_sp.get('home_team', '')} vs {_sp.get('away_team', '')}")
+    _sodd = f" @{_stop[3]:.2f}" if _stop[3] and _stop[3] > 1.0 else ""
+    _ssingle = "单关" if _sp.get("had_single") else "串关胆材"
+    st_main = f"{_sjc} · {_stm}"
+    st_sub = f"{_stop[1]} {_stop[2]:.0%}{_sodd} · {_ssingle}"
+
+    # 3) 头号防冷避坑
+    risk_cands = []
+    for p in pool:
+        score = 0
+        tags = []
+        if p.get("league_forbidden"):
+            score += 3
+            tags.append("禁投联赛")
+        if p.get("draw_alert"):
+            score += 2
+            tags.append("平局预警")
+        if p.get("prob_band_60_risk"):
+            score += 2
+            tags.append("60%+反向风险")
+        if p.get("prob_band_5060"):
+            score += 1
+            tags.append("50-60%盲点")
+        if (p.get("freshness") or {}).get("risk") in ("watch", "alert"):
+            score += 1
+            tags.append("新鲜度告警")
+        if score > 0:
+            risk_cands.append((-score, p, tags))
+    risk_cands.sort(key=lambda x: x[0])
+    if risk_cands:
+        _, _rp, _rtags = risk_cands[0]
+        _rjc = _esc(_jc_no(_rp.get("match_id", "")))
+        _rtm = _esc(f"{_rp.get('home_team', '')} vs {_rp.get('away_team', '')}")
+        rk_main = f"{_rjc} · {_rtm}"
+        rk_sub = " · ".join(_rtags[:3])
+    else:
+        rk_main = "无高危避坑场次"
+        rk_sub = "当前赛程无禁投联赛或强冷平告警"
+
+    return f"""
+  <div class="focus-strip">
+    <div class="focus-col focus-ev">
+      <div class="focus-kicker"><span>最佳玩法机会</span><span>EV 雷达</span></div>
+      <div class="focus-main">{ev_main}</div>
+      <div class="focus-sub">{ev_sub}</div>
+    </div>
+    <div class="focus-col focus-stable">
+      <div class="focus-kicker"><span>低损稳胆参考</span><span>高胜率优先</span></div>
+      <div class="focus-main">{st_main}</div>
+      <div class="focus-sub">{st_sub}</div>
+    </div>
+    <div class="focus-col focus-risk">
+      <div class="focus-kicker"><span>头号防冷避坑</span><span>风险雷达</span></div>
+      <div class="focus-main">{rk_main}</div>
+      <div class="focus-sub">{rk_sub}</div>
+    </div>
+  </div>"""
+
+
 def _match_card(p, value_matches, idx, results_map=None):
     """Render a compact FotMob-style horizontal match row with expandable detail drawer."""
     hp = (p.get("home_win_prob") or 0) * 100
@@ -2485,6 +3166,7 @@ def _match_card(p, value_matches, idx, results_map=None):
     ap = (p.get("away_win_prob") or 0) * 100
     is_val = _is_value(p, value_matches)
     match_id = p.get("match_id", "")
+    jc_no = _jc_no(match_id)
     uid = f"m{idx}"
 
     odds_h = p.get("home_odds") or 0
@@ -2545,7 +3227,19 @@ def _match_card(p, value_matches, idx, results_map=None):
         home_stat_html = f'<span class="m-team-stat" title="本场模型预期进球 xG">{xg_h:.2f}</span>'
         away_stat_html = f'<span class="m-team-stat" title="本场模型预期进球 xG">{xg_a:.2f}</span>'
 
-    # 至多 1 个主状态徽章 + 1 个紧凑风险胶囊
+    cutoff_early = False
+    if settled_hs is None and len(kickoff_short) >= 5 and ":" in kickoff_short:
+        try:
+            cutoff_early = int(kickoff_short.split(":", 1)[0]) < 9
+        except ValueError:
+            cutoff_early = False
+
+    had_single = bool(p.get("had_single"))
+    hhad_single = bool(p.get("hhad_single"))
+    single_html = '<span class="single-tag" title="体彩胜平负/让球支持单关固定投注">单</span>' if (had_single or hhad_single) else ""
+    cutoff_html = '<span class="cutoff-tag" title="凌晨开赛场次通常22:00-23:50提前停售，注意提前打票">早截单</span>' if cutoff_early else ""
+
+    # 至多 1 个主状态徽章 + 1 个紧凑风险胶囊 + 全玩法EV提示
     status_badge_html = ""
     if is_val:
         status_badge_html = '<span class="value-badge">价值精选</span>'
@@ -2553,6 +3247,19 @@ def _match_card(p, value_matches, idx, results_map=None):
         status_badge_html = '<span class="status-pill forbid" title="送钱区联赛（累计ROI<-5%），此场不出注">禁投联赛</span>'
     elif p.get("league_recovered"):
         status_badge_html = '<span class="status-pill recover" title="该联赛累计送钱但最近5场命中≥60%，已自动解禁">回暖解禁</span>'
+
+    play_ev_html = ""
+    _pev = p.get("play_ev")
+    if isinstance(_pev, dict) and _pev:
+        _play_names = {"ttg": "总进球", "crs": "比分", "hafu": "半全场"}
+        _best_play = max(
+            ((k, float(v)) for k, v in _pev.items() if isinstance(v, (int, float)) and v > 0),
+            key=lambda kv: kv[1],
+            default=None,
+        )
+        if _best_play:
+            _pk, _pv = _best_play
+            play_ev_html = f'<span class="play-ev-pill" title="体彩全玩法检测到正EV">{_play_names.get(_pk, _pk)} {_pv:+.0%}</span>'
 
     risks = _collect_match_risks(p)
     risk_pill_html = ""
@@ -2584,13 +3291,88 @@ def _match_card(p, value_matches, idx, results_map=None):
     def _fmt_odd(v):
         return f"{v:.2f}" if v and v > 0 else "—"
 
+    match_title = f"{p.get('home_team', '')} vs {p.get('away_team', '')}"
+
+    def _render_odd_row(mkt, tag, tag_cls, mkt_label, items, row_single):
+        cells_html = ""
+        for sel_code, sel_label, dir_cls, prob, odd, is_best, is_ev in items:
+            cls_parts = ["odd-cell"]
+            if is_best:
+                cls_parts.extend(["best", dir_cls])
+            if is_ev:
+                cls_parts.append("pos-ev")
+            dis = "" if (odd and odd > 1.0) else " disabled"
+            odd_num = f"{odd:.2f}" if (odd and odd > 1.0) else "0"
+            ev_tip = f" title=\"模型估值正EV ({(prob * odd - 1):+.1%})\"" if (is_ev and odd and odd > 1.0) else ""
+            cells_html += (
+                f'<button type="button" class="{" ".join(cls_parts)}"{dis}{ev_tip}'
+                f' data-mid="{_esc(match_id, quote=True)}"'
+                f' data-jc="{_esc(jc_no, quote=True)}"'
+                f' data-match="{_esc(match_title, quote=True)}"'
+                f' data-mkt="{mkt}"'
+                f' data-mkt-label="{_esc(mkt_label, quote=True)}"'
+                f' data-sel="{sel_code}"'
+                f' data-sel-label="{_esc(sel_label, quote=True)}"'
+                f' data-odd="{odd_num}"'
+                f' data-prob="{prob:.4f}"'
+                f' data-is-top="{"1" if is_best else "0"}"'
+                f' data-single="{"1" if row_single else "0"}">'
+                f'<span class="oc-p">{prob * 100:.0f}%</span>'
+                f'<span class="oc-o">{_fmt_odd(odd)}</span>'
+                f'</button>'
+            )
+        return (
+            f'<div class="odd-row">'
+            f'<span class="mkt-tag {tag_cls}">{tag}</span>'
+            f'{cells_html}'
+            f'</div>'
+        )
+
+    _hp_raw = p.get("home_win_prob") or 0
+    _dp_raw = p.get("draw_prob") or 0
+    _ap_raw = p.get("away_win_prob") or 0
+    had_items = [
+        ("h", "主胜", "home", _hp_raw, odds_h, pred_dir == "home", bool(odds_h and odds_h > 1.0 and 0.01 < (_hp_raw * odds_h - 1) <= 0.30)),
+        ("d", "平局", "draw", _dp_raw, odds_d, pred_dir == "draw", bool(odds_d and odds_d > 1.0 and 0.01 < (_dp_raw * odds_d - 1) <= 0.30)),
+        ("a", "客胜", "away", _ap_raw, odds_a, pred_dir == "away", bool(odds_a and odds_a > 1.0 and 0.01 < (_ap_raw * odds_a - 1) <= 0.30)),
+    ]
+    odds_rows_html = _render_odd_row("had", "0", "", "胜平负", had_items, had_single)
+
+    hev = p.get("handicap_ev") or {}
+    hcap = p.get("handicap", hev.get("handicap"))
+    h_probs = hev.get("probs") or {}
+    h_odds = hev.get("odds") or {}
+    h_edges = hev.get("edges") or {}
+    hhp = float(h_probs.get("home") or p.get("handicap_home_prob") or 0)
+    hdp = float(h_probs.get("draw") or p.get("handicap_draw_prob") or 0)
+    hap = float(h_probs.get("away") or p.get("handicap_away_prob") or 0)
+    hoh = float(h_odds.get("home") or p.get("handicap_home_odds") or 0)
+    hod = float(h_odds.get("draw") or p.get("handicap_draw_odds") or 0)
+    hoa = float(h_odds.get("away") or p.get("handicap_away_odds") or 0)
+    if hcap is not None and (any(o > 1.0 for o in (hoh, hod, hoa)) or any(pr > 0 for pr in (hhp, hdp, hap))):
+        h_sign = "+" if hcap > 0 else ""
+        h_tag = f"{h_sign}{hcap:g}"
+        h_best = "home" if (hhp >= hdp and hhp >= hap) else ("draw" if (hdp >= hhp and hdp >= hap) else "away")
+        def _h_ev_flag(k, prob, odd):
+            ev = h_edges.get(k)
+            if isinstance(ev, (int, float)):
+                return 0.01 < ev <= 0.30
+            return bool(odd and odd > 1.0 and 0.01 < (prob * odd - 1) <= 0.30)
+        hhad_items = [
+            ("hh", "让胜", "home", hhp, hoh, h_best == "home" and hhp > 0, _h_ev_flag("home", hhp, hoh)),
+            ("hd", "让平", "draw", hdp, hod, h_best == "draw" and hdp > 0, _h_ev_flag("draw", hdp, hod)),
+            ("ha", "让客", "away", hap, hoa, h_best == "away" and hap > 0, _h_ev_flag("away", hap, hoa)),
+        ]
+        odds_rows_html += _render_odd_row("hhad", h_tag, "hhad", f"让{h_tag}", hhad_items, hhad_single)
+
     return f"""
   <div class="match {'value-pick' if is_val else ''}">
     <div class="match-header">
       <div class="m-meta" title="{_esc(kickoff_str, quote=True)}">
         <div class="m-meta-top">
           <span class="m-kickoff">{kickoff_short}</span>
-          <span class="jc-no" title="竞彩编号">{_jc_no(match_id)}</span>
+          <span class="jc-no" title="竞彩编号">{jc_no}</span>
+          {single_html}{cutoff_html}
         </div>
         <span class="league-tag">{p.get('competition', '')}</span>
       </div>
@@ -2607,20 +3389,7 @@ def _match_card(p, value_matches, idx, results_map=None):
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val {'best home' if pred_dir == 'home' else ''}">{hp:.0f}%</span>
-            <span class="m-p-odds">{_fmt_odd(odds_h)}</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val {'best draw' if pred_dir == 'draw' else ''}">{dp:.0f}%</span>
-            <span class="m-p-odds">{_fmt_odd(odds_d)}</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val {'best away' if pred_dir == 'away' else ''}">{ap:.0f}%</span>
-            <span class="m-p-odds">{_fmt_odd(odds_a)}</span>
-          </div>
-        </div>
+        {odds_rows_html}
         <div class="prob-bar">
           <div class="prob-seg h" style="width:{hp:.1f}%"></div>
           <div class="prob-seg d" style="width:{dp:.1f}%"></div>
@@ -2629,7 +3398,7 @@ def _match_card(p, value_matches, idx, results_map=None):
       </div>
 
       <div class="m-pick">
-        <div class="m-pick-top">{_pred_pick(p)}{settled_badge or status_badge_html}</div>
+        <div class="m-pick-top">{_pred_pick(p)}{settled_badge or status_badge_html}{play_ev_html}</div>
         <div class="m-pick-sub">{brief_scores_html}{brief_hcap_html}{risk_pill_html}</div>
         <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">{provenance_inline}</div>
       </div>
@@ -2640,7 +3409,7 @@ def _match_card(p, value_matches, idx, results_map=None):
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="{uid}-model">模型与归因</button>
         <button class="tab-btn" data-tab="{uid}-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="{uid}-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="{uid}-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="{uid}-model">{_fusion_trace_row(p)}{model_tab}</div>
       <div class="tab-content" id="{uid}-odds">{odds_tab}</div>
@@ -2970,33 +3739,66 @@ def _tab_odds(p, uid):
 
 
 def _tab_distribution(p, uid):
-    """分布 tab: top_scores grid, total_goals bars, xG comparison."""
+    """体彩全玩法与分布 tab: 波胆(crs_odds), 总进球(ttg_odds), 半全场(hafu_odds), xG."""
     top_scores = p.get("top_scores")
     total_goals = p.get("total_goals")
     xg_h = p.get("home_xg", 0)
     xg_a = p.get("away_xg", 0)
 
-    # Top scores grid
+    try:
+        from engine.strategy.multi_play_ev import parse_crs_odds, parse_ttg_odds, parse_hafu_odds
+        crs_map = parse_crs_odds(p.get("crs_odds") or {})
+        ttg_map = parse_ttg_odds(p.get("ttg_odds") or {})
+        hafu_map = parse_hafu_odds(p.get("hafu_odds") or {})
+    except Exception:
+        crs_map, ttg_map, hafu_map = {}, {}, {}
+
+    # 1) 波胆矩阵 (含官方 crs_odds 与正EV标记)
     scores_html = ""
     if top_scores and isinstance(top_scores, list) and len(top_scores) > 0:
         cells = ""
         for item in top_scores[:12]:
+            score_label = ""
+            prob = 0.0
+            pair = None
             if isinstance(item, dict):
-                score = item.get("score", "")
-                prob = item.get("prob", 0)
-                cells += f'<div class="score-cell"><div class="sc-score">{score}</div><div class="sc-prob">{prob*100:.1f}%</div></div>'
+                score_label = str(item.get("score", ""))
+                prob = float(item.get("prob", 0) or 0)
             elif isinstance(item, (list, tuple)) and len(item) >= 3:
-                cells += f'<div class="score-cell"><div class="sc-score">{item[0]}-{item[1]}</div><div class="sc-prob">{item[2]*100:.1f}%</div></div>'
+                score_label = f"{item[0]}-{item[1]}"
+                prob = float(item[2] or 0)
+                try:
+                    pair = (int(item[0]), int(item[1]))
+                except (TypeError, ValueError):
+                    pair = None
             elif isinstance(item, (list, tuple)) and len(item) == 2:
-                cells += f'<div class="score-cell"><div class="sc-score">{item[0]}</div><div class="sc-prob">{item[1]*100:.1f}%</div></div>'
+                score_label = str(item[0])
+                prob = float(item[1] or 0)
+            if pair is None and "-" in score_label:
+                _sp = score_label.split("-", 1)
+                try:
+                    pair = (int(_sp[0]), int(_sp[1]))
+                except ValueError:
+                    pair = None
+            odd = crs_map.get(pair, 0.0) if pair else 0.0
+            ev = (prob * odd - 1.0) if (odd > 1.0 and prob > 0) else 0.0
+            is_pos = 0.01 < ev <= 0.30
+            odd_html = f'<div class="sc-odd">@{odd:.1f}</div>' if odd > 1.0 else ""
+            ev_html = f'<div class="sc-ev-badge">+EV {ev*100:.0f}%</div>' if is_pos else ""
+            cells += (
+                f'<div class="score-cell{" pos-ev" if is_pos else ""}">'
+                f'<div class="sc-score">{_esc(score_label)}</div>'
+                f'<div class="sc-prob">{prob*100:.1f}%</div>'
+                f'{odd_html}{ev_html}</div>'
+            )
         if cells:
-            scores_html = f'<div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid">{cells}</div>'
+            _crs_note = " · 含体彩官方波胆赔率" if crs_map else ""
+            scores_html = f'<div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测{_crs_note}</div><div class="scores-grid">{cells}</div>'
     else:
         scores_html = '<div style="font-size:0.72rem;color:var(--dim);font-style:italic;margin-bottom:12px;">比分分布暂无数据</div>'
 
-    # Total goals bars
+    # 2) 总进球分布 (含官方 ttg_odds 与正EV标记)
     goals_html = ""
-    # 兼容 dict 格式（旧数据：{'1.5': [under_prob, over_prob]})
     if isinstance(total_goals, dict):
         total_goals = [[int(float(k)), v[1] if isinstance(v, (list, tuple)) and len(v) > 1 else (v if isinstance(v, (int, float)) else 0)]
                        for k, v in total_goals.items()]
@@ -3006,23 +3808,61 @@ def _tab_distribution(p, uid):
         for item in total_goals:
             if isinstance(item, dict):
                 label = item.get("goals", item.get("label", ""))
-                prob = item.get("prob", 0)
+                prob = float(item.get("prob", 0) or 0)
             elif isinstance(item, (list, tuple)) and len(item) >= 2:
                 label = item[0]
-                prob = item[1]
+                prob = float(item[1] or 0)
             else:
                 continue
+            try:
+                g_int = 7 if str(label).strip().startswith("7") else int(float(label))
+            except (TypeError, ValueError):
+                g_int = None
+            disp_lbl = "7+球" if g_int == 7 else (f"{g_int}球" if g_int is not None else str(label))
+            odd = ttg_map.get(g_int, 0.0) if g_int is not None else 0.0
+            ev = (prob * odd - 1.0) if (odd > 1.0 and prob > 0) else 0.0
             pct = (prob / max_prob) * 100
+            odd_tag = f'<span style="font-size:0.66rem;color:var(--blue);font-weight:700;width:44px;text-align:right;flex-shrink:0;">@{odd:.1f}</span>' if odd > 1.0 else ""
+            ev_tag = f'<span class="tag-ev">+EV {ev*100:.0f}%</span>' if (0.01 < ev <= 0.30) else ""
             bars += f"""
           <div class="goal-bar-row">
-            <span class="goal-bar-label">{label}</span>
+            <span class="goal-bar-label">{_esc(disp_lbl)}</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:{pct:.0f}%">{prob*100:.1f}%</div></div>
+            {odd_tag}{ev_tag}
           </div>"""
-        goals_html = f'<div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">{bars}</div>'
+        _ttg_note = " · 含体彩官方总进球赔率" if ttg_map else ""
+        goals_html = f'<div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布{_ttg_note}</div><div class="goals-bars">{bars}</div>'
     else:
         goals_html = '<div style="font-size:0.72rem;color:var(--dim);font-style:italic;margin:12px 0;">总进球分布暂无数据</div>'
 
-    # xG comparison
+    # 3) 半全场矩阵 (htft + 官方 hafu_odds)
+    hafu_html = ""
+    htft = p.get("htft") or {}
+    _hafu_names = {"HH": "胜胜", "HD": "胜平", "HA": "胜负", "DH": "平胜", "DD": "平平", "DA": "平负", "AH": "负胜", "AD": "负平", "AA": "负负"}
+    _hafu_codes = [c for c in _hafu_names if (c in htft or c in hafu_map)]
+    if _hafu_codes:
+        if htft:
+            _hafu_codes.sort(key=lambda c: -float(htft.get(c, 0) or 0))
+        else:
+            _hafu_codes.sort(key=lambda c: float(hafu_map.get(c, 999) or 999))
+        h_cells = ""
+        for code in _hafu_codes[:6]:
+            prob = float(htft.get(code, 0) or 0)
+            odd = float(hafu_map.get(code, 0) or 0)
+            ev = (prob * odd - 1.0) if (odd > 1.0 and prob > 0) else 0.0
+            is_pos = 0.01 < ev <= 0.30
+            prob_txt = f"{prob*100:.1f}%" if prob > 0 else "—"
+            odd_txt = f"@{odd:.2f}" if odd > 1.0 else "—"
+            ev_txt = f'<span class="tag-ev" style="margin-left:0">+{ev*100:.0f}%</span>' if is_pos else ""
+            h_cells += (
+                f'<div class="hafu-cell{" pos-ev" if is_pos else ""}">'
+                f'<div class="hafu-top"><span>{_hafu_names[code]}</span><span style="color:var(--blue)">{odd_txt}</span></div>'
+                f'<div class="hafu-sub"><span>{prob_txt}</span>{ev_txt}</div>'
+                f'</div>'
+            )
+        hafu_html = f'<div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid">{h_cells}</div>'
+
+    # 4) xG comparison
     max_xg = max(xg_h, xg_a, 0.1)
     xg_h_pct = (xg_h / (max_xg * 1.3)) * 100
     xg_a_pct = (xg_a / (max_xg * 1.3)) * 100
@@ -3039,7 +3879,7 @@ def _tab_distribution(p, uid):
         </div>
       </div>"""
 
-    return f"{scores_html}{goals_html}{xg_html}"
+    return f"{scores_html}{goals_html}{hafu_html}{xg_html}"
 
 
 def _jc_no(mid: str) -> str:
@@ -3858,7 +4698,7 @@ def _results_section(results, predictions, review_ledger=None, target_date=""):
         rows += f"""
         <tr class="{hit_cls}">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">{_jc_no(mid)}</span>{pred.get('home_team', '')} vs {pred.get('away_team', '')}</td>
-          <td style="font-weight:800;text-align:center;">{home_score}-{away_score}</td>
+          <td style="font-weight:800;text-align:center;">{home_score}-{away_score}<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">{home_score + away_score}球</div></td>
           <td>{actual_label}</td>
           <td style="font-size:0.75rem;color:var(--dim);">{hcap_label} {hcap_result}</td>
           <td>{pred_label} ({pred_prob:.0%})</td>

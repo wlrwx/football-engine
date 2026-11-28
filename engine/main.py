@@ -873,6 +873,8 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
             "ttg_odds": getattr(fixture, "_raw_ttg", None) or getattr(fixture, "_sporttery_ttg", None) or None,
             "crs_odds": getattr(fixture, "_raw_crs", None) or getattr(fixture, "_sporttery_crs", None) or None,
             "hafu_odds": getattr(fixture, "_raw_hafu", None) or getattr(fixture, "_sporttery_hafu", None) or None,
+            "had_single": getattr(fixture, "had_single", None),
+            "hhad_single": getattr(fixture, "hhad_single", None),
             # 半全场概率
             "htft": _htft,
             "htft_top3": top_htft(_htft),

@@ -58,6 +58,28 @@ def _record_error(kind: str, detail: str) -> None:
     })
 
 
+def _parse_single(item: dict, pool_dict: dict, pool_code: str) -> Optional[bool]:
+    """从体彩官方盘口字典或 poolList 解析单关标记（1/true -> True, 0/false -> False）。"""
+    raw = (pool_dict or {}).get("single")
+    if raw is None:
+        for entry in (item or {}).get("poolList") or []:
+            if isinstance(entry, dict) and str(entry.get("poolCode") or "").upper() == pool_code:
+                raw = entry.get("bettingSingle")
+                if raw is None:
+                    raw = entry.get("single")
+                break
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, bool):
+        return raw
+    s = str(raw).strip().lower()
+    if s in ("1", "true", "yes"):
+        return True
+    if s in ("0", "false", "no"):
+        return False
+    return None
+
+
 class SportterySource(DataSource):
     """竞彩官方 API — 优先级最高的权威数据源"""
 
@@ -167,6 +189,8 @@ class SportterySource(DataSource):
                     handicap_draw_odds=self._safe_float(hhad.get("d")),
                     handicap_away_odds=self._safe_float(hhad.get("a")),
                     source=self.name,
+                    had_single=_parse_single(item, had, "HAD"),
+                    hhad_single=_parse_single(item, hhad, "HHAD"),
                 )
 
                 # 附加原始盘口（供下游模型使用）

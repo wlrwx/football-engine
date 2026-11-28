@@ -288,6 +288,8 @@ class SourceManager:
                             "d": sf.handicap_draw_odds,
                             "a": sf.handicap_away_odds,
                         },
+                        "had_single": sf.had_single,
+                        "hhad_single": sf.hhad_single,
                         "ttg": getattr(sf, "_raw_ttg", {}),
                         "crs": getattr(sf, "_raw_crs", {}),
                         "hafu": getattr(sf, "_raw_hafu", {}),
@@ -371,6 +373,8 @@ class SourceManager:
                     handicap_draw_odds=sf.handicap_draw_odds or wancai._safe_float(_safe_lt(b_eu, 1)),
                     handicap_away_odds=sf.handicap_away_odds or wancai._safe_float(_safe_lt(b_as, 2)),
                     source="merged",
+                    had_single=sf.had_single,
+                    hhad_single=sf.hhad_single,
                 )
                 fixture._num = num
                 fixture._fid = fid
@@ -475,6 +479,8 @@ class SourceManager:
                     handicap_home_odds=st_hhad.get("h") or wancai._safe_float(_safe_lt(b_as, 0)),
                     handicap_away_odds=st_hhad.get("a") or wancai._safe_float(_safe_lt(b_as, 2)),
                     source="merged",
+                    had_single=st_match.get("had_single"),
+                    hhad_single=st_match.get("hhad_single"),
                 )
 
                 # 附加全部原始数据

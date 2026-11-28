@@ -23,6 +23,8 @@ class Fixture:
     handicap_away_odds: Optional[float] = None
     total_goals_line: Optional[float] = None
     source: str = ""
+    had_single: Optional[bool] = None
+    hhad_single: Optional[bool] = None
 
 
 @dataclass
