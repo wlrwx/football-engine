@@ -185,20 +185,21 @@ def test_blend_scanner_finds_a_wired_getter_call():
     assert audit.scan_blend_consumers("cfg.market_blend_weight = 0.5\n") == ([], [])
 
 
-def test_booster_never_splits_on_gated_or_side_columns(report):
+def test_booster_never_splits_on_disabled_target_market_columns(report):
     """重要性与 config 开关的一致性（无 lightgbm 时脚本自行 skip）。"""
     f = _finding(report, "booster_gain_attribution")
     if f["verdict"].startswith("skipped"):
         pytest.skip(f["note"])
-    from engine.prediction.lgbm_model import SIDE_FEATURE_NAMES
+    from engine.prediction.lgbm_model import FEATURE_NAMES
     from engine.prediction.market_isolation import TARGET_MARKET_FEATURES
     cfg = json.loads((ROOT / "config" / "prediction.json").read_text(encoding="utf-8"))
-    zero_expected = [n for n in (*TARGET_MARKET_FEATURES, *SIDE_FEATURE_NAMES)
-                     if n in f["zero_gain_columns"]]
     if not cfg["lgbm"].get("use_odds_features", False):
-        assert zero_expected, "至少应有若干零增益列（闸门关着 + 侧挂覆盖极低）"
-        for n in f["zero_gain_columns"]:
-            assert n in zero_expected or n in ("is_knockout", "rank_diff")
+        expected = TARGET_MARKET_FEATURES.intersection(FEATURE_NAMES)
+        zero_gain = set(f["zero_gain_columns"])
+        assert expected, "模型应包含若干目标市场派生列，才能验证闸门生效"
+        assert expected <= zero_gain, (
+            f"目标市场闸门关闭时这些列仍发生分裂：{sorted(expected - zero_gain)}"
+        )
 
 
 def test_booster_is_loaded_in_a_subprocess_with_model_str(report):

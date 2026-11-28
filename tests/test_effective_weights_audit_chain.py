@@ -13,9 +13,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from engine.review.post_match import PostMatchReviewer, ReviewLedger
+from engine.review.post_match import PostMatchReviewer, ReviewLedger, _poisson_binomial_prob_le
 
 DATE = "2026-10-11"
+
+
+def test_poisson_binomial_tail_probability():
+    assert _poisson_binomial_prob_le([0.5, 0.5], 0) == 0.25
+    assert _poisson_binomial_prob_le([0.5, 0.5], 1) == 0.75
 
 
 def _write_daily(data_dir: Path, pred_extra: dict) -> None:
@@ -112,3 +117,24 @@ class TestEffectiveWeightsAuditChain:
         recs = ReviewLedger(tmp_path / "state" / "review_ledger.jsonl").load_window()
         assert recs[0].fusion_effective_weights["djyy"] == 0.0
         assert recs[0].fusion_source != "fuse_three_way"
+
+    def test_daily_diagnostics_expose_market_dependence(self, tmp_path: Path):
+        _write_daily(tmp_path, {
+            "fusion_effective_weights": {
+                "model": 0.0625, "market": 0.9375, "djyy": 0.0,
+            },
+            "fusion_source": "fuse_two_way",
+        })
+
+        report = PostMatchReviewer(tmp_path).review_day(DATE)
+        diag = report["diagnostics"]
+
+        assert diag["source_direction"]["final"]["hits"] == 1
+        assert diag["source_direction"]["final"]["expected_hits"] == 0.44
+        assert diag["source_direction"]["final"]["tail_prob_le_observed"] == 1.0
+        assert diag["market_agreement"] == {"n": 1, "agreements": 1, "rate": 1.0}
+        assert diag["effective_weights"]["average"] == {
+            "model": 0.0625, "market": 0.9375, "djyy": 0.0,
+        }
+        assert diag["effective_weights"]["market_dominant_n"] == 1
+        assert diag["direction_confusion"]["final"]["home"]["home"] == 1

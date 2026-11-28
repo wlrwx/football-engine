@@ -92,6 +92,16 @@ class FusionOptimizer:
         self.val_matches = self.cfg.get("val_matches", 100)
         # 优化方法 ("softmax_brier" | "logit_nll") 与最小新增场次冷却门槛
         self.method = str(self.cfg.get("method", "softmax_brier"))
+        self.fusion_mode = str(self.cfg.get("fusion_mode", "linear"))
+        if self.method not in ("softmax_brier", "logit_nll"):
+            raise ValueError(f"未知 optimizer.method: {self.method}")
+        if self.fusion_mode not in ("linear", "logit"):
+            raise ValueError(f"未知 optimizer.fusion_mode: {self.fusion_mode}")
+        if self.method == "logit_nll" and self.fusion_mode != "logit":
+            raise ValueError(
+                "optimizer.method=logit_nll 必须与 fusion_mode=logit 配套；"
+                "生产 linear 融合请使用 softmax_brier，避免优化/反事实目标错配"
+            )
         self.min_new_matches = int(self.cfg.get("min_new_matches", 0))
         # 显著性阈值：晋升要求 improvement ≥ max(min_improvement, min_z × SE)
         # 2026-08-14：n=20 时 SE≈0.015，0.002-0.005 的阈值比噪声小一个量级，
@@ -430,7 +440,7 @@ class FusionOptimizer:
                 "model_weight": w.model,
                 "market_weight": w.market,
                 "djyy_weight": w.djyy,
-                "fusion_mode": "logit" if self.method == "logit_nll" else "linear",
+                "fusion_mode": self.fusion_mode,
             },
             post_fusion={k: False for k in DEFAULT_POST_FUSION},
         )
@@ -512,6 +522,8 @@ class FusionOptimizer:
             "champion": new_champion.to_dict(),
             "previous": old_champion.to_dict(),
             "updated_at": datetime.now().isoformat(),
+            "optimizer_method": self.method,
+            "fusion_mode": self.fusion_mode,
         }
         if ledger_n is not None:
             state["last_eval_ledger_n"] = int(ledger_n)
