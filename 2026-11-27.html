@@ -224,6 +224,13 @@ a:hover { text-decoration:underline; }
   font-size:0.68rem; color:var(--dim); display:flex; align-items:center; gap:6px; flex-wrap:wrap;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
+.provenance-inline { color:var(--text-secondary); }
+.provenance-box { margin:8px 0 12px; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+.provenance-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.provenance-grid > div { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.provenance-grid span { color:var(--dim); font-size:0.68rem; }
+.provenance-grid strong { color:var(--text); font-size:0.82rem; }
+.provenance-box p { margin:7px 0 0; color:var(--text-secondary); font-size:0.72rem; }
 .pick-label { display:none; }
 .pick-val {
   font-size:0.78rem; font-weight:700; padding:1px 7px; border-radius:5px; display:inline-block;
@@ -465,6 +472,7 @@ tr:last-child td { border-bottom:none; }
   .summary-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .topbar { gap:8px; }
   .page-tab-btn { padding:5px 11px; font-size:0.75rem; }
+  .ev-grid { grid-template-columns:1fr; }
 }
 </style>
 </head>
@@ -482,7 +490,7 @@ tr:last-child td { border-bottom:none; }
     </div>
     <div class="topbar-right">
       <a href="track-record.html" class="nav-link">全量战绩 ↗</a>
-      <span class="badge ok" title="⚠ 2026-11-28: DJYY 覆盖率偏低 5/19——该源大面积失效; ⚠ 2026-11-28: 模型有效权重均值仅 5.9%（名义 0.1）——系统实质接近纯市场基准">正常（2条提示）</span>
+      <span class="badge ok" title="⚠ 2026-11-28: DJYY 覆盖率偏低 7/23——该源大面积失效; ⚠ 2026-11-28: 模型有效权重均值仅 5.9%（名义 0.1）——系统实质接近纯市场基准">正常（2条提示）</span>
     </div>
   </div>
 
@@ -532,7 +540,7 @@ tr:last-child td { border-bottom:none; }
       </div>
     </div>
     <div class="summary-foot">
-      <div class="bb-empty">今日无单注价值推荐 <span style="color:var(--dim);font-size:.72rem">（11 场已扫描 · 拦截: 联赛禁投 2 · 方向置信不足 5 · 无正EV 7）</span><span style="font-size:.68rem;color:var(--dim);margin-left:8px">空仓也是决策</span></div>
+      <div class="bb-empty">今日无单注价值推荐 <span style="color:var(--dim);font-size:.72rem">（11 场已扫描 · 拦截: 联赛禁投 2 · 方向置信不足 5 · 无正EV 7）</span><span style="font-size:.68rem;color:var(--dim);margin-left:8px">空仓也是决策</span></div><span class="provenance-inline" title="方向是否与去水市场一致，以及本场实际用于融合的市场权重">最终跟随市场 11/11 场 · 平均市场权重 92%</span>
       <span style="font-size:0.68rem;color:var(--dim)">资金与敞口统一口径（含串关）</span>
     </div>
   </div>
@@ -589,6 +597,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span><span class="ar-hit miss" title="赛果 2-0">✗</span> <span class="ar-hit " title="比分命中候选第8位">🎯8</span></div>
         <div class="m-pick-sub"><span class="pred-score">0-1 / 0-0 / 1-1</span><span class="hcap-label">让+1 主52%</span><span class="risk-pill" title="数据新鲜度风险（watch/alert）">⚠ 数据新鲜度</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 客胜 45% · 市场 客胜 41% · 最终 客胜 41%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -602,6 +611,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m0-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.334 D0.257 A0.409</span></div>
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>18%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主2.88→2.53↓ 平3.61→3.75↑ 客1.99→2.16↑</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 10次 · 主↓8.7% · 客↑5.9% · 跨1985min</span><span class="info-chip" style="color:var(--dim)">裁判 亚历克斯·金</span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让1球后的胜平负概率，与上方模型预测不同源">让球盘 +1</span> <span class="pick-val home" style="border-color:var(--green)">主胜 52%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>客胜 45%</strong></div><div><span>市场</span><strong>客胜 41%</strong></div><div><span>最终</span><strong>客胜 41%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -800,6 +810,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val home">主胜 42%</span><span class="ar-hit hit" title="赛果 3-1">✓</span></div>
         <div class="m-pick-sub"><span class="pred-score">1-1 / 0-1 / 1-2</span><span class="hcap-label">让-1 客76%</span><span class="risk-pill" title="数据新鲜度风险（watch/alert）">⚠ 数据新鲜度</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 客胜 57% · 市场 主胜 44% · 最终 主胜 42%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -813,6 +824,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m1-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.421 D0.229 A0.350</span></div>
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>26%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主1.95→2.14↑ 平3.98→3.83↓ 客2.75→2.53↓</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 11次 · 跨2550min</span><span class="info-chip" style="color:var(--red)">模型vs市场分歧 <b>24%</b></span><span class="info-chip" style="color:var(--dim)">裁判 费利克斯·韦勒</span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 76%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>客胜 57%</strong></div><div><span>市场</span><strong>主胜 44%</strong></div><div><span>最终</span><strong>主胜 42%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -1011,6 +1023,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val home">主胜 76%</span><span class="ar-hit miss" title="赛果 1-1">✗</span> <span class="ar-hit hit" title="比分命中候选第2位">🎯2</span></div>
         <div class="m-pick-sub"><span class="pred-score">2-1 / 1-1 / 2-0</span><span class="hcap-label">让-1 主41%</span><span class="risk-pill" title="该联赛高置信反向样本≥2场，60%+段已降档">⚠ 60%+反向风险</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 主胜 58% · 市场 主胜 81% · 最终 主胜 76%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -1024,6 +1037,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m2-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.757 D0.137 A0.106</span></div>
       <div class="risk-banner"><b>⚠ 60%+反向风险</b>：该联赛高置信反向样本≥2场，60%+段已降档</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>27%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主1.27→1.16↓ 平5.45→6.20↑ 客6.70→10.00↑</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 7次 · 主↑1.8% · 客↓9.1% · 跨2112min</span><span class="info-chip" style="color:var(--red)">模型vs市场分歧 <b>22%</b></span><span class="info-chip" style="color:var(--dim)">裁判 理查德·马滕斯</span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val home" style="border-color:var(--green)">主胜 41%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>主胜 58%</strong></div><div><span>市场</span><strong>主胜 81%</strong></div><div><span>最终</span><strong>主胜 76%</strong></div></div><p>市场比最终融合更看好主胜，高 5 个百分点</p><p>实际权重：模型 5% · 市场 75% · DJYY 20%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -1222,6 +1236,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 40%</span></div>
         <div class="m-pick-sub"><span class="pred-score">0-2 / 0-3 / 0-1</span><span class="hcap-label">让+1 客52%</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 客胜 69% · 市场 客胜 38% · 最终 客胜 40%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -1235,6 +1250,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m3-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_two_way<span style="margin-left:8px">末态 H0.359 D0.244 A0.397</span></div>
       
       <div class="signal-strip"><span class="info-chip">置信度 <b>45%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 平3.92→3.75↓</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 8次 · 主↓1.6% · 客↑2.8% · 跨1620min</span><span class="info-chip" style="color:var(--red)">模型vs市场分歧 <b>31%</b></span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让1球后的胜平负概率，与上方模型预测不同源">让球盘 +1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 52%</span> <span class="pick-val away" style="font-size:.78em;border-color:var(--red);background:rgba(147,51,234,0.08)" title="模型概率×市场赔率-1。edge>30% 超出可信区间，系统不据此出注">让球客 +EV +8%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>客胜 69%</strong></div><div><span>市场</span><strong>客胜 38%</strong></div><div><span>最终</span><strong>客胜 40%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -1427,6 +1443,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val home">主胜 65%</span><span class="ar-hit miss" title="赛果 3-3">✗</span></div>
         <div class="m-pick-sub"><span class="pred-score">2-0 / 1-0 / 3-0</span><span class="hcap-label">让-1 主52%</span><span class="risk-pill" title="该联赛高置信反向样本≥2场，60%+段已降档">⚠ 60%+反向风险</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 主胜 69% · 市场 主胜 65% · 最终 主胜 65%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -1440,6 +1457,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m4-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.655 D0.182 A0.164</span></div>
       <div class="risk-banner"><b>⚠ 60%+反向风险</b>：该联赛高置信反向样本≥2场，60%+段已降档</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>45%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主1.61→1.67↑ 平4.25→3.88↓</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 13次 · 主↑0.6% · 客↓0.5% · 跨2465min</span><span class="info-chip" style="color:var(--dim)">裁判 费利克斯·茨瓦耶</span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val home" style="border-color:var(--green)">主胜 52%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>主胜 69%</strong></div><div><span>市场</span><strong>主胜 65%</strong></div><div><span>最终</span><strong>主胜 65%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -1638,6 +1656,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 49%</span><span class="ar-hit miss" title="赛果 0-0">✗</span></div>
         <div class="m-pick-sub"><span class="pred-score">0-2 / 0-3 / 0-1</span><span class="hcap-label">让+1 客55%</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 客胜 71% · 市场 客胜 48% · 最终 客胜 49%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -1651,6 +1670,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m5-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.248 D0.262 A0.490</span></div>
       
       <div class="signal-strip"><span class="info-chip">置信度 <b>46%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主2.98→2.71↓ 客2.06→2.25↑</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 12次 · 跨2112min</span><span class="info-chip" style="color:var(--red)">模型vs市场分歧 <b>24%</b></span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让1球后的胜平负概率，与上方模型预测不同源">让球盘 +1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 55%</span> <span class="pick-val away" style="font-size:.78em;border-color:var(--red);background:rgba(147,51,234,0.08)" title="模型概率×市场赔率-1。edge>30% 超出可信区间，系统不据此出注">让球客 +EV +6%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>客胜 71%</strong></div><div><span>市场</span><strong>客胜 48%</strong></div><div><span>最终</span><strong>客胜 49%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -1849,6 +1869,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 54%</span><span class="ar-hit miss" title="赛果 1-0">✗</span> <span class="ar-hit " title="比分命中候选第8位">🎯8</span></div>
         <div class="m-pick-sub"><span class="pred-score">0-1 / 0-2 / 1-1</span><span class="hcap-label">让+1 客48%</span><span class="risk-pill" title="50-60%盲点: 50-60%概率段=平局盲点区，已降档 | 数据新鲜度: 数据新鲜度风险（watch/alert）">⚠ 2项提醒</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 客胜 67% · 市场 客胜 53% · 最终 客胜 54%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -1862,6 +1883,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m6-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.217 D0.243 A0.540</span></div>
       <div class="risk-banner"><b>⚠ 50-60%盲点</b>：50-60%概率段=平局盲点区，已降档<br><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>44%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主2.81→2.97↑ 平3.53→3.40↓</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 9次 · 主↑2.1% · 客↓0.9% · 跨2112min</span><span class="info-chip" style="color:var(--amber)">分歧 <b>14%</b></span><span class="info-chip" style="color:var(--dim)">裁判 鲁迪·布凯</span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让1球后的胜平负概率，与上方模型预测不同源">让球盘 +1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 48%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>客胜 67%</strong></div><div><span>市场</span><strong>客胜 53%</strong></div><div><span>最终</span><strong>客胜 54%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -2060,6 +2082,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 37%</span><span class="ar-hit miss" title="赛果 3-2">✗</span></div>
         <div class="m-pick-sub"><span class="pred-score">1-1 / 0-1 / 1-0</span><span class="hcap-label">让-1 客60%</span><span class="risk-pill" title="均势平局：双方接近，平局被低估">⚠ 平局预警</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 主胜 37% · 市场 客胜 37% · 最终 客胜 37%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -2073,6 +2096,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m7-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.363 D0.268 A0.369</span></div>
       <div class="risk-banner"><b>⚠ 平局预警</b>：均势平局：双方接近，平局被低估</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>15%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主2.48→2.27↓ 客2.31→2.57↑</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 11次 · 主↑0.9% · 跨2820min</span><span class="info-chip" style="color:var(--dim)">裁判 安迪·马德利</span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 60%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>主胜 37%</strong></div><div><span>市场</span><strong>客胜 37%</strong></div><div><span>最终</span><strong>客胜 37%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -2271,6 +2295,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 43%</span><span class="ar-hit miss" title="赛果 2-0">✗</span> <span class="ar-hit " title="比分命中候选第7位">🎯7</span></div>
         <div class="m-pick-sub"><span class="pred-score">1-1 / 1-0 / 0-1</span><span class="hcap-label">让+1 主65%</span><span class="risk-pill" title="数据新鲜度风险（watch/alert）">⚠ 数据新鲜度</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 主胜 43% · 市场 客胜 44% · 最终 客胜 43%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -2284,6 +2309,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m8-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_two_way<span style="margin-left:8px">末态 H0.292 D0.279 A0.429</span></div>
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>17%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 平3.50→3.63↑ 客2.17→2.10↓</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 11次 · 主↓1.1% · 客↑1.4% · 跨2220min</span><span class="info-chip" style="color:var(--amber)">分歧 <b>14%</b></span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让1球后的胜平负概率，与上方模型预测不同源">让球盘 +1</span> <span class="pick-val home" style="border-color:var(--green)">主胜 65%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>主胜 43%</strong></div><div><span>市场</span><strong>客胜 44%</strong></div><div><span>最终</span><strong>客胜 43%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -2476,6 +2502,7 @@ tr:last-child td { border-bottom:none; }
       <div class="m-pick">
         <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val home">主胜 50%</span><span class="ar-hit miss" title="赛果 1-3">✗</span></div>
         <div class="m-pick-sub"><span class="pred-score">1-1 / 2-1 / 1-2</span><span class="hcap-label">让-1 客72%</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 客胜 53% · 市场 主胜 51% · 最终 主胜 50%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -2489,6 +2516,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m9-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_three_way<span style="margin-left:8px">末态 H0.497 D0.223 A0.280</span></div>
       
       <div class="signal-strip"><span class="info-chip">置信度 <b>25%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主2.02→1.91↓ 平3.75→3.88↑ 客2.85→3.02↑</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 12次 · 主↓5.9% · 客↑8.6% · 跨2465min</span><span class="info-chip" style="color:var(--red)">模型vs市场分歧 <b>27%</b></span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让-1球后的胜平负概率，与上方模型预测不同源">让球盘 -1</span> <span class="pick-val away" style="border-color:var(--red)">客胜 72%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>客胜 53%</strong></div><div><span>市场</span><strong>主胜 51%</strong></div><div><span>最终</span><strong>主胜 50%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -2654,11 +2682,11 @@ tr:last-child td { border-bottom:none; }
       <div class="m-teams">
         <div class="m-team-row">
           <span class="m-team-name ">哥伦布机员</span>
-          <span class="m-team-stat" title="本场模型预期进球 xG">2.12</span>
+          <span class="m-team-stat score">1</span>
         </div>
         <div class="m-team-row">
           <span class="m-team-name fav">迈阿密国际</span>
-          <span class="m-team-stat" title="本场模型预期进球 xG">1.13</span>
+          <span class="m-team-stat score">0</span>
         </div>
       </div>
 
@@ -2685,8 +2713,9 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-pick">
-        <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span></div>
+        <div class="m-pick-top"><span class="pick-label">预测</span> <span class="pick-val away">客胜 41%</span><span class="ar-hit miss" title="赛果 1-0">✗</span> <span class="ar-hit hit" title="比分命中候选第1位">🎯1</span></div>
         <div class="m-pick-sub"><span class="pred-score">1-0 / 1-1 / 2-0</span><span class="hcap-label">让+1 主78%</span><span class="risk-pill" title="数据新鲜度风险（watch/alert）">⚠ 数据新鲜度</span></div>
+        <div class="m-pick-sub provenance-inline" title="原始模型是独立统计判断；市场由赔率去水得到；最终是两者按实际权重融合">模型 主胜 59% · 市场 客胜 43% · 最终 客胜 41%</div>
       </div>
 
       <div class="m-chevron">&#9662;</div>
@@ -2700,6 +2729,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-content active" id="m10-model"><div style="font-size:0.68rem;color:var(--dim);margin:0 0 6px;padding:6px 8px;background:var(--surface2);border-radius:6px"><b style="color:var(--text-secondary)">融合归因链</b> base_model &rarr; fuse_two_way<span style="margin-left:8px">末态 H0.365 D0.223 A0.412</span></div>
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
       <div class="signal-strip"><span class="info-chip">置信度 <b>27%</b></span><span class="info-chip" style="color:var(--purple)">赔率变动 主2.33→2.17↓ 平4.15→3.63↓ 客2.21→2.58↑</span><span class="info-chip" style="color:var(--teal, #14b8a6)">水位监控 10次 · 客↑1.2% · 跨2184min</span><span class="info-chip" style="color:var(--red)">模型vs市场分歧 <b>24%</b></span><span class="info-chip"><span class="pick-label hcap-label" title="让球玩法（市场盘口观点）：主队让1球后的胜平负概率，与上方模型预测不同源">让球盘 +1</span> <span class="pick-val home" style="border-color:var(--green)">主胜 78%</span></span></div>
+      <div class="provenance-box"><div class="provenance-grid"><div><span>原始模型</span><strong>主胜 59%</strong></div><div><span>市场</span><strong>客胜 43%</strong></div><div><span>最终</span><strong>客胜 41%</strong></div></div><p>最终倾向与市场基本一致</p><p>实际权重：模型 6% · 市场 94% · DJYY 0%</p></div>
       <table class="model-table">
         <tr><th>信号源</th><th class="prob-bar-cell">主 / 平 / 客 概率分布</th></tr>
         
@@ -2898,11 +2928,11 @@ tr:last-child td { border-bottom:none; }
     
   <div class="section-title">赛果复盘</div>
   <div class="results-summary">
-    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">11% (1/9)</div></div>
-    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.849</div></div>
+    <div class="ts-chip"><div class="ts-label">命中率</div><div class="ts-val" style="color:var(--red)">10% (1/10)</div></div>
+    <div class="ts-chip"><div class="ts-label">平均Brier</div><div class="ts-val" style="color:var(--amber)">0.826</div></div>
     <div class="ts-chip"><div class="ts-label">总盈亏</div><div class="ts-val" style="color:var(--green)">&yen;+0</div></div>
   </div>
-  <div class="results-summary" style="margin-top:6px;"><div class="ts-chip"><div class="ts-label">LogLoss(final)</div><div class="ts-val" style="color:var(--amber)">1.337</div></div><div class="ts-chip"><div class="ts-label">进球框架</div><div class="ts-val" style="color:var(--green)">56% (5/9)</div></div><div class="ts-chip"><div class="ts-label">概率分段</div><div class="ts-val" style="font-size:0.68rem;">40-50%:20% · 50-60%:0% · 60%+:0% · <40%:0%</div></div><div class="ts-chip"><div class="ts-label">新鲜度分层</div><div class="ts-val" style="font-size:0.68rem;">ok:0% · watch:25%</div></div></div>
+  <div class="results-summary" style="margin-top:6px;"><div class="ts-chip"><div class="ts-label">LogLoss(final)</div><div class="ts-val" style="color:var(--amber)">1.305</div></div><div class="ts-chip"><div class="ts-label">进球框架</div><div class="ts-val" style="color:var(--green)">50% (5/10)</div></div><div class="ts-chip"><div class="ts-label">概率分段</div><div class="ts-val" style="font-size:0.68rem;">40-50%:17% · 50-60%:0% · 60%+:0% · <40%:0%</div></div><div class="ts-chip"><div class="ts-label">新鲜度分层</div><div class="ts-val" style="font-size:0.68rem;">alert:0% · ok:0% · watch:25%</div></div></div>
   <div class="results-table-wrap">
     <table class="results-table">
       <tr><th>比赛</th><th>比分</th><th>实际</th><th>让球</th><th>预测</th><th>命中</th><th>Brier</th><th>盈亏</th></tr>
@@ -2997,6 +3027,16 @@ tr:last-child td { border-bottom:none; }
           <td style="font-family:monospace;font-size:0.68rem;">0.814</td>
           <td style="color:var(--dim);font-weight:600;">0</td>
         </tr>
+        <tr class="miss">
+          <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五011</span>哥伦布机员 vs 迈阿密国际</td>
+          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td>主胜</td>
+          <td style="font-size:0.75rem;color:var(--dim);">(+1) <span style="color:var(--green);font-size:0.72rem;">让球主胜</span></td>
+          <td>客胜 (41%)</td>
+          <td style="text-align:center;"><span class="result-icon miss">✗</span></td>
+          <td style="font-family:monospace;font-size:0.68rem;">0.623</td>
+          <td style="color:var(--dim);font-weight:600;">0</td>
+        </tr>
     </table>
   </div>
 
@@ -3024,8 +3064,8 @@ tr:last-child td { border-bottom:none; }
       <div class="sys-card">
         <h4>熔断器</h4>
         <div class="sys-row"><span class="k">状态</span><span class="tier-indicator caution">T2 · Shadow &middot; x1.00</span></div>
-        <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-7</span></div>
-        <div class="sys-row"><span class="k">胜率</span><span class="v">50.2% (1119胜 / 1110负)</span></div>
+        <div class="sys-row"><span class="k">连续</span><span class="v" style="color:var(--red)">-8</span></div>
+        <div class="sys-row"><span class="k">胜率</span><span class="v">50.2% (1119胜 / 1111负)</span></div>
         <div class="sys-row"><span class="k">日盈亏</span><span class="v" style="color:var(--green)">&yen;+0</span></div>
         <div class="sys-row"><span class="k">周盈亏</span><span class="v" style="color:var(--red)">&yen;-18</span></div>
       </div>
