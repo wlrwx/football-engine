@@ -166,7 +166,7 @@ a:hover { text-decoration:underline; }
   box-shadow:var(--shadow); overflow:hidden;
 }
 .match-board-head {
-  display:grid; grid-template-columns:112px minmax(190px, 1.35fr) 216px minmax(185px, 1fr) 22px;
+  display:grid; grid-template-columns:112px minmax(175px, 1.15fr) 264px minmax(185px, 1fr) 22px;
   gap:12px; align-items:center; padding:8px 16px;
   background:var(--surface2); border-bottom:1px solid var(--border);
   font-size:0.66rem; font-weight:700; color:var(--dim); letter-spacing:0.04em;
@@ -176,7 +176,7 @@ a:hover { text-decoration:underline; }
 .league-section:last-child .match { border-bottom:none; }
 .match.value-pick { border-left:3px solid var(--green); }
 .match-header {
-  display:grid; grid-template-columns:112px minmax(190px, 1.35fr) 216px minmax(185px, 1fr) 22px;
+  display:grid; grid-template-columns:112px minmax(175px, 1.15fr) 264px minmax(185px, 1fr) 22px;
   gap:12px; align-items:center; padding:12px 16px; cursor:pointer; user-select:none;
 }
 .match-header:hover { background:rgba(241,245,249,.65); }
@@ -466,14 +466,173 @@ tr:last-child td { border-bottom:none; }
   .m-pick { grid-area:pick; align-items:flex-end; text-align:right; }
   .m-pick-top, .m-pick-sub { justify-content:flex-end; }
   .m-probs { grid-area:probs; }
+  .focus-strip { grid-template-columns:1fr; }
+  .board-toolbar { flex-direction:column; align-items:stretch; }
 }
 @media (max-width:560px) {
-  .page { padding:0 10px 40px; }
+  .page { padding:0 10px 76px; }
   .summary-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .topbar { gap:8px; }
   .page-tab-btn { padding:5px 11px; font-size:0.75rem; }
   .ev-grid { grid-template-columns:1fr; }
+  .slip-panel { left:10px; right:10px; width:auto; bottom:72px; }
+  .slip-fab { right:12px; bottom:14px; }
 }
+
+/* ===== SPORTTERY PRO WORKBENCH (2026-11-28) ===== */
+.focus-strip {
+  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px;
+  margin:0 0 12px;
+}
+.focus-col {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:10px 12px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:4px;
+  border-top:2px solid var(--blue);
+}
+.focus-col.focus-ev { border-top-color:var(--green); }
+.focus-col.focus-stable { border-top-color:var(--blue); }
+.focus-col.focus-risk { border-top-color:var(--amber); }
+.focus-kicker { font-size:0.64rem; font-weight:700; color:var(--dim); letter-spacing:0.03em; display:flex; justify-content:space-between; align-items:center; }
+.focus-main { font-size:0.84rem; font-weight:800; color:var(--text); line-height:1.3; }
+.focus-sub { font-size:0.68rem; color:var(--text-secondary); }
+
+.board-toolbar {
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.qf-group, .sort-group { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.qf-btn, .sort-btn {
+  padding:4px 10px; border-radius:7px; font-size:0.72rem; font-weight:600;
+  color:var(--text-secondary); background:var(--surface); border:1px solid var(--border);
+  cursor:pointer; transition:var(--transition); font-family:inherit; display:inline-flex; align-items:center; gap:4px;
+}
+.qf-btn:hover, .sort-btn:hover { border-color:var(--blue); color:var(--blue); }
+.qf-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.qf-btn.active .cnt { opacity:0.85; color:#fff; }
+.sort-btn.active { background:var(--text); color:#fff; border-color:var(--text); }
+
+.m-meta-top { flex-wrap:wrap; }
+.single-tag {
+  font-size:0.6rem; font-weight:800; color:#fff; background:var(--red);
+  border-radius:4px; padding:0 4px; line-height:1.45; white-space:nowrap;
+}
+.cutoff-tag {
+  font-size:0.6rem; font-weight:700; color:var(--amber); background:var(--amber-dim);
+  border:1px solid rgba(180,83,9,.22); border-radius:4px; padding:0 4px; line-height:1.4; white-space:nowrap;
+}
+.play-ev-pill {
+  font-size:0.64rem; font-weight:700; color:var(--purple); background:var(--purple-dim);
+  border-radius:4px; padding:1px 6px; white-space:nowrap;
+}
+
+.odd-row { display:grid; grid-template-columns:28px repeat(3, minmax(0, 1fr)); gap:4px; align-items:stretch; }
+.mkt-tag {
+  font-size:0.64rem; font-weight:700; color:var(--text-secondary); background:var(--surface2);
+  border:1px solid var(--border); border-radius:5px;
+  display:flex; align-items:center; justify-content:center; padding:0 2px;
+}
+.mkt-tag.hhad { color:var(--purple); background:var(--purple-dim); border-color:rgba(109,40,217,.2); }
+.odd-cell {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:4px 3px; border-radius:6px; border:1px solid var(--border); background:var(--surface);
+  cursor:pointer; transition:var(--transition); font-family:inherit; line-height:1.15; min-width:0;
+}
+.odd-cell:hover:not(:disabled) { border-color:var(--blue); background:var(--blue-dim); }
+.odd-cell:disabled { opacity:0.45; cursor:default; }
+.odd-cell .oc-p { font-size:0.72rem; font-weight:700; color:var(--text-secondary); }
+.odd-cell .oc-o { font-size:0.66rem; color:var(--dim); margin-top:1px; font-variant-numeric:tabular-nums; }
+.odd-cell.best { background:var(--surface2); border-color:var(--border-light); }
+.odd-cell.best .oc-p { color:var(--text); font-weight:800; }
+.odd-cell.best.home .oc-p { color:var(--blue); }
+.odd-cell.best.away .oc-p { color:var(--red); }
+.odd-cell.pos-ev { border-color:rgba(21,128,61,.45); background:rgba(21,128,61,.05); }
+.odd-cell.pos-ev .oc-o { color:var(--green); font-weight:700; }
+.odd-cell.selected {
+  background:var(--text); border-color:var(--text); color:#fff; box-shadow:var(--shadow);
+}
+.odd-cell.selected .oc-p, .odd-cell.selected .oc-o { color:#fff; font-weight:800; }
+
+.sc-odd { font-size:0.64rem; color:var(--blue); font-weight:700; margin-top:1px; }
+.score-cell.pos-ev { border-color:rgba(21,128,61,.45); background:rgba(21,128,61,.06); }
+.sc-ev-badge { font-size:0.58rem; font-weight:700; color:var(--green); margin-top:1px; }
+.tag-ev {
+  font-size:0.62rem; font-weight:700; color:var(--green); background:var(--green-dim);
+  border-radius:4px; padding:0 5px; margin-left:6px; white-space:nowrap;
+}
+.hafu-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:6px; margin-bottom:12px; }
+.hafu-cell {
+  background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:7px 9px;
+  display:flex; flex-direction:column; gap:2px;
+}
+.hafu-cell.pos-ev { border-color:rgba(21,128,61,.45); background:rgba(21,128,61,.05); }
+.hafu-top { display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; font-weight:700; color:var(--text); }
+.hafu-sub { display:flex; justify-content:space-between; align-items:center; font-size:0.66rem; color:var(--dim); }
+
+.slip-fab {
+  position:fixed; right:20px; bottom:20px; z-index:90;
+  display:none; align-items:center; gap:8px; padding:10px 16px;
+  border-radius:999px; border:none; background:var(--text); color:#fff;
+  font-size:0.78rem; font-weight:700; cursor:pointer; box-shadow:var(--shadow-lift);
+  font-family:inherit; transition:var(--transition);
+}
+.slip-fab.visible { display:inline-flex; }
+.slip-fab:hover { background:var(--blue); }
+.slip-fab-cnt {
+  background:var(--green); color:#fff; border-radius:999px; padding:1px 7px; font-size:0.7rem; font-weight:800;
+}
+.slip-panel {
+  position:fixed; right:20px; bottom:74px; z-index:95; width:360px; max-height:76vh;
+  display:none; flex-direction:column;
+  background:var(--surface); border:1px solid var(--border-light); border-radius:var(--radius);
+  box-shadow:var(--shadow-lift); overflow:hidden;
+}
+.slip-panel.open { display:flex; }
+.slip-head {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:10px 14px; background:var(--surface2); border-bottom:1px solid var(--border);
+}
+.slip-title { font-size:0.82rem; font-weight:800; color:var(--text); }
+.slip-head-actions { display:flex; gap:6px; }
+.slip-mini-btn {
+  padding:3px 8px; border-radius:5px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-secondary); font-size:0.68rem; font-weight:600; cursor:pointer; font-family:inherit;
+}
+.slip-mini-btn:hover { border-color:var(--blue); color:var(--blue); }
+.slip-body { padding:10px 14px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px; }
+.slip-match {
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; background:var(--bg);
+}
+.slip-match-head { display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:5px; }
+.slip-match-name { font-size:0.74rem; font-weight:700; color:var(--text); }
+.slip-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.slip-chip {
+  display:inline-flex; align-items:center; gap:4px; padding:3px 7px; border-radius:5px;
+  background:var(--surface); border:1px solid var(--border); font-size:0.68rem; font-weight:600; color:var(--text);
+  cursor:pointer; font-family:inherit;
+}
+.slip-chip:hover { border-color:var(--red); color:var(--red); }
+.slip-warn {
+  font-size:0.68rem; color:var(--amber); background:var(--amber-dim); border-radius:5px; padding:5px 8px; font-weight:600;
+}
+.slip-foot {
+  padding:10px 14px; border-top:1px solid var(--border); background:var(--surface2);
+  display:flex; flex-direction:column; gap:8px;
+}
+.slip-metrics { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px; }
+.slip-metric { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:6px 8px; }
+.slip-metric .k { font-size:0.62rem; color:var(--dim); }
+.slip-metric .v { font-size:0.8rem; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+.slip-ctrl { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.slip-mult-wrap { display:flex; align-items:center; gap:6px; font-size:0.72rem; font-weight:600; color:var(--text-secondary); }
+.slip-mult-input {
+  width:56px; padding:4px 6px; border:1px solid var(--border); border-radius:6px;
+  text-align:center; font-weight:700; font-size:0.76rem; background:var(--surface); color:var(--text);
+}
+.slip-copy-btn {
+  flex:1; padding:7px 12px; border:none; border-radius:7px; background:var(--blue); color:#fff;
+  font-size:0.74rem; font-weight:700; cursor:pointer; font-family:inherit;
+}
+.slip-copy-btn:hover { opacity:0.92; }
 </style>
 </head>
 <body>
@@ -547,16 +706,35 @@ tr:last-child td { border-bottom:none; }
 
   <!-- TAB: 今日决策 -->
   <div class="page-tab-panel active" id="tab-decision">
-    <div class="section-head">
-      <div class="section-title">今日赛程与预测 <span class="st-note">按开赛时间排序 · 点击行展开模型 / 赔率 / 分布</span></div>
+    
+  <div class="focus-strip">
+    <div class="focus-col focus-ev">
+      <div class="focus-kicker"><span>最佳玩法机会</span><span>EV 雷达</span></div>
+      <div class="focus-main">周五005 · 坎布尔 vs SBV精英</div>
+      <div class="focus-sub">让-1·让客 @1.43 · EV +23% · 串关</div>
     </div>
-    <div class="league-nav"><button class="league-btn active" data-league="all">全部</button><button class="league-btn" data-league="日职">日职<span class="cnt">2</span></button><button class="league-btn" data-league="荷乙">荷乙<span class="cnt">2</span></button><button class="league-btn" data-league="芬超">芬超<span class="cnt">1</span></button><button class="league-btn" data-league="挪超">挪超<span class="cnt">1</span></button><button class="league-btn" data-league="荷甲">荷甲<span class="cnt">1</span></button><button class="league-btn" data-league="德乙">德乙<span class="cnt">1</span></button><button class="league-btn" data-league="英联赛杯">英联赛杯<span class="cnt">1</span></button><button class="league-btn" data-league="葡超">葡超<span class="cnt">1</span></button></div><div class="match-board"><div class="match-board-head"><div>时间 / 赛事</div><div>对阵与预期</div><div style="text-align:center">主 &middot; 平 &middot; 客</div><div>主推结论</div><div></div></div><div class="league-section" data-league="日职" data-value="0">
+    <div class="focus-col focus-stable">
+      <div class="focus-kicker"><span>低损稳胆参考</span><span>高胜率优先</span></div>
+      <div class="focus-main">周五006 · 奥斯 vs 布雷达</div>
+      <div class="focus-sub">客胜 40% @1.48 · 串关胆材</div>
+    </div>
+    <div class="focus-col focus-risk">
+      <div class="focus-kicker"><span>头号防冷避坑</span><span>风险雷达</span></div>
+      <div class="focus-main">周五001 · 横滨水手 vs 鹿岛鹿角</div>
+      <div class="focus-sub">平局预警 · 新鲜度告警</div>
+    </div>
+  </div>
+    <div class="section-head">
+      <div class="section-title">今日赛程与预测 <span class="st-note">点击胜平负/让球格子选号串关 · 点击空白处展开详情</span></div>
+    </div>
+    <div class="league-nav"><button class="league-btn active" data-league="all">全部</button><button class="league-btn" data-league="日职">日职<span class="cnt">2</span></button><button class="league-btn" data-league="荷乙">荷乙<span class="cnt">2</span></button><button class="league-btn" data-league="芬超">芬超<span class="cnt">1</span></button><button class="league-btn" data-league="挪超">挪超<span class="cnt">1</span></button><button class="league-btn" data-league="荷甲">荷甲<span class="cnt">1</span></button><button class="league-btn" data-league="德乙">德乙<span class="cnt">1</span></button><button class="league-btn" data-league="英联赛杯">英联赛杯<span class="cnt">1</span></button><button class="league-btn" data-league="葡超">葡超<span class="cnt">1</span></button></div><div class="board-toolbar"><div class="qf-group"><button type="button" class="qf-btn active" data-qf="all">全部<span class="cnt">10</span></button><button type="button" class="qf-btn" data-qf="single">单关<span class="cnt">0</span></button><button type="button" class="qf-btn" data-qf="ev">正EV/全玩法<span class="cnt">8</span></button><button type="button" class="qf-btn" data-qf="steady">高稳胆<span class="cnt">0</span></button><button type="button" class="qf-btn" data-qf="risk">防冷避坑<span class="cnt">9</span></button><button type="button" class="qf-btn" data-qf="settled">已完赛<span class="cnt">10</span></button></div><div class="sort-group"><button type="button" class="sort-btn active" data-sort="time">按时间</button><button type="button" class="sort-btn" data-sort="num">按编号</button><button type="button" class="sort-btn" data-sort="ev">按EV</button></div></div><div class="match-board" id="match-board"><div class="match-board-head"><div>时间 / 编号</div><div>对阵与预期</div><div style="text-align:center">胜平负 · 让球（点击选号串关）</div><div>主推结论</div><div></div></div><div class="league-section" data-league="日职" data-value="0" data-time-order="0" data-num-order="6001" data-best-ev="0.0960" data-max-prob="0.3638" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-07 18:25:00">
         <div class="m-meta-top">
           <span class="m-kickoff">18:25</span>
           <span class="jc-no" title="竞彩编号">周五001</span>
+          
         </div>
         <span class="league-tag">日职</span>
       </div>
@@ -573,20 +751,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val ">33%</span>
-            <span class="m-p-odds">2.98</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">30%</span>
-            <span class="m-p-odds">3.00</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val best away">36%</span>
-            <span class="m-p-odds">2.17</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五001" data-jc="周五001" data-match="横滨水手 vs 鹿岛鹿角" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="2.98" data-prob="0.3329" data-is-top="0" data-single="0"><span class="oc-p">33%</span><span class="oc-o">2.98</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五001" data-jc="周五001" data-match="横滨水手 vs 鹿岛鹿角" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.00" data-prob="0.3034" data-is-top="0" data-single="0"><span class="oc-p">30%</span><span class="oc-o">3.00</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五001" data-jc="周五001" data-match="横滨水手 vs 鹿岛鹿角" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.17" data-prob="0.3638" data-is-top="1" data-single="0"><span class="oc-p">36%</span><span class="oc-o">2.17</span></button></div><div class="odd-row"><span class="mkt-tag hhad">+1</span><button type="button" class="odd-cell best home pos-ev" title="模型估值正EV (+9.6%)" data-mid="2026-08-07_周五001" data-jc="周五001" data-match="横滨水手 vs 鹿岛鹿角" data-mkt="hhad" data-mkt-label="让+1" data-sel="hh" data-sel-label="让胜" data-odd="1.51" data-prob="0.7258" data-is-top="1" data-single="0"><span class="oc-p">73%</span><span class="oc-o">1.51</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五001" data-jc="周五001" data-match="横滨水手 vs 鹿岛鹿角" data-mkt="hhad" data-mkt-label="让+1" data-sel="hd" data-sel-label="让平" data-odd="3.75" data-prob="0.1500" data-is-top="0" data-single="0"><span class="oc-p">15%</span><span class="oc-o">3.75</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五001" data-jc="周五001" data-match="横滨水手 vs 鹿岛鹿角" data-mkt="hhad" data-mkt-label="让+1" data-sel="ha" data-sel-label="让客" data-odd="5.00" data-prob="0.1243" data-is-top="0" data-single="0"><span class="oc-p">12%</span><span class="oc-o">5.00</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:33.3%"></div>
           <div class="prob-seg d" style="width:30.3%"></div>
@@ -606,7 +771,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m0-model">模型与归因</button>
         <button class="tab-btn" data-tab="m0-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m0-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m0-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m0-model">
       <div class="risk-banner"><b>⚠ 平局预警</b>：均势平局：双方接近，平局被低估<br><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -718,31 +883,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.29</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m0-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">15.9%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">11.9%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">11.4%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">11.3%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">11.1%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">8.6%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">8.3%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">8.3%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m0-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">15.9%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">11.9%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">11.4%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">11.3%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">11.1%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">8.6%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">8.3%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">8.3%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">23.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:91%">21.3%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:80%">18.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:53%">12.4%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:46%">10.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:29%">6.8%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>胜胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>23.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>22.2%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>10.2%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>9.1%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.3%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.2%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -755,13 +926,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="日职" data-value="0">
+  </div></div><div class="league-section" data-league="日职" data-value="0" data-time-order="1" data-num-order="6002" data-best-ev="0.0000" data-max-prob="0.4000" data-single="0" data-risk="1" data-settled="1" data-has-ev="0">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-07 18:30:00">
         <div class="m-meta-top">
           <span class="m-kickoff">18:30</span>
           <span class="jc-no" title="竞彩编号">周五002</span>
+          
         </div>
         <span class="league-tag">日职</span>
       </div>
@@ -778,20 +950,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val best home">40%</span>
-            <span class="m-p-odds">2.14</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">30%</span>
-            <span class="m-p-odds">3.25</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">30%</span>
-            <span class="m-p-odds">2.82</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五002" data-jc="周五002" data-match="大阪钢巴 vs 浦和红钻" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="2.14" data-prob="0.4000" data-is-top="1" data-single="0"><span class="oc-p">40%</span><span class="oc-o">2.14</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五002" data-jc="周五002" data-match="大阪钢巴 vs 浦和红钻" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.25" data-prob="0.2980" data-is-top="0" data-single="0"><span class="oc-p">30%</span><span class="oc-o">3.25</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五002" data-jc="周五002" data-match="大阪钢巴 vs 浦和红钻" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.82" data-prob="0.3020" data-is-top="0" data-single="0"><span class="oc-p">30%</span><span class="oc-o">2.82</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五002" data-jc="周五002" data-match="大阪钢巴 vs 浦和红钻" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="4.65" data-prob="0.4447" data-is-top="1" data-single="0"><span class="oc-p">44%</span><span class="oc-o">4.65</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五002" data-jc="周五002" data-match="大阪钢巴 vs 浦和红钻" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="3.85" data-prob="0.2222" data-is-top="0" data-single="0"><span class="oc-p">22%</span><span class="oc-o">3.85</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五002" data-jc="周五002" data-match="大阪钢巴 vs 浦和红钻" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="1.53" data-prob="0.3331" data-is-top="0" data-single="0"><span class="oc-p">33%</span><span class="oc-o">1.53</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:40.0%"></div>
           <div class="prob-seg d" style="width:29.8%"></div>
@@ -811,7 +970,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m1-model">模型与归因</button>
         <button class="tab-btn" data-tab="m1-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m1-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m1-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m1-model">
       <div class="risk-banner"><b>⚠ 平局预警</b>：均势平局：双方接近，平局被低估<br><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -917,31 +1076,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.29</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m1-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">17.6%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">14.9%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">14.6%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">13.2%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">11.4%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">10.1%</div></div><div class="score-cell"><div class="sc-score">3-0</div><div class="sc-prob">9.9%</div></div><div class="score-cell"><div class="sc-score">3-1</div><div class="sc-prob">8.3%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m1-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">17.6%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">14.9%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">14.6%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">13.2%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">11.4%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">10.1%</div></div><div class="score-cell"><div class="sc-score">3-0</div><div class="sc-prob">9.9%</div></div><div class="score-cell"><div class="sc-score">3-1</div><div class="sc-prob">8.3%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">21.3%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:94%">20.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:79%">16.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:70%">14.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:44%">9.5%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:33%">7.0%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>胜胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>36.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>26.7%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.4%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>5.1%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -954,13 +1119,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="芬超" data-value="0">
+  </div></div><div class="league-section" data-league="芬超" data-value="0" data-time-order="2" data-num-order="6003" data-best-ev="0.1556" data-max-prob="0.3779" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 00:00:00">
         <div class="m-meta-top">
           <span class="m-kickoff">00:00</span>
           <span class="jc-no" title="竞彩编号">周五003</span>
+          
         </div>
         <span class="league-tag">芬超</span>
       </div>
@@ -977,20 +1143,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val best home">38%</span>
-            <span class="m-p-odds">1.95</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">31%</span>
-            <span class="m-p-odds">3.60</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">32%</span>
-            <span class="m-p-odds">2.95</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五003" data-jc="周五003" data-match="塞那乔其 vs 赫尔辛基火花" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="1.95" data-prob="0.3779" data-is-top="1" data-single="0"><span class="oc-p">38%</span><span class="oc-o">1.95</span></button><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+10.1%)" data-mid="2026-08-07_周五003" data-jc="周五003" data-match="塞那乔其 vs 赫尔辛基火花" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.60" data-prob="0.3058" data-is-top="0" data-single="0"><span class="oc-p">31%</span><span class="oc-o">3.60</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五003" data-jc="周五003" data-match="塞那乔其 vs 赫尔辛基火花" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.95" data-prob="0.3162" data-is-top="0" data-single="0"><span class="oc-p">32%</span><span class="oc-o">2.95</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+15.6%)" data-mid="2026-08-07_周五003" data-jc="周五003" data-match="塞那乔其 vs 赫尔辛基火花" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="3.80" data-prob="0.3041" data-is-top="0" data-single="0"><span class="oc-p">30%</span><span class="oc-o">3.80</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五003" data-jc="周五003" data-match="塞那乔其 vs 赫尔辛基火花" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="3.90" data-prob="0.2227" data-is-top="0" data-single="0"><span class="oc-p">22%</span><span class="oc-o">3.90</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五003" data-jc="周五003" data-match="塞那乔其 vs 赫尔辛基火花" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="1.64" data-prob="0.4732" data-is-top="1" data-single="0"><span class="oc-p">47%</span><span class="oc-o">1.64</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:37.8%"></div>
           <div class="prob-seg d" style="width:30.6%"></div>
@@ -1010,7 +1163,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m2-model">模型与归因</button>
         <button class="tab-btn" data-tab="m2-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m2-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m2-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m2-model">
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -1116,31 +1269,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--dim)">+0.00</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m2-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">38.9%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">18.0%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">17.3%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">8.5%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">6.3%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">5.6%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">2.8%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">2.7%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m2-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">38.9%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">18.0%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">17.3%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">8.5%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">6.3%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">5.6%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">2.8%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">2.7%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">35.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:91%">32.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:53%">18.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:22%">8.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:9%">3.1%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:3%">1.0%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>胜胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>25.3%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>23.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>9.2%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.7%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.4%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.8%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -1153,13 +1312,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="挪超" data-value="0">
+  </div></div><div class="league-section" data-league="挪超" data-value="0" data-time-order="3" data-num-order="6004" data-best-ev="0.1857" data-max-prob="0.3697" data-single="0" data-risk="0" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 01:00:00">
         <div class="m-meta-top">
           <span class="m-kickoff">01:00</span>
           <span class="jc-no" title="竞彩编号">周五004</span>
+          
         </div>
         <span class="league-tag">挪超</span>
       </div>
@@ -1176,20 +1336,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val best home">37%</span>
-            <span class="m-p-odds">1.77</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">29%</span>
-            <span class="m-p-odds">3.55</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">34%</span>
-            <span class="m-p-odds">3.53</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五004" data-jc="周五004" data-match="桑纳菲 vs 奥斯KFUM" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="1.77" data-prob="0.3697" data-is-top="1" data-single="0"><span class="oc-p">37%</span><span class="oc-o">1.77</span></button><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+4.5%)" data-mid="2026-08-07_周五004" data-jc="周五004" data-match="桑纳菲 vs 奥斯KFUM" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.55" data-prob="0.2944" data-is-top="0" data-single="0"><span class="oc-p">29%</span><span class="oc-o">3.55</span></button><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+18.6%)" data-mid="2026-08-07_周五004" data-jc="周五004" data-match="桑纳菲 vs 奥斯KFUM" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="3.53" data-prob="0.3359" data-is-top="0" data-single="0"><span class="oc-p">34%</span><span class="oc-o">3.53</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五004" data-jc="周五004" data-match="桑纳菲 vs 奥斯KFUM" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="3.60" data-prob="0.0683" data-is-top="0" data-single="0"><span class="oc-p">7%</span><span class="oc-o">3.60</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五004" data-jc="周五004" data-match="桑纳菲 vs 奥斯KFUM" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="3.38" data-prob="0.1270" data-is-top="0" data-single="0"><span class="oc-p">13%</span><span class="oc-o">3.38</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五004" data-jc="周五004" data-match="桑纳菲 vs 奥斯KFUM" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="1.80" data-prob="0.8046" data-is-top="1" data-single="0"><span class="oc-p">80%</span><span class="oc-o">1.80</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:37.0%"></div>
           <div class="prob-seg d" style="width:29.4%"></div>
@@ -1209,7 +1356,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m3-model">模型与归因</button>
         <button class="tab-btn" data-tab="m3-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m3-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m3-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m3-model">
       
@@ -1315,31 +1462,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.31</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m3-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">28.1%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">21.8%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">14.1%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">11.1%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">10.4%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">5.3%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">5.1%</div></div><div class="score-cell"><div class="sc-score">0-3</div><div class="sc-prob">4.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m3-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">28.1%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">21.8%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">14.1%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">11.1%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">10.4%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">5.3%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">5.1%</div></div><div class="score-cell"><div class="sc-score">0-3</div><div class="sc-prob">4.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">30.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:78%">24.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:74%">22.7%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:42%">12.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:19%">5.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:8%">2.6%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>28.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>26.9%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>9.6%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>9.0%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.0%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.6%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -1352,13 +1505,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="荷甲" data-value="0">
+  </div></div><div class="league-section" data-league="荷甲" data-value="0" data-time-order="4" data-num-order="6005" data-best-ev="0.2252" data-max-prob="0.3868" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 02:00:00">
         <div class="m-meta-top">
           <span class="m-kickoff">02:00</span>
           <span class="jc-no" title="竞彩编号">周五005</span>
+          
         </div>
         <span class="league-tag">荷甲</span>
       </div>
@@ -1375,20 +1529,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val ">33%</span>
-            <span class="m-p-odds">2.36</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">28%</span>
-            <span class="m-p-odds">3.50</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val best away">39%</span>
-            <span class="m-p-odds">2.38</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五005" data-jc="周五005" data-match="坎布尔 vs SBV精英" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="2.36" data-prob="0.3329" data-is-top="0" data-single="0"><span class="oc-p">33%</span><span class="oc-o">2.36</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五005" data-jc="周五005" data-match="坎布尔 vs SBV精英" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.50" data-prob="0.2803" data-is-top="0" data-single="0"><span class="oc-p">28%</span><span class="oc-o">3.50</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五005" data-jc="周五005" data-match="坎布尔 vs SBV精英" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.38" data-prob="0.3868" data-is-top="1" data-single="0"><span class="oc-p">39%</span><span class="oc-o">2.38</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五005" data-jc="周五005" data-match="坎布尔 vs SBV精英" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="5.15" data-prob="0.0543" data-is-top="0" data-single="0"><span class="oc-p">5%</span><span class="oc-o">5.15</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五005" data-jc="周五005" data-match="坎布尔 vs SBV精英" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="4.23" data-prob="0.0890" data-is-top="0" data-single="0"><span class="oc-p">9%</span><span class="oc-o">4.23</span></button><button type="button" class="odd-cell best away pos-ev" title="模型估值正EV (+22.5%)" data-mid="2026-08-07_周五005" data-jc="周五005" data-match="坎布尔 vs SBV精英" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="1.43" data-prob="0.8568" data-is-top="1" data-single="0"><span class="oc-p">86%</span><span class="oc-o">1.43</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:33.3%"></div>
           <div class="prob-seg d" style="width:28.0%"></div>
@@ -1408,7 +1549,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m4-model">模型与归因</button>
         <button class="tab-btn" data-tab="m4-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m4-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m4-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m4-model">
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -1514,31 +1655,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.29</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m4-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">16.9%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">16.8%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">13.3%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">13.1%</div></div><div class="score-cell"><div class="sc-score">0-3</div><div class="sc-prob">12.6%</div></div><div class="score-cell"><div class="sc-score">1-3</div><div class="sc-prob">10.0%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">9.3%</div></div><div class="score-cell"><div class="sc-score">0-4</div><div class="sc-prob">8.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m4-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">16.9%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">16.8%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">13.3%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">13.1%</div></div><div class="score-cell"><div class="sc-score">0-3</div><div class="sc-prob">12.6%</div></div><div class="score-cell"><div class="sc-score">1-3</div><div class="sc-prob">10.0%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">9.3%</div></div><div class="score-cell"><div class="sc-score">0-4</div><div class="sc-prob">8.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">20.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:99%">19.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:82%">16.4%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:72%">14.3%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:53%">10.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">6</span>
+            <span class="goal-bar-label">6球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:33%">6.6%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>38.0%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>25.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.6%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>6.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>5.9%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -1551,13 +1698,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="荷乙" data-value="0">
+  </div></div><div class="league-section" data-league="荷乙" data-value="0" data-time-order="5" data-num-order="6006" data-best-ev="0.1832" data-max-prob="0.4009" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 02:00:00">
         <div class="m-meta-top">
           <span class="m-kickoff">02:00</span>
           <span class="jc-no" title="竞彩编号">周五006</span>
+          
         </div>
         <span class="league-tag">荷乙</span>
       </div>
@@ -1574,20 +1722,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val ">31%</span>
-            <span class="m-p-odds">4.70</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">29%</span>
-            <span class="m-p-odds">4.15</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val best away">40%</span>
-            <span class="m-p-odds">1.48</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五006" data-jc="周五006" data-match="奥斯 vs 布雷达" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="4.70" data-prob="0.3140" data-is-top="0" data-single="0"><span class="oc-p">31%</span><span class="oc-o">4.70</span></button><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+18.3%)" data-mid="2026-08-07_周五006" data-jc="周五006" data-match="奥斯 vs 布雷达" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="4.15" data-prob="0.2851" data-is-top="0" data-single="0"><span class="oc-p">29%</span><span class="oc-o">4.15</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五006" data-jc="周五006" data-match="奥斯 vs 布雷达" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="1.48" data-prob="0.4009" data-is-top="1" data-single="0"><span class="oc-p">40%</span><span class="oc-o">1.48</span></button></div><div class="odd-row"><span class="mkt-tag hhad">+1</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五006" data-jc="周五006" data-match="奥斯 vs 布雷达" data-mkt="hhad" data-mkt-label="让+1" data-sel="hh" data-sel-label="让胜" data-odd="2.23" data-prob="0.6784" data-is-top="1" data-single="0"><span class="oc-p">68%</span><span class="oc-o">2.23</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五006" data-jc="周五006" data-match="奥斯 vs 布雷达" data-mkt="hhad" data-mkt-label="让+1" data-sel="hd" data-sel-label="让平" data-odd="3.30" data-prob="0.1472" data-is-top="0" data-single="0"><span class="oc-p">15%</span><span class="oc-o">3.30</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五006" data-jc="周五006" data-match="奥斯 vs 布雷达" data-mkt="hhad" data-mkt-label="让+1" data-sel="ha" data-sel-label="让客" data-odd="2.65" data-prob="0.1744" data-is-top="0" data-single="0"><span class="oc-p">17%</span><span class="oc-o">2.65</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:31.4%"></div>
           <div class="prob-seg d" style="width:28.5%"></div>
@@ -1607,7 +1742,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m5-model">模型与归因</button>
         <button class="tab-btn" data-tab="m5-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m5-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m5-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m5-model">
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -1713,31 +1848,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.18</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m5-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">16.7%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">14.8%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">13.2%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">12.1%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">11.8%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">11.1%</div></div><div class="score-cell"><div class="sc-score">1-3</div><div class="sc-prob">10.3%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">10.0%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m5-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">16.7%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">14.8%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">13.2%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">12.1%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">11.8%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">11.1%</div></div><div class="score-cell"><div class="sc-score">1-3</div><div class="sc-prob">10.3%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">10.0%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">18.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:91%">17.2%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:89%">16.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:71%">13.5%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:54%">10.2%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">6</span>
+            <span class="goal-bar-label">6球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:47%">8.9%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>19.1%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>18.7%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>12.7%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>11.7%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>9.6%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.9%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -1750,13 +1891,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="荷乙" data-value="0">
+  </div></div><div class="league-section" data-league="荷乙" data-value="0" data-time-order="6" data-num-order="6007" data-best-ev="0.0569" data-max-prob="0.3601" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 02:00:00">
         <div class="m-meta-top">
           <span class="m-kickoff">02:00</span>
           <span class="jc-no" title="竞彩编号">周五007</span>
+          
         </div>
         <span class="league-tag">荷乙</span>
       </div>
@@ -1773,20 +1915,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val ">34%</span>
-            <span class="m-p-odds">2.35</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">30%</span>
-            <span class="m-p-odds">3.35</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val best away">36%</span>
-            <span class="m-p-odds">2.47</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五007" data-jc="周五007" data-match="埃门 vs 罗达JC" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="2.35" data-prob="0.3355" data-is-top="0" data-single="0"><span class="oc-p">34%</span><span class="oc-o">2.35</span></button><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+2.0%)" data-mid="2026-08-07_周五007" data-jc="周五007" data-match="埃门 vs 罗达JC" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.35" data-prob="0.3044" data-is-top="0" data-single="0"><span class="oc-p">30%</span><span class="oc-o">3.35</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五007" data-jc="周五007" data-match="埃门 vs 罗达JC" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.47" data-prob="0.3601" data-is-top="1" data-single="0"><span class="oc-p">36%</span><span class="oc-o">2.47</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五007" data-jc="周五007" data-match="埃门 vs 罗达JC" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="4.85" data-prob="0.1071" data-is-top="0" data-single="0"><span class="oc-p">11%</span><span class="oc-o">4.85</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五007" data-jc="周五007" data-match="埃门 vs 罗达JC" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="4.46" data-prob="0.1538" data-is-top="0" data-single="0"><span class="oc-p">15%</span><span class="oc-o">4.46</span></button><button type="button" class="odd-cell best away pos-ev" title="模型估值正EV (+5.7%)" data-mid="2026-08-07_周五007" data-jc="周五007" data-match="埃门 vs 罗达JC" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="1.43" data-prob="0.7391" data-is-top="1" data-single="0"><span class="oc-p">74%</span><span class="oc-o">1.43</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:33.6%"></div>
           <div class="prob-seg d" style="width:30.4%"></div>
@@ -1806,7 +1935,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m6-model">模型与归因</button>
         <button class="tab-btn" data-tab="m6-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m6-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m6-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m6-model">
       <div class="risk-banner"><b>⚠ 平局预警</b>：均势平局：双方接近，平局被低估<br><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -1912,31 +2041,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.10</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m6-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">17.1%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">16.1%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">14.1%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">12.8%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">12.4%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">11.4%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">8.9%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">7.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m6-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">17.1%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">16.1%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">14.1%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">12.8%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">12.4%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">11.4%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">8.9%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">7.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">22.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:86%">19.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:84%">19.3%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:59%">13.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:39%">9.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:34%">7.8%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>22.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>19.2%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>13.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>11.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.1%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.1%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -1949,13 +2084,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="德乙" data-value="0">
+  </div></div><div class="league-section" data-league="德乙" data-value="0" data-time-order="7" data-num-order="6008" data-best-ev="0.1844" data-max-prob="0.3600" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 02:30:00">
         <div class="m-meta-top">
           <span class="m-kickoff">02:30</span>
           <span class="jc-no" title="竞彩编号">周五008</span>
+          
         </div>
         <span class="league-tag">德乙</span>
       </div>
@@ -1972,20 +2108,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val best home">36%</span>
-            <span class="m-p-odds">2.05</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">29%</span>
-            <span class="m-p-odds">3.45</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">35%</span>
-            <span class="m-p-odds">2.84</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五008" data-jc="周五008" data-match="波鸿 vs 柏林赫塔" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="2.05" data-prob="0.3600" data-is-top="1" data-single="0"><span class="oc-p">36%</span><span class="oc-o">2.05</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五008" data-jc="周五008" data-match="波鸿 vs 柏林赫塔" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.45" data-prob="0.2874" data-is-top="0" data-single="0"><span class="oc-p">29%</span><span class="oc-o">3.45</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五008" data-jc="周五008" data-match="波鸿 vs 柏林赫塔" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.84" data-prob="0.3526" data-is-top="0" data-single="0"><span class="oc-p">35%</span><span class="oc-o">2.84</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五008" data-jc="周五008" data-match="波鸿 vs 柏林赫塔" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="4.45" data-prob="0.0975" data-is-top="0" data-single="0"><span class="oc-p">10%</span><span class="oc-o">4.45</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五008" data-jc="周五008" data-match="波鸿 vs 柏林赫塔" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="3.74" data-prob="0.1481" data-is-top="0" data-single="0"><span class="oc-p">15%</span><span class="oc-o">3.74</span></button><button type="button" class="odd-cell best away pos-ev" title="模型估值正EV (+18.4%)" data-mid="2026-08-07_周五008" data-jc="周五008" data-match="波鸿 vs 柏林赫塔" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="1.57" data-prob="0.7544" data-is-top="1" data-single="0"><span class="oc-p">75%</span><span class="oc-o">1.57</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:36.0%"></div>
           <div class="prob-seg d" style="width:28.7%"></div>
@@ -2005,7 +2128,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m7-model">模型与归因</button>
         <button class="tab-btn" data-tab="m7-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m7-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m7-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m7-model">
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -2117,31 +2240,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.10</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m7-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">15.9%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">11.5%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">11.3%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">10.7%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">10.6%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">9.3%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">8.5%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">8.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m7-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">15.9%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">11.5%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">11.3%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">10.7%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">10.6%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">9.3%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">8.5%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">8.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">23.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">23.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:74%">17.8%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:54%">12.9%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:46%">11.1%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:24%">5.8%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>23.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>20.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>12.7%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>11.5%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.9%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.7%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -2154,13 +2283,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="英联赛杯" data-value="0">
+  </div></div><div class="league-section" data-league="英联赛杯" data-value="0" data-time-order="8" data-num-order="6009" data-best-ev="0.1310" data-max-prob="0.3982" data-single="0" data-risk="1" data-settled="1" data-has-ev="1">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 03:00:00">
         <div class="m-meta-top">
           <span class="m-kickoff">03:00</span>
           <span class="jc-no" title="竞彩编号">周五009</span>
+          
         </div>
         <span class="league-tag">英联赛杯</span>
       </div>
@@ -2177,20 +2307,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val best home">40%</span>
-            <span class="m-p-odds">1.50</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">29%</span>
-            <span class="m-p-odds">3.90</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">31%</span>
-            <span class="m-p-odds">4.85</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五009" data-jc="周五009" data-match="米堡 vs 雷克斯" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="1.50" data-prob="0.3982" data-is-top="1" data-single="0"><span class="oc-p">40%</span><span class="oc-o">1.50</span></button><button type="button" class="odd-cell pos-ev" title="模型估值正EV (+13.1%)" data-mid="2026-08-07_周五009" data-jc="周五009" data-match="米堡 vs 雷克斯" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.90" data-prob="0.2900" data-is-top="0" data-single="0"><span class="oc-p">29%</span><span class="oc-o">3.90</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五009" data-jc="周五009" data-match="米堡 vs 雷克斯" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="4.85" data-prob="0.3118" data-is-top="0" data-single="0"><span class="oc-p">31%</span><span class="oc-o">4.85</span></button></div><div class="odd-row"><span class="mkt-tag hhad">-1</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五009" data-jc="周五009" data-match="米堡 vs 雷克斯" data-mkt="hhad" data-mkt-label="让-1" data-sel="hh" data-sel-label="让胜" data-odd="2.68" data-prob="0.1706" data-is-top="0" data-single="0"><span class="oc-p">17%</span><span class="oc-o">2.68</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五009" data-jc="周五009" data-match="米堡 vs 雷克斯" data-mkt="hhad" data-mkt-label="让-1" data-sel="hd" data-sel-label="让平" data-odd="3.35" data-prob="0.1447" data-is-top="0" data-single="0"><span class="oc-p">14%</span><span class="oc-o">3.35</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五009" data-jc="周五009" data-match="米堡 vs 雷克斯" data-mkt="hhad" data-mkt-label="让-1" data-sel="ha" data-sel-label="让客" data-odd="2.19" data-prob="0.6847" data-is-top="1" data-single="0"><span class="oc-p">68%</span><span class="oc-o">2.19</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:39.8%"></div>
           <div class="prob-seg d" style="width:29.0%"></div>
@@ -2210,7 +2327,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m8-model">模型与归因</button>
         <button class="tab-btn" data-tab="m8-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m8-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m8-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m8-model">
       <div class="risk-banner"><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -2316,31 +2433,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.31</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m8-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">16.7%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">14.8%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">13.3%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">12.3%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">11.8%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">11.3%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">10.1%</div></div><div class="score-cell"><div class="sc-score">3-1</div><div class="sc-prob">9.8%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m8-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">16.7%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">14.8%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">13.3%</div></div><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">12.3%</div></div><div class="score-cell"><div class="sc-score">2-0</div><div class="sc-prob">11.8%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">11.3%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">10.1%</div></div><div class="score-cell"><div class="sc-score">3-1</div><div class="sc-prob">9.8%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">19.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:93%">18.1%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:87%">17.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:62%">12.2%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:59%">11.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">6</span>
+            <span class="goal-bar-label">6球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:41%">8.0%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>18.6%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>18.0%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>14.6%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>11.1%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>9.4%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.8%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -2353,13 +2476,14 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div></div>
     </div>
-  </div></div><div class="league-section" data-league="葡超" data-value="0">
+  </div></div><div class="league-section" data-league="葡超" data-value="0" data-time-order="9" data-num-order="6010" data-best-ev="0.0000" data-max-prob="0.3746" data-single="0" data-risk="1" data-settled="1" data-has-ev="0">
   <div class="match ">
     <div class="match-header">
       <div class="m-meta" title="2026-08-08 03:15:00">
         <div class="m-meta-top">
           <span class="m-kickoff">03:15</span>
           <span class="jc-no" title="竞彩编号">周五010</span>
+          
         </div>
         <span class="league-tag">葡超</span>
       </div>
@@ -2376,20 +2500,7 @@ tr:last-child td { border-bottom:none; }
       </div>
 
       <div class="m-probs">
-        <div class="m-prob-cols">
-          <div class="m-prob-col">
-            <span class="m-p-val ">33%</span>
-            <span class="m-p-odds">2.93</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val ">30%</span>
-            <span class="m-p-odds">3.00</span>
-          </div>
-          <div class="m-prob-col">
-            <span class="m-p-val best away">37%</span>
-            <span class="m-p-odds">2.20</span>
-          </div>
-        </div>
+        <div class="odd-row"><span class="mkt-tag ">0</span><button type="button" class="odd-cell" data-mid="2026-08-07_周五010" data-jc="周五010" data-match="埃斯托里 vs 法马利康" data-mkt="had" data-mkt-label="胜平负" data-sel="h" data-sel-label="主胜" data-odd="2.93" data-prob="0.3266" data-is-top="0" data-single="0"><span class="oc-p">33%</span><span class="oc-o">2.93</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五010" data-jc="周五010" data-match="埃斯托里 vs 法马利康" data-mkt="had" data-mkt-label="胜平负" data-sel="d" data-sel-label="平局" data-odd="3.00" data-prob="0.2988" data-is-top="0" data-single="0"><span class="oc-p">30%</span><span class="oc-o">3.00</span></button><button type="button" class="odd-cell best away" data-mid="2026-08-07_周五010" data-jc="周五010" data-match="埃斯托里 vs 法马利康" data-mkt="had" data-mkt-label="胜平负" data-sel="a" data-sel-label="客胜" data-odd="2.20" data-prob="0.3746" data-is-top="1" data-single="0"><span class="oc-p">37%</span><span class="oc-o">2.20</span></button></div><div class="odd-row"><span class="mkt-tag hhad">+1</span><button type="button" class="odd-cell best home" data-mid="2026-08-07_周五010" data-jc="周五010" data-match="埃斯托里 vs 法马利康" data-mkt="hhad" data-mkt-label="让+1" data-sel="hh" data-sel-label="让胜" data-odd="1.52" data-prob="0.3944" data-is-top="1" data-single="0"><span class="oc-p">39%</span><span class="oc-o">1.52</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五010" data-jc="周五010" data-match="埃斯托里 vs 法马利康" data-mkt="hhad" data-mkt-label="让+1" data-sel="hd" data-sel-label="让平" data-odd="3.60" data-prob="0.2282" data-is-top="0" data-single="0"><span class="oc-p">23%</span><span class="oc-o">3.60</span></button><button type="button" class="odd-cell" data-mid="2026-08-07_周五010" data-jc="周五010" data-match="埃斯托里 vs 法马利康" data-mkt="hhad" data-mkt-label="让+1" data-sel="ha" data-sel-label="让客" data-odd="5.15" data-prob="0.3773" data-is-top="0" data-single="0"><span class="oc-p">38%</span><span class="oc-o">5.15</span></button></div>
         <div class="prob-bar">
           <div class="prob-seg h" style="width:32.7%"></div>
           <div class="prob-seg d" style="width:29.9%"></div>
@@ -2409,7 +2520,7 @@ tr:last-child td { border-bottom:none; }
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="m9-model">模型与归因</button>
         <button class="tab-btn" data-tab="m9-odds">赔率与边际</button>
-        <button class="tab-btn" data-tab="m9-dist">比分与分布</button>
+        <button class="tab-btn" data-tab="m9-dist">体彩全玩法</button>
       </div>
       <div class="tab-content active" id="m9-model">
       <div class="risk-banner"><b>⚠ 平局预警</b>：均势平局：双方接近，平局被低估<br><b>⚠ 数据新鲜度</b>：数据新鲜度风险（watch/alert）</div>
@@ -2521,31 +2632,37 @@ tr:last-child td { border-bottom:none; }
           <div class="reverse-row"><span class="rk">组合加成</span><span style="color:var(--green)">+0.29</span></div>
         </div>
       </div></div>
-      <div class="tab-content" id="m9-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">最可能比分</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">14.1%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">14.0%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">13.6%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">12.1%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">12.1%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">9.2%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">8.9%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">8.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;">总进球分布</div><div class="goals-bars">
+      <div class="tab-content" id="m9-dist"><div style="margin-bottom:6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">波胆预测</div><div class="scores-grid"><div class="score-cell"><div class="sc-score">1-2</div><div class="sc-prob">14.1%</div></div><div class="score-cell"><div class="sc-score">1-1</div><div class="sc-prob">14.0%</div></div><div class="score-cell"><div class="sc-score">2-1</div><div class="sc-prob">13.6%</div></div><div class="score-cell"><div class="sc-score">0-1</div><div class="sc-prob">12.1%</div></div><div class="score-cell"><div class="sc-score">1-0</div><div class="sc-prob">12.1%</div></div><div class="score-cell"><div class="sc-score">2-2</div><div class="sc-prob">9.2%</div></div><div class="score-cell"><div class="sc-score">0-0</div><div class="sc-prob">8.9%</div></div><div class="score-cell"><div class="sc-score">0-2</div><div class="sc-prob">8.1%</div></div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">总进球分布</div><div class="goals-bars">
           <div class="goal-bar-row">
-            <span class="goal-bar-label">1</span>
+            <span class="goal-bar-label">1球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:100%">27.6%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">2</span>
+            <span class="goal-bar-label">2球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:87%">24.0%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">0</span>
+            <span class="goal-bar-label">0球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:66%">18.2%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">3</span>
+            <span class="goal-bar-label">3球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:55%">15.2%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">4</span>
+            <span class="goal-bar-label">4球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:30%">8.4%</div></div>
+            
           </div>
           <div class="goal-bar-row">
-            <span class="goal-bar-label">5</span>
+            <span class="goal-bar-label">5球</span>
             <div class="goal-bar-track"><div class="goal-bar-fill" style="width:14%">4.0%</div></div>
-          </div></div>
+            
+          </div></div><div style="margin:14px 0 6px;font-size:0.68rem;color:var(--dim);letter-spacing:0.4px;">半全场预测 TOP6</div><div class="hafu-grid"><div class="hafu-cell"><div class="hafu-top"><span>负负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>30.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平负</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>23.4%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平胜</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>8.9%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>胜平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.8%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>平平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.4%</span></div></div><div class="hafu-cell"><div class="hafu-top"><span>负平</span><span style="color:var(--blue)">—</span></div><div class="hafu-sub"><span>7.3%</span></div></div></div>
       <div class="xg-compare">
         <h5>本场模型预期进球 (Poisson/DC xG)</h5>
         <div class="xg-bar-row">
@@ -2631,7 +2748,7 @@ tr:last-child td { border-bottom:none; }
       
         <tr class="hit">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五001</span>横滨水手 vs 鹿岛鹿角</td>
-          <td style="font-weight:800;text-align:center;">3-4</td>
+          <td style="font-weight:800;text-align:center;">3-4<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">7球</div></td>
           <td>客胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(+1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
           <td>客胜 (36%)</td>
@@ -2641,7 +2758,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="hit">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五002</span>大阪钢巴 vs 浦和红钻</td>
-          <td style="font-weight:800;text-align:center;">4-3</td>
+          <td style="font-weight:800;text-align:center;">4-3<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">7球</div></td>
           <td>主胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
           <td>主胜 (40%)</td>
@@ -2651,7 +2768,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五003</span>塞那乔其 vs 赫尔辛基火花</td>
-          <td style="font-weight:800;text-align:center;">2-2</td>
+          <td style="font-weight:800;text-align:center;">2-2<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">4球</div></td>
           <td>平局</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--red);font-size:0.72rem;">让球客胜</span></td>
           <td>主胜 (38%)</td>
@@ -2661,7 +2778,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五004</span>桑纳菲 vs 奥斯KFUM</td>
-          <td style="font-weight:800;text-align:center;">0-1</td>
+          <td style="font-weight:800;text-align:center;">0-1<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">1球</div></td>
           <td>客胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--red);font-size:0.72rem;">让球客胜</span></td>
           <td>主胜 (37%)</td>
@@ -2671,7 +2788,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="hit">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五005</span>坎布尔 vs SBV精英</td>
-          <td style="font-weight:800;text-align:center;">0-4</td>
+          <td style="font-weight:800;text-align:center;">0-4<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">4球</div></td>
           <td>客胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--red);font-size:0.72rem;">让球客胜</span></td>
           <td>客胜 (39%)</td>
@@ -2681,7 +2798,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="hit">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五006</span>奥斯 vs 布雷达</td>
-          <td style="font-weight:800;text-align:center;">1-2</td>
+          <td style="font-weight:800;text-align:center;">1-2<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">3球</div></td>
           <td>客胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(+1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
           <td>客胜 (40%)</td>
@@ -2691,7 +2808,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五007</span>埃门 vs 罗达JC</td>
-          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td style="font-weight:800;text-align:center;">1-0<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">1球</div></td>
           <td>主胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
           <td>客胜 (36%)</td>
@@ -2701,7 +2818,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五008</span>波鸿 vs 柏林赫塔</td>
-          <td style="font-weight:800;text-align:center;">0-1</td>
+          <td style="font-weight:800;text-align:center;">0-1<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">1球</div></td>
           <td>客胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--red);font-size:0.72rem;">让球客胜</span></td>
           <td>主胜 (36%)</td>
@@ -2711,7 +2828,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="hit">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五009</span>米堡 vs 雷克斯</td>
-          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td style="font-weight:800;text-align:center;">1-0<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">1球</div></td>
           <td>主胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
           <td>主胜 (40%)</td>
@@ -2721,7 +2838,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五010</span>埃斯托里 vs 法马利康</td>
-          <td style="font-weight:800;text-align:center;">1-1</td>
+          <td style="font-weight:800;text-align:center;">1-1<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">2球</div></td>
           <td>平局</td>
           <td style="font-size:0.75rem;color:var(--dim);">(+1) <span style="color:var(--green);font-size:0.72rem;">让球主胜</span></td>
           <td>客胜 (37%)</td>
@@ -2731,7 +2848,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五004</span>桑纳菲 vs 奥斯KFUM</td>
-          <td style="font-weight:800;text-align:center;">0-1</td>
+          <td style="font-weight:800;text-align:center;">0-1<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">1球</div></td>
           <td>客胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--red);font-size:0.72rem;">让球客胜</span></td>
           <td>主胜 (37%)</td>
@@ -2741,7 +2858,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="hit">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五009</span>米堡 vs 雷克斯</td>
-          <td style="font-weight:800;text-align:center;">1-0</td>
+          <td style="font-weight:800;text-align:center;">1-0<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">1球</div></td>
           <td>主胜</td>
           <td style="font-size:0.75rem;color:var(--dim);">(-1) <span style="color:var(--amber);font-size:0.72rem;">让球平</span></td>
           <td>主胜 (40%)</td>
@@ -2751,7 +2868,7 @@ tr:last-child td { border-bottom:none; }
         </tr>
         <tr class="miss">
           <td><span class="jc-no" style="font-size:.62rem;padding:1px 5px;margin-right:4px">周五010</span>埃斯托里 vs 法马利康</td>
-          <td style="font-weight:800;text-align:center;">1-1</td>
+          <td style="font-weight:800;text-align:center;">1-1<div style="font-size:0.62rem;font-weight:500;color:var(--dim);">2球</div></td>
           <td>平局</td>
           <td style="font-size:0.75rem;color:var(--dim);">(+1) <span style="color:var(--green);font-size:0.72rem;">让球主胜</span></td>
           <td>客胜 (37%)</td>
@@ -2825,11 +2942,31 @@ tr:last-child td { border-bottom:none; }
     <p>数据源: 体彩 / 新浪 / 500万 / DJYY &middot; 零服务器 GitHub Actions &middot; <a href="https://github.com/wlrwx/football-engine">源代码</a></p>
     <p class="disclaimer">仅供研究学习，不构成任何投注建议。模型输出为概率估计，不保证准确性。</p>
   </div>
+
+  <button type="button" id="slip-fab" class="slip-fab">🎫 串关计算器 <span class="slip-fab-cnt" id="slip-fab-cnt">0场</span></button>
+  <div id="slip-panel" class="slip-panel" aria-hidden="true">
+    <div class="slip-head">
+      <div class="slip-title">体彩模拟串关票</div>
+      <div class="slip-head-actions">
+        <button type="button" class="slip-mini-btn" id="slip-clear">清空</button>
+        <button type="button" class="slip-mini-btn" id="slip-close">收起</button>
+      </div>
+    </div>
+    <div class="slip-body" id="slip-body"></div>
+    <div class="slip-foot" id="slip-foot">
+      <div class="slip-metrics" id="slip-metrics"></div>
+      <div class="slip-ctrl">
+        <label class="slip-mult-wrap">倍数 <input type="number" id="slip-mult" class="slip-mult-input" min="1" max="999" value="1"> 倍</label>
+        <button type="button" class="slip-copy-btn" id="slip-copy">复制方案文本</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 // ===== DATE JUMP (2026-08-30: 原生日历 → 最接近的可用日期) =====
 var ALL_DATES = ["2026-11-28", "2026-11-27", "2026-11-26", "2026-11-25", "2026-11-24", "2026-11-23", "2026-11-22", "2026-11-21", "2026-11-20", "2026-11-19", "2026-11-18", "2026-11-17", "2026-11-16", "2026-11-15", "2026-11-14", "2026-11-13", "2026-11-12", "2026-11-11", "2026-11-10", "2026-11-08", "2026-11-07", "2026-11-06", "2026-11-05", "2026-11-04", "2026-11-03", "2026-11-02", "2026-11-01", "2026-10-31", "2026-10-30", "2026-10-29", "2026-10-28", "2026-10-27", "2026-10-26", "2026-10-25", "2026-10-24", "2026-10-23", "2026-10-22", "2026-10-21", "2026-10-20", "2026-10-19", "2026-10-18", "2026-10-17", "2026-10-16", "2026-10-15", "2026-10-14", "2026-10-13", "2026-10-12", "2026-10-11", "2026-10-10", "2026-10-09", "2026-10-08", "2026-10-07", "2026-10-06", "2026-10-05", "2026-10-01", "2026-09-30", "2026-09-29", "2026-09-28", "2026-09-27", "2026-09-26", "2026-09-25", "2026-09-24", "2026-09-23", "2026-09-22", "2026-09-21", "2026-09-20", "2026-09-19", "2026-09-18", "2026-09-17", "2026-09-16", "2026-09-15", "2026-09-14", "2026-09-13", "2026-09-12", "2026-09-11", "2026-09-10", "2026-09-09", "2026-09-08", "2026-09-07", "2026-09-06", "2026-09-05", "2026-09-04", "2026-09-03", "2026-09-02", "2026-09-01", "2026-08-31", "2026-08-30", "2026-08-29", "2026-08-28", "2026-08-27", "2026-08-26", "2026-08-25", "2026-08-24", "2026-08-23", "2026-08-22", "2026-08-21", "2026-08-20", "2026-08-19", "2026-08-18", "2026-08-17", "2026-08-16", "2026-08-15", "2026-08-14", "2026-08-13", "2026-08-12", "2026-08-11", "2026-08-10", "2026-08-09", "2026-08-08", "2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-08-02", "2026-08-01", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28", "2026-07-27", "2026-07-26", "2026-07-25", "2026-07-24", "2026-07-23", "2026-07-22", "2026-07-21", "2026-07-20", "2026-07-19"];
+var PARLAY_CAL = {"overall": 0.4351, "n": 131, "table": {"0.35": 0.3214, "0.4": 0.4583, "0.45": 0.6, "0.5": 0.4375, "0.55": 0.3158, "0.6": 0.5, "0.7": 0.5}};
 document.getElementById('date-jump-label').addEventListener('click', function(e) {
   var inp = document.getElementById('date-jump');
   try { if (inp.showPicker) inp.showPicker(); else { inp.focus(); inp.click(); } }
@@ -2879,33 +3016,311 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     e.stopPropagation();
     var panel = this.closest('.match-detail');
     var tabId = this.getAttribute('data-tab');
-    // Deactivate all tabs in this panel
     panel.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     panel.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
-    // Activate clicked
     this.classList.add('active');
     panel.querySelector('#' + tabId).classList.add('active');
   });
 });
 
-// ===== LEAGUE FILTER =====
+// ===== JOINT LEAGUE + QUICK FILTER + SORT (2026-11-28) =====
+var activeLeague = 'all';
+var activeQf = 'all';
+
+function applyBoardFilters() {
+  document.querySelectorAll('.league-section').forEach(function(sec) {
+    var lgOk = (activeLeague === 'all')
+      || (sec.getAttribute('data-league') === activeLeague)
+      || (activeLeague === 'value' && sec.getAttribute('data-value') === '1');
+    var qfOk = true;
+    if (activeQf === 'single') {
+      qfOk = sec.getAttribute('data-single') === '1';
+    } else if (activeQf === 'ev') {
+      qfOk = sec.getAttribute('data-has-ev') === '1';
+    } else if (activeQf === 'steady') {
+      var mp = parseFloat(sec.getAttribute('data-max-prob') || '0');
+      qfOk = mp >= 0.58 && sec.getAttribute('data-risk') === '0';
+    } else if (activeQf === 'risk') {
+      qfOk = sec.getAttribute('data-risk') === '1';
+    } else if (activeQf === 'settled') {
+      qfOk = sec.getAttribute('data-settled') === '1';
+    }
+    if (lgOk && qfOk) {
+      sec.classList.remove('hidden');
+    } else {
+      sec.classList.add('hidden');
+    }
+  });
+}
+
 document.querySelectorAll('.league-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var league = this.getAttribute('data-league');
-    // Update active button
+    activeLeague = this.getAttribute('data-league') || 'all';
     document.querySelectorAll('.league-btn').forEach(function(b) { b.classList.remove('active'); });
     this.classList.add('active');
-    // Show/hide sections
-    document.querySelectorAll('.league-section').forEach(function(sec) {
-      if (league === 'all' || sec.getAttribute('data-league') === league
-        || (league === 'value' && sec.getAttribute('data-value') === '1')) {
-        sec.classList.remove('hidden');
-      } else {
-        sec.classList.add('hidden');
-      }
-    });
+    applyBoardFilters();
   });
 });
+
+document.querySelectorAll('.qf-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    activeQf = this.getAttribute('data-qf') || 'all';
+    document.querySelectorAll('.qf-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    applyBoardFilters();
+  });
+});
+
+document.querySelectorAll('.sort-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var mode = this.getAttribute('data-sort') || 'time';
+    document.querySelectorAll('.sort-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    var board = document.getElementById('match-board');
+    if (!board) return;
+    var items = Array.prototype.slice.call(board.querySelectorAll('.league-section'));
+    items.sort(function(a, b) {
+      if (mode === 'num') {
+        return (parseInt(a.getAttribute('data-num-order') || '0', 10))
+          - (parseInt(b.getAttribute('data-num-order') || '0', 10));
+      }
+      if (mode === 'ev') {
+        var diff = (parseFloat(b.getAttribute('data-best-ev') || '0'))
+          - (parseFloat(a.getAttribute('data-best-ev') || '0'));
+        if (Math.abs(diff) > 1e-6) return diff;
+      }
+      return (parseInt(a.getAttribute('data-time-order') || '0', 10))
+        - (parseInt(b.getAttribute('data-time-order') || '0', 10));
+    });
+    items.forEach(function(el) { board.appendChild(el); });
+  });
+});
+
+// ===== INTERACTIVE SPORTTERY PARLAY SLIP =====
+var slipSelections = {};
+var slipLastSummary = '';
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function calProb(rawProb, isTop) {
+  var p = parseFloat(rawProb) || 0;
+  if (!p || !PARLAY_CAL || !PARLAY_CAL.table || !isTop) return p;
+  var tbl = PARLAY_CAL.table;
+  var keys = Object.keys(tbl);
+  for (var i = 0; i < keys.length; i++) {
+    var lo = parseFloat(keys[i]);
+    var hi = lo >= 0.70 ? 1.01 : lo + 0.05;
+    if (p >= lo - 1e-6 && p < hi) {
+      return Math.max(0.03, Math.min(0.96, parseFloat(tbl[keys[i]]) || p));
+    }
+  }
+  if (PARLAY_CAL.overall) {
+    return Math.min(p, Math.max(p * 0.92, parseFloat(PARLAY_CAL.overall)));
+  }
+  return p;
+}
+
+function syncOddCellClasses() {
+  document.querySelectorAll('.odd-cell').forEach(function(btn) {
+    var k = btn.getAttribute('data-mid') + '|' + btn.getAttribute('data-mkt') + '|' + btn.getAttribute('data-sel');
+    if (slipSelections[k]) btn.classList.add('selected');
+    else btn.classList.remove('selected');
+  });
+}
+
+function renderSlip() {
+  syncOddCellClasses();
+  var fab = document.getElementById('slip-fab');
+  var panel = document.getElementById('slip-panel');
+  var fabCnt = document.getElementById('slip-fab-cnt');
+  var body = document.getElementById('slip-body');
+  var metrics = document.getElementById('slip-metrics');
+  var multInp = document.getElementById('slip-mult');
+  if (!fab || !panel || !body || !metrics) return;
+
+  var grouped = {};
+  var matchOrder = [];
+  Object.keys(slipSelections).forEach(function(k) {
+    var s = slipSelections[k];
+    if (!grouped[s.mid]) {
+      grouped[s.mid] = [];
+      matchOrder.push(s.mid);
+    }
+    grouped[s.mid].push(s);
+  });
+
+  var mCount = matchOrder.length;
+  fabCnt.textContent = mCount + '场';
+  if (mCount === 0) {
+    fab.classList.remove('visible');
+    panel.classList.remove('open');
+    body.innerHTML = '';
+    metrics.innerHTML = '';
+    slipLastSummary = '';
+    return;
+  }
+  fab.classList.add('visible');
+
+  var mult = Math.max(1, parseInt(multInp.value || '1', 10) || 1);
+  var combos = 1;
+  var minOdds = 1;
+  var maxOdds = 1;
+  var expUnitSum = 1;
+  var ticketHitProb = 1;
+  var hasNonSingle = false;
+  var hasMixedMarket = false;
+  var bodyHtml = '';
+  var summaryParts = [];
+
+  matchOrder.forEach(function(mid) {
+    var items = grouped[mid];
+    combos *= items.length;
+    var mkts = {};
+    var mMin = Infinity;
+    var mMax = 0;
+    var mExp = 0;
+    var mHit = 0;
+    var chipsHtml = '';
+    var txtParts = [];
+    items.forEach(function(s) {
+      mkts[s.mkt] = true;
+      if (s.single !== '1') hasNonSingle = true;
+      if (s.odd < mMin) mMin = s.odd;
+      if (s.odd > mMax) mMax = s.odd;
+      var cp = calProb(s.prob, s.isTop === '1');
+      mExp += cp * s.odd;
+      mHit += cp;
+      var prefix = s.mkt === 'hhad' ? (s.mktLabel + '·') : '';
+      chipsHtml += '<button type="button" class="slip-chip" data-slip-key="' + escHtml(s.key) + '">'
+        + escHtml(prefix + s.selLabel + ' ' + s.odd.toFixed(2)) + ' ×</button>';
+      txtParts.push(prefix + s.selLabel + s.odd.toFixed(2));
+    });
+    if (Object.keys(mkts).length > 1) hasMixedMarket = true;
+    minOdds *= mMin;
+    maxOdds *= mMax;
+    expUnitSum *= mExp;
+    ticketHitProb *= Math.min(0.95, mHit);
+
+    var headText = (items[0].jc ? (items[0].jc + ' · ') : '') + items[0].match;
+    bodyHtml += '<div class="slip-match">'
+      + '<div class="slip-match-head"><span class="slip-match-name">' + escHtml(headText) + '</span></div>'
+      + '<div class="slip-chips">' + chipsHtml + '</div>'
+      + '</div>';
+    summaryParts.push((items[0].jc || items[0].match) + '[' + txtParts.join('/') + ']');
+  });
+
+  if (mCount === 1 && hasNonSingle) {
+    bodyHtml += '<div class="slip-warn">⚠ 所选包含非单关玩法，体彩至少需 2 场串关</div>';
+  }
+  if (hasMixedMarket) {
+    bodyHtml += '<div class="slip-warn">⚠ 同场同时选胜平负与让球不可混串，出票需拆单</div>';
+  }
+  if (mCount > 8) {
+    bodyHtml += '<div class="slip-warn">⚠ 已超体彩过关 8 场上限</div>';
+  }
+  body.innerHTML = bodyHtml;
+
+  body.querySelectorAll('.slip-chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      var key = this.getAttribute('data-slip-key');
+      delete slipSelections[key];
+      renderSlip();
+    });
+  });
+
+  var cost = 2 * combos * mult;
+  var minRet = 2 * mult * minOdds;
+  var maxRet = 2 * mult * maxOdds;
+  var expRet = 2 * mult * expUnitSum;
+  var calEv = cost > 0 ? (expRet / cost - 1) : 0;
+  var passLabel = mCount === 1 ? '单关' : (mCount + '串1');
+  var oddsText = Math.abs(maxOdds - minOdds) < 0.01 ? minOdds.toFixed(2) : (minOdds.toFixed(2) + '~' + maxOdds.toFixed(2));
+  var retText = Math.abs(maxRet - minRet) < 0.05 ? ('¥' + minRet.toFixed(2)) : ('¥' + minRet.toFixed(2) + '~' + maxRet.toFixed(2));
+  var evColor = calEv >= 0 ? 'var(--green)' : 'var(--red)';
+
+  metrics.innerHTML = ''
+    + '<div class="slip-metric"><div class="k">' + passLabel + ' · 组合与投入</div><div class="v">' + combos + '注 × ' + mult + '倍 = ¥' + cost + '</div></div>'
+    + '<div class="slip-metric"><div class="k">总赔率 / 预计奖金</div><div class="v">' + oddsText + ' · ' + retText + '</div></div>'
+    + '<div class="slip-metric"><div class="k">校准命中率参考</div><div class="v">' + (Math.min(0.99, ticketHitProb) * 100).toFixed(1) + '%</div></div>'
+    + '<div class="slip-metric"><div class="k">校准预期 EV</div><div class="v" style="color:' + evColor + '">' + (calEv >= 0 ? '+' : '') + (calEv * 100).toFixed(1) + '%</div></div>';
+
+  slipLastSummary = summaryParts.join(' × ') + ' | ' + passLabel + ' · ' + combos + '注×' + mult + '倍=¥' + cost + ' · 奖金' + retText;
+}
+
+document.querySelectorAll('.odd-cell').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (this.disabled) return;
+    var odd = parseFloat(this.getAttribute('data-odd') || '0');
+    if (!odd || odd <= 1.0) return;
+    var mid = this.getAttribute('data-mid') || '';
+    var mkt = this.getAttribute('data-mkt') || 'had';
+    var sel = this.getAttribute('data-sel') || '';
+    var key = mid + '|' + mkt + '|' + sel;
+    if (slipSelections[key]) {
+      delete slipSelections[key];
+    } else {
+      slipSelections[key] = {
+        key: key,
+        mid: mid,
+        jc: this.getAttribute('data-jc') || '',
+        match: this.getAttribute('data-match') || '',
+        mkt: mkt,
+        mktLabel: this.getAttribute('data-mkt-label') || '',
+        sel: sel,
+        selLabel: this.getAttribute('data-sel-label') || '',
+        odd: odd,
+        prob: parseFloat(this.getAttribute('data-prob') || '0'),
+        isTop: this.getAttribute('data-is-top') || '0',
+        single: this.getAttribute('data-single') || '0'
+      };
+      var panel = document.getElementById('slip-panel');
+      if (panel && Object.keys(slipSelections).length === 1) {
+        panel.classList.add('open');
+      }
+    }
+    renderSlip();
+  });
+});
+
+(function() {
+  var fab = document.getElementById('slip-fab');
+  var panel = document.getElementById('slip-panel');
+  var clearBtn = document.getElementById('slip-clear');
+  var closeBtn = document.getElementById('slip-close');
+  var multInp = document.getElementById('slip-mult');
+  var copyBtn = document.getElementById('slip-copy');
+  if (fab && panel) {
+    fab.addEventListener('click', function() { panel.classList.toggle('open'); });
+  }
+  if (closeBtn && panel) {
+    closeBtn.addEventListener('click', function() { panel.classList.remove('open'); });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() { slipSelections = {}; renderSlip(); });
+  }
+  if (multInp) {
+    multInp.addEventListener('input', renderSlip);
+  }
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function() {
+      if (!slipLastSummary) return;
+      var btnEl = this;
+      var done = function() {
+        var prev = btnEl.textContent;
+        btnEl.textContent = '已复制 ✓';
+        setTimeout(function() { btnEl.textContent = prev; }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(slipLastSummary).then(done, done);
+      } else {
+        done();
+      }
+    });
+  }
+})();
 </script>
 </body>
 </html>
