@@ -110,7 +110,7 @@ def test_fusion_optimizer_logit_nll_and_cooldown(tmp_path: Path):
     opt = FusionOptimizer(
         tmp_path / "fusion_weights.json",
         ledger,
-        config={"method": "logit_nll", "min_new_matches": 10, "val_matches": 30, "min_samples": 30},
+        config={"method": "logit_nll", "fusion_mode": "logit", "min_new_matches": 10, "val_matches": 30, "min_samples": 30},
     )
     train_reviews, _ = ledger.split_train_val(30)
     prop = opt._propose(train_reviews, FusionWeights(0.3, 0.4, 0.3))
@@ -122,6 +122,16 @@ def test_fusion_optimizer_logit_nll_and_cooldown(tmp_path: Path):
     d2 = opt.step()
     assert d2.action == "hold"
     assert "cooldown_min_new_matches" in d2.guard_rails_applied
+
+
+def test_fusion_optimizer_rejects_logit_objective_for_linear_production(tmp_path: Path):
+    ledger = ReviewLedger(tmp_path / "ledger.jsonl")
+    with pytest.raises(ValueError, match="必须与 fusion_mode=logit 配套"):
+        FusionOptimizer(
+            tmp_path / "fusion_weights.json",
+            ledger,
+            config={"method": "logit_nll", "fusion_mode": "linear"},
+        )
 
 
 def test_shrinkage_dc_xg_blend_and_league_hierarchy(tmp_path: Path):

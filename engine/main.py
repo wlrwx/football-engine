@@ -370,6 +370,7 @@ def run_daily_pipeline(target_date: date, predict_only: bool = False):
     from engine.review.post_match import ReviewLedger
     _ledger = ReviewLedger(ROOT / "data" / "state" / "review_ledger.jsonl")
     _opt_cfg = dict(pred_cfg.get("optimizer", {}))
+    _opt_cfg["fusion_mode"] = fusion_cfg.get("fusion_mode", "linear")
     # 把条件融合门槛传给优化器，保证反事实评估与生产语义一致（2026-08-11）
     _opt_cfg.setdefault("djyy_min_confidence", fusion_cfg.get("djyy_min_confidence", 0.50))
     _opt_cfg.setdefault("djyy_disagree_penalty", fusion_cfg.get("djyy_disagree_penalty", 0.5))
@@ -2372,6 +2373,24 @@ def run_settlement(target_date: date):
         print(f"  ✓ 复盘: {review_report['n_matches']}场, 命中率{review_report.get('hit_rate', 0):.0%}")
         src_b = review_report.get("source_brier", {})
         print(f"    Brier: model={src_b.get('model', '?')} market={src_b.get('market', '?')} djyy={src_b.get('djyy', '?')} final={src_b.get('final', '?')}")
+        _diag = review_report.get("diagnostics", {})
+        _agree = _diag.get("market_agreement", {})
+        if _agree.get("n"):
+            print(f"    市场一致: {_agree.get('agreements', 0)}/{_agree['n']} ({_agree.get('rate', 0):.1%})")
+        _final_diag = _diag.get("source_direction", {}).get("final", {})
+        if _final_diag.get("n"):
+            print(
+                f"    方向诊断: 实际 {_final_diag.get('hits', 0)}/{_final_diag['n']}，"
+                f"期望 {_final_diag.get('expected_hits', 0):.2f}，"
+                f"尾部概率 {_final_diag.get('tail_prob_le_observed', 0):.2%}"
+            )
+        _weights_diag = _diag.get("effective_weights", {})
+        if _weights_diag.get("n"):
+            _avg_w = _weights_diag.get("average", {})
+            print(
+                f"    平均有效权重: model={_avg_w.get('model', 0):.1%} "
+                f"market={_avg_w.get('market', 0):.1%} djyy={_avg_w.get('djyy', 0):.1%}"
+            )
         _layered = review_report.get("layered", {})
         _ll = _layered.get("log_loss_final")
         if _ll is not None:
@@ -2417,10 +2436,12 @@ def run_settlement(target_date: date):
 
     print("\n[6/6] 融合权重优化...")
     ledger = ReviewLedger(ROOT / "data" / "state" / "review_ledger.jsonl")
+    _settle_opt_cfg = dict(pred_cfg.get("optimizer", {}))
+    _settle_opt_cfg["fusion_mode"] = pred_cfg.get("fusion", {}).get("fusion_mode", "linear")
     fusion_opt = FusionOptimizer(
         ROOT / "data" / "state" / "fusion_weights.json",
         ledger,
-        pred_cfg.get("optimizer", {}),
+        _settle_opt_cfg,
     )
     decision = fusion_opt.step()
     print(f"  决策: {decision.action} | 权重: {decision.champion}")

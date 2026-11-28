@@ -265,6 +265,27 @@ def wilson_lower(hits: int, n: int, z: float = 1.96) -> float:
     return max(0.0, center - spread)
 
 
+def _argmax3(probs) -> int | None:
+    if not isinstance(probs, (list, tuple)) or len(probs) < 3:
+        return None
+    vals = [float(v) for v in probs[:3]]
+    return max(range(3), key=lambda i: vals[i])
+
+
+def _poisson_binomial_prob_le(probs: list[float], k: int) -> float | None:
+    if k < 0 or not probs:
+        return None
+    dist = [1.0]
+    for p in probs:
+        p = min(1.0, max(0.0, float(p)))
+        nxt = [0.0] * (len(dist) + 1)
+        for i, mass in enumerate(dist):
+            nxt[i] += mass * (1.0 - p)
+            nxt[i + 1] += mass * p
+        dist = nxt
+    return sum(dist[:k + 1])
+
+
 def build_djyy_cache_map(cache: dict) -> dict:
     """从 context_cache.json 构建回填索引（djyy_id 与 match_id 双键 → model_probs）。
 
@@ -748,6 +769,75 @@ class PostMatchReviewer:
 
         return report
 
+    @staticmethod
+    def _build_diagnostics(reviews: list[MatchReview]) -> dict:
+        labels = ("home", "draw", "away")
+        source_attrs = {
+            "final": "final_prob",
+            "market": "market_fair",
+            "model": "model_raw",
+        }
+        source_stats = {}
+        confusion = {}
+        for source, attr in source_attrs.items():
+            pairs = [
+                (getattr(r, attr), r.actual_idx)
+                for r in reviews
+                if _argmax3(getattr(r, attr)) is not None
+            ]
+            hits = sum(_argmax3(probs) == actual for probs, actual in pairs)
+            top_probs = [max(float(v) for v in probs[:3]) for probs, _ in pairs]
+            n = len(pairs)
+            source_stats[source] = {
+                "n": n,
+                "hits": hits,
+                "hit_rate": round(hits / n, 4) if n else None,
+                "expected_hits": round(sum(top_probs), 4) if n else None,
+                "tail_prob_le_observed": (
+                    round(_poisson_binomial_prob_le(top_probs, hits), 6)
+                    if n else None
+                ),
+            }
+            matrix = {pred: {actual: 0 for actual in labels} for pred in labels}
+            for probs, actual in pairs:
+                matrix[labels[_argmax3(probs)]][labels[actual]] += 1
+            confusion[source] = matrix
+
+        market_pairs = [
+            (_argmax3(r.final_prob), _argmax3(r.market_fair))
+            for r in reviews
+            if _argmax3(r.final_prob) is not None and _argmax3(r.market_fair) is not None
+        ]
+        agreements = sum(a == b for a, b in market_pairs)
+
+        weight_rows = [
+            r.fusion_effective_weights
+            for r in reviews
+            if isinstance(r.fusion_effective_weights, dict)
+        ]
+        avg_weights = {
+            key: round(sum(float(w.get(key, 0.0)) for w in weight_rows) / len(weight_rows), 4)
+            for key in ("model", "market", "djyy")
+        } if weight_rows else {"model": None, "market": None, "djyy": None}
+
+        return {
+            "source_direction": source_stats,
+            "direction_confusion": confusion,
+            "market_agreement": {
+                "n": len(market_pairs),
+                "agreements": agreements,
+                "rate": round(agreements / len(market_pairs), 4) if market_pairs else None,
+            },
+            "effective_weights": {
+                "n": len(weight_rows),
+                "average": avg_weights,
+                "market_dominant_n": sum(float(w.get("market", 0.0)) >= 0.8 for w in weight_rows),
+                "model_dominant_n": sum(float(w.get("model", 0.0)) >= 0.5 for w in weight_rows),
+                "djyy_active_n": sum(float(w.get("djyy", 0.0)) > 0.0 for w in weight_rows),
+            },
+            "tail_probability_assumption": "independent Bernoulli using each source's top probability",
+        }
+
     def _aggregate(self, date_str: str, reviews: list[MatchReview]) -> dict:
         """聚合统计"""
         n = len(reviews)
@@ -854,6 +944,7 @@ class PostMatchReviewer:
             "hit_rate": round(hits / n, 4),
             "hits": hits,
             "source_brier": source_brier,
+            "diagnostics": self._build_diagnostics(reviews),
             "by_league": by_league,
             "by_confidence_tier": by_tier,
             "by_odds_band": by_band,

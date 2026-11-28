@@ -62,6 +62,7 @@ def main() -> int:
         try:
             _pred_cfg = json.loads((ROOT / "config" / "prediction.json").read_text(encoding="utf-8"))
             _fus = _pred_cfg.get("fusion", {})
+            _opt_cfg["fusion_mode"] = _fus.get("fusion_mode", "linear")
             _opt_cfg["djyy_min_confidence"] = _fus.get("djyy_min_confidence", 0.50)
             _opt_cfg["djyy_disagree_penalty"] = _fus.get("djyy_disagree_penalty", 0.5)
             _opt_cfg.update(_pred_cfg.get("optimizer", {}))
